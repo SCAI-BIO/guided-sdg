@@ -19,4 +19,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "tensorflow>=2.21.0",
     "pyarrow>=24.0.0",
+    "syndat>=0.13.6",
+    "matplotlib-inline>=0.2.2",
+    "ipykernel>=7.2.0",
 ]
