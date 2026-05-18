@@ -107,7 +107,8 @@ def select_preferences() -> dict:
     if choice == "auto":
         print("\n\tYou will receive a recommendation based on the dataset's characteristics.")
         synthesis_request["generator"] = choice
-    print(f"\n\tYour data will be generated using {choice}.")
+    else:
+        print(f"\n\tYour data will be generated using {choice}.")
     synthesis_request["generator"] = choice
     # check that the data generator is available for use (probably ctgan, pategan, and tvae)
     # check parameter preferences of the user. Depends on generators used/available

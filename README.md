@@ -13,7 +13,7 @@ Agentic workflow for synthetic data generation &amp; evaluation.
 
 #### Generate dataset report:
 1. Upload data (verify valid format for pandas)
-   - TODO: in selecting preferences, add the chance to select specific columns in a dataset (include or exclude them prior to 'treatment').
+   - `TODO`: in selecting preferences, add the chance to select specific columns in a dataset (include or exclude them prior to 'treatment').
 2. Clean deterministically
     
     a) handle_dtypes

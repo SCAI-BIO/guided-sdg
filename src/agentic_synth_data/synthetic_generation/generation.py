@@ -30,7 +30,8 @@ def make_generator_tool(self):
         host_output_path = Path("../output") / output_filename
         container_output_path = f"/workspace/output/{output_filename}"
         
-        print(f"Running {mechanism}")
+        print()
+        print("-"*25+f"Running {mechanism}"+"-"*25)
 
         command = f"""
         podman run -it --rm \
@@ -106,7 +107,7 @@ def run_synthesis(self):
                 interrupted = True
 
                 if message_buffer.strip():
-                    print(message_buffer.strip().split("</think>")[1])
+                    print(message_buffer.strip().split("</think>")[1]) # Have to strip again?
 
                 print("\nINTERRUPTED:")
                 # print(chunk["data"]["__interrupt__"])
