@@ -123,16 +123,16 @@ def handle_missing_values(df:pd.DataFrame, synthesis_request:dict, semantic_type
                     imputer = SimpleImputer(strategy=cat_strategy)
 
                 df[cat_cols] = pd.DataFrame(imputer.fit_transform(cat_data),columns=cat_cols, index=df.index)
-                print(f"\n- There are {df[cat_cols].isna().sum().sum()} remaining null values in the categorical columns.")
+                print(f"- There are {df[cat_cols].isna().sum().sum()} remaining null values in the categorical columns.")
 
             # Numerical value imputation
             if num_cols:
                 num_strategy = synthesis_request["missing_value_handling"]["impute"]["numerical_strategy"]
                 imputer = SimpleImputer(strategy=num_strategy)
                 df[num_cols] = pd.DataFrame(imputer.fit_transform(df[num_cols]), columns=df[num_cols].columns, index=df.index)
-                print(f"\n- There are {df[num_cols].isna().sum().sum()} remaining null values in the numerical columns.")
+                print(f"- There are {df[num_cols].isna().sum().sum()} remaining null values in the numerical columns.")
 
-            print(f"\n- There are {df.isna().sum().sum()} remaining null values in the dataset.")
+            print(f"- There are {df.isna().sum().sum()} remaining null values in the dataset.")
             df = match_to_semantic_types(df, semantic_types)
             return df, synthesis_request
 
@@ -145,18 +145,31 @@ def handle_missing_values(df:pd.DataFrame, synthesis_request:dict, semantic_type
 
             prompt = missing_value_prompt(proportion_missing=proportion_missing, rows_with_missing=rows_with_missing, total_rows=total_rows, synthesis_request=synthesis_request, semantic_types=semantic_types, plan_update=plan_update)
 
+            feedback = ""
             while True:
+                if feedback is None:
+                    current_prompt = prompt
+                else:
+                    current_prompt = f"""
+{prompt}
+
+The user rejected the previous plan and gave this feedback:
+{feedback}
+
+Revise the missing-value handling plan according to this feedback.
+Return exactly one valid JSON object.
+"""
                 plan = agent.invoke(
-                   {
-                       "messages": [
-                           {
-                               "role": "user",
-                                "content": prompt,
-                                }
-                                ]
-                                },
-                                config=config,
-                                )
+                    {
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": current_prompt,
+                            }
+                        ]
+                    },
+                    config=config,
+                )
                 plan = plan['messages'][-1].content.split("</think>")[1].replace("\n", "")
                 parsed = json.loads(plan)
                 missing_plan = parsed["missing_value_handling"]
@@ -170,6 +183,7 @@ def handle_missing_values(df:pd.DataFrame, synthesis_request:dict, semantic_type
 
                 if len(missing_plan["columns_to_remove"]) > 0:
                     print(f"- Columns to remove: {missing_plan["columns_to_remove"]}")
+                
                 print(f"\nReasoning behind the suggestion:")
                 format_response(missing_plan["rationale"])
 
@@ -189,14 +203,7 @@ def handle_missing_values(df:pd.DataFrame, synthesis_request:dict, semantic_type
 
                 else:
                     print("\nPlease describe how you would want missing values to be handled and what changes you would make to the suggested plan.")
-                    description = input()
-                    response = agent.invoke({
-                        "messages": [
-                            {"role": "user", "content": "Plan update:"+description}
-                        ]
-                    },
-                    config = config,
-                    )
+                    feedback = input()
 
                 print(f"\nReasoning behind the suggestion:")
                 print(format_response(missing_plan["rationale"]))

@@ -3,6 +3,100 @@ import numpy as np
 import pyinputplus as pyip
 
 
+def missing_value_precheck(df:pd.DataFrame):
+    """
+    Prior to assessing dtypes, convert any entries that are flagged as missing
+    values to NA with user approval.
+    """
+    # TODO: Add more possible missing values that could be detected.
+    possible_missing_values = {
+            "na", "n/a", "nan", "none", "null", 
+            "-", "--", "", "`", "?", "??", ".", "...", 
+            -999, None,
+            }
+    df = df.copy()
+    df_norm = df.map(
+        lambda x: x.lower().strip() if isinstance(x, str) else x
+        )
+
+    norm_stack = df_norm.stack() # Flatten the df into a Series to vertically count values.
+    missing_value_counts = norm_stack[norm_stack.isin(possible_missing_values)].value_counts(dropna=False)
+
+    if missing_value_counts.empty:
+        print("\n\tNo potential missing value markers have been detected in the dataset.")
+        return df
+
+    detected_markers = list(missing_value_counts.index)
+    # If more than one potential missing value marker is found
+    if len(missing_value_counts.index) > 1:
+        print("\nThe following potential missing value marker(s) were detected:")
+        print(missing_value_counts)
+
+        while True:
+            print("\nSelect what you would like to do, given the markers detected:")
+            options = ["Continue without replacement", "Replace all"]#, "Replace specific marker(s)"]
+            # TODO: Add an option to replace only specific markers out of the detected list.
+            # TODO: Add an option to view the column distribution for each marker (for this multiple case)
+            choice = pyip.inputMenu(options, numbered=True)
+            
+            if choice == "Continue without replacement":
+                print("\n\tNone of the markers detected have been replaced with a null value.")
+                return df
+
+            elif choice == "Replace all":
+                mask = df_norm.isin(detected_markers)
+                replaced_count = int(mask.sum().sum())
+                df = df.mask(mask, np.nan)
+                print(f"\n\t{replaced_count} of the following markers were replaced with null values: {detected_markers}")
+                return df
+
+            elif choice == "Replace specific marker(s)":
+                # TODO: Add option for a specific marker or more to be selected and updated.
+                pass
+
+    # Only one potential missing value marker was found.
+    else:
+        print("\nThe following potential missing value marker was detected:")
+        print(missing_value_counts)
+
+        while True:
+            options = ["Continue without replacement", "Replace marker"]#, "View column distribution"]
+                # TODO: Add an option to view the column distribution for the marker.
+            choice = pyip.inputMenu(options, numbered=True)
+
+            if choice == "Continue without replacement":
+                print("\n\tNo values were replaced.")
+                return df
+
+            elif choice == "Replace marker":
+                mask = df_norm.isin(detected_markers)
+                replaced_count = int(mask.sum().sum())
+                df = df.mask(mask, np.nan)
+                print(f"\n\t{replaced_count} of the following marker were replaced with null values: {detected_markers}")
+                return df
+            
+    # possible TODO: Incorporate my previous code such that missing value symbols that aren't
+        # already listed can be manually added into the dataset.  
+    # # Replace unofficial missing values:
+    # confirm = pyip.inputYesNo("Are there any missing values denoted by a character/value other than NA (e.g., '?', '`', 'NA')?")
+    # if confirm == "yes":
+    #     # TODO maybe incorportae a check if the value is a string or int/float so it can be represented.
+    #     value = input("Input the value that will replace all equivalent entries in the dataset:")
+    #     total = (df == value).sum().sum()
+
+    #     if total == 0:
+    #         print(f"\nThere are none of the specified value ({value}) in the dataset.")
+    #     else:
+    #         print(f"\nThere are {total} total values that will be replaced with NA in the dataset.")
+    #         confirm = pyip.inputYesNo(f"Should the following be replaced with NA?: {value}")
+    #         if confirm == "yes":
+    #             df = df.replace(value, np.nan)
+    #             print(f"\nThe following entry has been replaced with NA in the dataset: {value}")
+    #         else:
+    #             print(f"\nThe following entry has not been replaced with NA in the dataset: {value}")
+    #             # possible TODO: Add attempting another input?
+
+
 ## Maybe could be improved so that multiple columns can be assigned to a specific dtype at once?
 def infer_dtype(series):
     """Infers pandas storage dtypes by taking the majority type of each column"""
@@ -42,36 +136,10 @@ def infer_dtype(series):
 
 
 def handle_dtypes(df:pd.DataFrame):
-    # Missing values can affect data types
-    # TODO: add a missing value heuristic
-    # These are just some missing values
-    # It would then make sense to normalize the dataset (stripped and all lowercase at least)
-    possible_missing_values = [
-        "NA", "N/A", "nan", "None", "NULL", 
-        "-", "--", "", " ", "`", "?", "??", ".", "...", 
-        -999, None
-        ]
-    # probably add an option for a deeper look (see which columns)
-    # TODO: instead of having the user select this, have it automatically done and count the number of instances of occurence.
-    # 
-    # Replace unofficial missing values:
-    confirm = pyip.inputYesNo("Are there any missing values denoted by a character/value other than NA (e.g., '?', '`', 'NA')?")
-    if confirm == "yes":
-        # TODO maybe incorportae a check if the value is a string or int/float so it can be represented.
-        value = input("Input the value that will replace all equivalent entries in the dataset:")
-        total = (df == value).sum().sum()
+    df = df.copy()
 
-        if total == 0:
-            print(f"\nThere are none of the specified value ({value}) in the dataset.")
-        else:
-            print(f"\nThere are {total} total values that will be replaced with NA in the dataset.")
-            confirm = pyip.inputYesNo(f"Should the following be replaced with NA?: {value}")
-            if confirm == "yes":
-                df = df.replace(value, np.nan)
-                print(f"\nThe following entry has been replaced with NA in the dataset: {value}")
-            else:
-                print(f"\nThe following entry has not been replaced with NA in the dataset: {value}")
-                # possible TODO: Add attempting another input?
+    # Initial check for missing values (which can affect dtypes)
+    df = missing_value_precheck(df)
 
     # General check for majority int string or float and convert all in the column main dtype
     for col in df.columns:
@@ -120,7 +188,6 @@ def handle_dtypes(df:pd.DataFrame):
     print(df.dtypes)
     return df
 
-#df = handle_dtypes(df)
 # TODO: Add some sort of save (think about how to store for easy retrieval)
 # maybe saving and storing the path of each resulting dataframe after each block 
 # as a dictionary of lists where msot recent entries are at the end fo the lists (but that way, everything can be easily retrived)
