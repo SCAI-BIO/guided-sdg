@@ -8,7 +8,7 @@ from langchain.chat_models import init_chat_model
 from langgraph.checkpoint.memory import InMemorySaver
 
 from agentic_synth_data.preference_setup import select_preferences
-from agentic_synth_data.dataset_preparation.upload import upload_data
+from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, match_to_semantic_types
@@ -75,8 +75,8 @@ class DataGen:
         self.synthesis_request = select_preferences()
         return self.synthesis_request
 
-    def upload_and_preprocess(self):
-        self.df = upload_data(self.data_path, self.synthesis_request["data_scope"]["selected_columns"])
+    def load_and_preprocess(self):
+        self.df = load_df(self.data_path)#, self.synthesis_request["data_scope"]["selected_columns"])
 
         self.df = handle_dtypes(self.df)
         self.df, self.semantic_types = handle_semantic_types(self.df)
@@ -145,5 +145,3 @@ class DataGen:
             "synthetic_df": self.synthetic_df,
             "evaluation_results": self.evaluation_results,
         }
-    
-# DataGen = SyntheticDataWorkflow # probably not needed (additional/unnecessary step)
