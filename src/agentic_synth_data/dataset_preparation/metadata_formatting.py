@@ -2,11 +2,22 @@ import pandas as pd
 import json
 from pathlib import Path
 
-# Store information about the prepared dataset 
-# in JSON format for tool use (using the defined 
-# semantic types)
+def format_json(csv_path:str, semantic_types:dict) -> str:
+    """Store information about the prepared dataset in JSON file format for use
+    of the synthetic generator tool, incorporating the defined semantic types of the data.
 
-def format_json(csv_path:str, semantic_types:dict):
+    Creates a JSON in data/ with the same name as the csv_path.
+
+    Args:
+        csv_path (str): Path of the original dataset. This is used to name 
+                        the JSON.
+        semantic_types (dict): The defined semantic types of the dataset. This 
+                        is used to gather appropriate information in the JSON
+                        for each column.
+
+    Returns:
+        str: Message that the JSON has been created.
+    """
     df = pd.read_csv(csv_path)
     json_path = f"../data/{Path(csv_path).stem}.json" # May want to change the path
     columns = []

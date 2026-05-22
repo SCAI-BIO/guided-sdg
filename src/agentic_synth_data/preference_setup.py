@@ -1,11 +1,12 @@
 import pyinputplus as pyip
 import pprint
 from agentic_synth_data.utils import format_response
+from typing import Any
 
 # possible TODO: change all parts to the nested format (have to match with all other files that call the same information)
 # TODO: allow for selection of columns of interest
 
-def select_preferences() -> dict:
+def select_preferences() -> dict[str, Any]:
     #cols_of_interest = [] # if empty, all columns should be included
     synthesis_request = {
         # Q: What would you like to use the synthetic data for?
@@ -124,6 +125,7 @@ def select_preferences() -> dict:
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
 
     elif choice == "threshold":
+        # TODO: Add threshold limit
         synthesis_request["missing_value_handling"]["mode"] = choice
         value = pyip.inputInt("\nWhat is the minimum number of missing columns in a sample remove from the data?")
         synthesis_request["missing_value_handling"][choice]["set_threshold"] = value

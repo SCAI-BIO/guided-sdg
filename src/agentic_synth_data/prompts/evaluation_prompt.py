@@ -1,4 +1,10 @@
-def evaluation_prompt(synthesis_request, generator_used, jsd_results):
+from typing import Any
+
+def evaluation_prompt(
+        synthesis_request:dict[str, Any], 
+        generator_used:str, # Already gathered from synthesis request, can be removed.
+        jsd_results:dict
+    ) -> str:
     return f"""
 Evaluate whether synthetic data quality is satisfactory.
 

@@ -1,10 +1,23 @@
 import pandas as pd
 import pyinputplus as pyip
 from pandas.api.types import CategoricalDtype
+import json
 
+# TODO: Add agent assistance.
+def handle_semantic_types(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Based on the datatype assigned to a dataframe's column values, assume 
+    the semantic type of the column. These 'automatic' semantic types are then 
+    visualized and can be manually corrected by the user before updating the columns
+    of the dataframe.
 
-# Give user the optionality to define semantic data types
-def handle_semantic_types(df):
+    Args:
+        df (pd.DataFrame): The input dataframe.
+
+    Returns:
+        tuple[pd.DataFrame, dict[str, str]]: 
+        - (pd.Dataframe) Updated dataframe matching the semantic types determined.
+        - (dict[str, str]) Semantic types assigned to each column.
+    """
     semantic_types = {}
     for col in df:
         if pd.api.types.is_integer_dtype(df[col]):
@@ -66,14 +79,23 @@ def handle_semantic_types(df):
     return df, semantic_types
 
 
-def match_to_semantic_types(df, semantic_types):
+def match_to_semantic_types(df:pd.DataFrame, semantic_types:dict[str, str]) -> pd.DataFrame:
+    """Converts columns in a dataframe to their specified semantic types.
+
+    Args:
+        df (pd.DataFrame): The input dataframe.
+        semantic_types (dict[str, str]): The input semantic types.
+
+    Returns:
+        pd.DataFrame: Updated dataframe explicitly matching specified semantic types.
+    """
     df = df.copy()
     for col, semantic_type in semantic_types.items():
         if semantic_type == "Integer":
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64") # Change?
 
         elif semantic_type == "Float":
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64") # Change?
 
         elif semantic_type == "Categorical":
             df[col] = df[col].astype("string").astype("category")

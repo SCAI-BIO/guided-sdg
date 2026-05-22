@@ -1,6 +1,8 @@
+from typing import Any
+
 def generator_selection_message(
-        synthesis_request: dict,
-        semantic_types: dict,
+        synthesis_request: dict[str, Any],
+        semantic_types: dict[str, str],
         clean_csv_path: str,
         ) -> str:
   return f"""

@@ -2,11 +2,22 @@ import pandas as pd
 import numpy as np
 import pyinputplus as pyip
 
+def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
+    """Prior to assessing dtypes, convert any entries that are flagged as
+    potential missing values to np.nan with user approval.
 
-def missing_value_precheck(df:pd.DataFrame):
-    """
-    Prior to assessing dtypes, convert any entries that are flagged as missing
-    values to NA with user approval.
+    Three cases:
+    1. No missing value marker is found.
+    2. Only one missing value marker is found.
+    3. More than one missing value marker is found.
+
+    Args:
+        df (pd.DataFrame): The input dataframe that may or may not have potential
+                           missing values.
+
+    Returns:
+        pd.DataFrame: The dataframe where missing value markers have been replaced
+                      with np.nan or the unchanged dataframe if no markers were found.
     """
     # TODO: Add more possible missing values that could be detected.
     possible_missing_values = {
@@ -69,10 +80,11 @@ def missing_value_precheck(df:pd.DataFrame):
                 return df
 
             elif choice == "Replace marker":
+                print("\nReplacing marker...")
                 mask = df_norm.isin(detected_markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
-                print(f"\n\t{replaced_count} of the following marker were replaced with null values: {detected_markers}")
+                print(f"\t{replaced_count} of the following marker were replaced with null values: {detected_markers}")
                 return df
             
     # possible TODO: Incorporate my previous code such that missing value symbols that aren't
@@ -98,8 +110,15 @@ def missing_value_precheck(df:pd.DataFrame):
 
 
 ## Maybe could be improved so that multiple columns can be assigned to a specific dtype at once?
-def infer_dtype(series):
-    """Infers pandas storage dtypes by taking the majority type of each column"""
+def infer_dtype(series:pd.Series) -> str:
+    """Infer pandas storage dtypes by taking the majority type of each column.
+
+    Args:
+        series (pd.Series): Column in the dataframe, to be assigned a dtype.
+
+    Returns:
+        str: Majority data type found (excluding null values).
+    """
     non_missing = series.dropna()
 
     if len(non_missing) == 0:
@@ -115,7 +134,12 @@ def infer_dtype(series):
         return "Int64"
     
     elif majority_type == "float":
-        whole_numbers = ((non_missing % 1) == 0).all()
+        numeric_values = pd.to_numeric(non_missing, errors="coerce").dropna()
+        
+        if len(numeric_values) == 0:
+            return "string"
+        
+        whole_numbers = ((numeric_values % 1) == 0).all()
         if whole_numbers:
             return "Int64"
         return "float64"
@@ -125,17 +149,21 @@ def infer_dtype(series):
 
 
 # TODO Consider what to do with Datetime values (have to likely test with the tool if it can handle that)
-
-# Check for unofficial missing values which can initially be encoded as NA
-# Show data types present in each column.
-# Try to match dtypes to the majority present in each column. 
 # (not of concern for right now) If there is a larger issues with a column, possibly employ agent to assist with cleaning the data
-" "# Show updated data types present in each column (if there was a change)
-# Confirm with user that the data types are correct
-# if any are incorrect, have user specify the column (possibly one  by one) or might be easier to add an agent if multiple columns are affected
+def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
+    """Handles the dtypes for the input dataframe in three main stages:
+    1. missing_value_precheck: Initial check for missing value markers, which are intended as (and should be converted 
+                               to) null values.
+    2. infer_dtype: Convert columns to their inferred dtypes by converting them to their majority dtype (excluding null
+                    values).
+    3. Dtype correction: If necessary, the user can correct the assumed dtypes manually.
 
+    Args:
+        df (pd.DataFrame): The input dataframe.
 
-def handle_dtypes(df:pd.DataFrame):
+    Returns:
+        pd.DataFrame: The updated dataframe after dtype verification.
+    """
     df = df.copy()
 
     # Initial check for missing values (which can affect dtypes)

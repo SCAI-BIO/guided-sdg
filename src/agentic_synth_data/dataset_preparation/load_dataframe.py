@@ -1,10 +1,21 @@
 import pandas as pd
 
-# possible TODO: see about inclusion of multiple files (the previous 
-# project had a multiple file uploader, which could be worth looking
-# into.
-
 def load_df(data_path:str) -> pd.DataFrame:#, selected_columns:list) -> pd.DataFrame:
+    """Load a dataset file into a pandas DataFrame.
+
+    Args:
+        data_path (str): Path to the dataset file.
+
+    Raises:
+        ValueError: Raised if the file cannot be loaded as a valid dataframe
+                    and recommends tidy dataset formatting.
+
+    Returns:
+        pd.DataFrame: Loaded dataset as a pandas DataFrame.
+    """
+    # TODO: Include additional file types.
+    # possible TODO: Option to load multiple dataset files.
+
     #path = data_path.lower()
 
     # if path.endswith(".xlsx"):

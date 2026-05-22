@@ -1,26 +1,33 @@
 import pandas as pd
 from dotenv import load_dotenv
-from typing import Literal
+from typing import Literal, Any
 import pyinputplus as pyip
 from pathlib import Path
 import subprocess as sp
 
 from langgraph.types import Command
-from langchain.tools import tool
+from langchain.tools import tool, BaseTool
 
 from agentic_synth_data.prompts.generator_selection import generator_selection_message
 
 load_dotenv()
 
 
-# Moved the run_synthetic_generator tool inside for the model to only be able 
-# to choose the mechanism (synthetic generator)
-def make_generator_tool(self):
-    @tool("run_synthetic_generator", description="Run the selected synthetic data generator.", return_direct=False) # return direct have tool immediately idrect ot user
-    def run_synthetic_generator(mechanism:Literal["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",]):
+def make_generator_tool(self) -> BaseTool:
+    """Make the tool for an agent to generate synthetic data that only allows it
+    to choose the mechanism.
+
+    Raises:
+        RuntimeError: If the specified generator is unable to generate synthetic data.
+
+    Returns:
+        BaseTool: The tool the agent can access (limited to model choice).
+    """
+    @tool("run_synthetic_generator", description="Run the selected synthetic data generator.",) #return_direct=False # Have the tool immediately direct to user (default)
+    def run_synthetic_generator(mechanism:Literal["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",]) -> str:
         # Set sample size
-        if self.synthesis_request["sample_size"]["mode"] == "fixed value":
-            sample_size = self.synthesis_request["sample_size"]["value"]
+        if self.synthesis_request["sample_size"]["mode"] == "fixed_value":
+            sample_size = self.synthesis_request["sample_size"]["fixed"]["value"]
         else:
             sample_size = pd.read_csv(self.data_path).shape[0]
 
@@ -66,11 +73,28 @@ def make_generator_tool(self):
     return run_synthetic_generator
 
 
-def run_synthesis(self):
+# TODO: Update docstring (more on choices etc.)
+def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
+    """Generate the synthetic data.
+
+    Human In The Loop is incorporated here with the choices:
+    - approve
+    - edit
+    - respond
+    - reject
+
+    Returns:
+        tuple[dict[str, Any], str | None]:
+        - (dict[str, Any]) The synthesis_request (either updated or not).
+        - (str | None) The path of the synthetic data.                                    
+    """
+    # TODO: Add a case where the model is already selected by the user and 
+        # give a chance about agent feedback (pros/cons) regarding the generator selected
+        # then, this would give the option for the user to still update how it is generated
     message = generator_selection_message(
         synthesis_request=self.synthesis_request,
         semantic_types=self.semantic_types,
-        clean_csv_path=self.clean_csv_path,
+        clean_csv_path=self.clean_csv_path, # Still not the best to put the path through the agent
         )
     
     input_to_stream = {
@@ -107,7 +131,7 @@ def run_synthesis(self):
                 interrupted = True
 
                 if message_buffer.strip():
-                    print(message_buffer.strip().split("</think>")[1]) # Have to strip again?
+                    print(message_buffer.split("</think>")[1].replace("\n", ""))
 
                 print("\nINTERRUPTED:")
                 # print(chunk["data"]["__interrupt__"])
@@ -152,9 +176,12 @@ def run_synthesis(self):
                     ]
                 }
             )
+            # TODO: Add that if "edit" is selected, the user still can get the model's input on the decision.
             self.synthesis_request["generator"] = new_mechanism
 
         elif decision == "respond":
+            # TODO: Fix required. If user adds a response, no model is suggested and 
+            # the process stops running. Check if I forgot to connect something.
             user_message = pyip.inputStr("\nWrite feedback regarding the data and tool choice:\n")
             input_to_stream = Command(
                 resume={

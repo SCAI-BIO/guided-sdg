@@ -1,11 +1,12 @@
+from typing import Any, Hashable
+
 def missing_value_prompt(
-    proportion_missing,
-    rows_with_missing,
-    total_rows,
-    synthesis_request,
-    semantic_types,
-    plan_update,
-):
+    proportion_missing:dict[Hashable, Any],
+    rows_with_missing:int,
+    total_rows:int,
+    synthesis_request:dict[str, Any],
+    semantic_types:dict[str, str],
+) -> str:
     return f"""
 Current workflow step: missing value handling only.
 
@@ -36,9 +37,6 @@ Current synthesis request:
 Semantic types:
 {semantic_types}
 
-Plan update from user:
-{plan_update}
-
 Allowed modes:
  - remove
  - threshold
@@ -58,6 +56,7 @@ Allowed numerical_strategy values:
 
 Rules:
  - If any setting has "auto", this indicates the user wants your help to determine the optimal settings to use.
+ - If mode is "impute", the categorical and numerical strategy, otherwise they should be empty.
  - If the mode value has a key of the same name (impute, threshold), all entries within that key must be filled.
  - If there are no missing values, recommend mode "remove" and explain that no rows will be removed.
  - If few rows have missing values, recommend "remove".
@@ -78,4 +77,19 @@ JSON format:
         "rationale": "Brief explanation."
         }}
     }}
+"""
+
+# TODO: if imputation is not chosen at the end, make sure that  the categorical 
+# and numerical strategies are None. (Added instruction, but check if this works)
+
+
+def missing_feedback(prompt:str, feedback:str) -> str:
+    return f"""
+{prompt}
+
+The user rejected the previous plan and gave this feedback:
+{feedback}
+
+Revise the missing-value handling plan according to this feedback.
+Return exactly one valid JSON object.
 """

@@ -1,6 +1,7 @@
 import json
 import pprint
-from typing import Optional
+from typing import Optional, Any
+import pandas as pd
 
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
@@ -10,7 +11,14 @@ from agentic_synth_data.utils import format_response
 from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
 
 
-def evaluation(real_df, synthetic_df, synthesis_request, agent:Optional[CompiledStateGraph] | None = None, config:dict | None = None):
+# possible TODO: hardcoding a threshold to limit the chance that the agent hallucinates information.
+def evaluation(
+        real_df:pd.DataFrame, 
+        synthetic_df:pd.DataFrame, 
+        synthesis_request:dict[str, Any],
+        agent:Optional[CompiledStateGraph] | None = None, 
+        config:dict | None = None
+        ):
     generator_used = synthesis_request["generator"]
     jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     print("Jenson-Shannon Distances:")
@@ -52,3 +60,6 @@ def evaluation(real_df, synthetic_df, synthesis_request, agent:Optional[Compiled
 # the user shoudl be able to confirm their preferences 
 # and start a new attempt trying something different at 
 # the exact stage desired.
+
+# TODO make a tool for the agent to rerun synthetic data generation method
+# can be expanded to additional steps later.
