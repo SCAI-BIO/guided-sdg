@@ -16,7 +16,7 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
                         for each column.
 
     Returns:
-        str: Message that the JSON has been created.
+        str: Path to the generated metadata JSON file.
     """
     df = pd.read_csv(csv_path)
     json_path = f"../data/{Path(csv_path).stem}.json" # May want to change the path
@@ -54,4 +54,5 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
 
     with open(json_path, "w") as f:
         json.dump(metadata, f, indent=2)
-    return "JSON formatted for tool use."
+    print(f"Metadata JSON created for generator input: {json_path}")
+    return json_path

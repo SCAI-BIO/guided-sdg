@@ -66,16 +66,15 @@ Rules:
 
 JSON format:
 {{
-    "missing_value_handling": {{
-        "mode": "remove",
-        "set_threshold": null,
-        "imputation_method": null,
-        "categorical_strategy": "most_frequent",
-        "numerical_strategy": "mean",
-        "columns_to_remove": [],
-        "needs_user_confirmation": true,
-        "rationale": "Brief explanation."
-        }}
+    "mode": "remove",
+    "set_threshold": null,
+    "imputation_method": null,
+    "categorical_strategy": "most_frequent",
+    "numerical_strategy": "mean",
+    "columns_to_remove": [],
+    "needs_user_confirmation": true,
+    "rationale": "Brief explanation."
+
     }}
 """
 

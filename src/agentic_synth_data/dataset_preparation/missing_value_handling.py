@@ -8,7 +8,6 @@ from langgraph.graph.state import CompiledStateGraph
 
 from sklearn.impute import SimpleImputer
 
-from agentic_synth_data.dataset_preparation.semantic_type_handling import match_to_semantic_types
 from agentic_synth_data.utils import format_response
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 
@@ -105,9 +104,13 @@ def handle_missing_values(
         - (pd.DataFrame) The processed dataframe after missing value handling. 
         - (dict[str, Any]) The updated synthesis_request.
     """
+    print("\n\n")
+    print("="*25+"[STEP: Handle missing values]"+"="*25)
     if df.isna().sum().sum() == 0:
-        print("There are no missing values in the dataset.")
+        print("There are no missing values in the dataset. Continuing to the next step.")
+        return df, synthesis_request
     else:
+        print(f"{df.isna().sum().sum()} missing values detected in the dataset.")
         mode = synthesis_request["missing_value_handling"]["mode"]
         impute = synthesis_request["missing_value_handling"]["impute"]
         
@@ -156,22 +159,33 @@ def handle_missing_values(
             impute["numerical_strategy"] != "auto"
         ):
             # Separate user defined categorical and numerical values for imputation
-            cat_cols = df.select_dtypes(include="category").columns.to_list()
-            num_cols = df.select_dtypes(include="number").columns.to_list()
+            grouped = {}
+            for col, stype in semantic_types.items():
+                grouped.setdefault(stype, []).append(col)
 
+            cat_cols = grouped.get("Categorical", []) + grouped.get("Ordinal", [])
+            num_cols = grouped.get("Integer", []) + grouped.get("Float", [])
+
+            df = df.copy()
             print("\nReview of missing value handling results:")
             # Categorical value imputation
             cat_strategy = synthesis_request["missing_value_handling"]["impute"]["categorical_strategy"]
             if cat_cols:
                 cat_data = df[cat_cols].astype("object").where(df[cat_cols].notna(), np.nan)
+
                 if cat_strategy == "constant":
                     print("\nEnter the fill value that missing values should have. Fill values must be strings.\nPress enter if you would like to stay with the default ('Unknown'):")
                     fill_value = pyip.inputStr()
+
                     if fill_value == "":
                         fill_value = "Unknown"
-                        imputer = SimpleImputer(strategy=cat_strategy, fill_value=fill_value)
+                    
+                    imputer = SimpleImputer(strategy=cat_strategy, fill_value=fill_value)
+                    print(f"Missing values filled with '{fill_value}'")
+                
                 elif cat_strategy == "mode":
                     imputer = SimpleImputer(strategy="most_frequent")
+                
                 else:
                     imputer = SimpleImputer(strategy=cat_strategy)
 
@@ -185,8 +199,7 @@ def handle_missing_values(
                 df[num_cols] = pd.DataFrame(imputer.fit_transform(df[num_cols]), columns=df[num_cols].columns, index=df.index)
                 print(f"- There are {df[num_cols].isna().sum().sum()} remaining null values in the numerical columns.")
 
-            print(f"- There are {df.isna().sum().sum()} remaining null values in the dataset.")
-            df = match_to_semantic_types(df, semantic_types)
+            print(f"\n=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
             return df, synthesis_request
 
         # 4. Use the agent to suggest the missing value handling strategy.
@@ -225,8 +238,8 @@ def handle_missing_values(
                     config=config,
                 )
                 plan = plan['messages'][-1].content.split("</think>")[1].replace("\n", "")
-                parsed = json.loads(plan)
-                missing_plan = parsed["missing_value_handling"]
+                print(plan)
+                missing_plan = json.loads(plan)
 
                 print("\nSuggested plan:")
                 print(f"- Mode: {missing_plan['mode']}")

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import pyinputplus as pyip
 
+# TODO: Add when df is saved and updated (print statement)
 def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
     """Prior to assessing dtypes, convert any entries that are flagged as
     potential missing values to np.nan with user approval.
@@ -34,7 +35,7 @@ def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
     missing_value_counts = norm_stack[norm_stack.isin(possible_missing_values)].value_counts(dropna=False)
 
     if missing_value_counts.empty:
-        print("\n\tNo potential missing value markers have been detected in the dataset.")
+        print("\n=> No potential missing value markers have been detected in the dataset.")
         return df
 
     detected_markers = list(missing_value_counts.index)
@@ -51,15 +52,15 @@ def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
             choice = pyip.inputMenu(options, numbered=True)
             
             if choice == "Continue without replacement":
-                print("\n\tNone of the markers detected have been replaced with a null value.")
+                print("\n=> None of the markers detected have been replaced with a null value. The dataset remains unchanged.")
                 return df
 
             elif choice == "Replace all":
                 mask = df_norm.isin(detected_markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
-                print(f"\n\t{replaced_count} of the following markers were replaced with null values: {detected_markers}")
-                return df
+                print(f"\n=> {replaced_count} of the following markers were replaced with null values: {detected_markers}")
+                return df # TODO: add new path
 
             elif choice == "Replace specific marker(s)":
                 # TODO: Add option for a specific marker or more to be selected and updated.
@@ -165,6 +166,9 @@ def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: The updated dataframe after dtype verification.
     """
     df = df.copy()
+
+    print("\n\n")
+    print("="*25+"[STEP: Handle data types]"+"="*25)
 
     # Initial check for missing values (which can affect dtypes)
     df = missing_value_precheck(df)
