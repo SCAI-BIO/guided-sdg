@@ -104,13 +104,11 @@ def handle_missing_values(
         - (pd.DataFrame) The processed dataframe after missing value handling. 
         - (dict[str, Any]) The updated synthesis_request.
     """
-    print("\n\n")
-    print("="*25+"[STEP: Handle missing values]"+"="*25)
     if df.isna().sum().sum() == 0:
-        print("There are no missing values in the dataset. Continuing to the next step.")
+        print("\nThere are no missing values in the dataset. Continuing to the next step.")
         return df, synthesis_request
     else:
-        print(f"{df.isna().sum().sum()} missing values detected in the dataset.")
+        print(f"\n{df.isna().sum().sum()} missing values detected in the dataset.")
         mode = synthesis_request["missing_value_handling"]["mode"]
         impute = synthesis_request["missing_value_handling"]["impute"]
         
@@ -238,7 +236,7 @@ def handle_missing_values(
                     config=config,
                 )
                 plan = plan['messages'][-1].content.split("</think>")[1].replace("\n", "")
-                print(plan)
+                #print(plan) # sometimes agent outputs incorrect JSON format
                 missing_plan = json.loads(plan)
 
                 print("\nSuggested plan:")

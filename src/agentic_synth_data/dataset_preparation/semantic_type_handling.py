@@ -69,8 +69,6 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     #     for col in df.columns:
     #         print(f"{col}: {semantic_types[col]}")
 
-    print("\n\n")
-    print("="*25+"STEP: Handle semantic types"+"="*25)
     # 1. Make a profile of the semantic types of each column.
     profiles = semantic_type_profile(df)
     prompt = semantic_type_message(profiles)
@@ -90,7 +88,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     )
 
     plan = inference['messages'][-1].content.split("</think>")[1].replace("\n", "")
-    print(plan)
+    #print(plan) # Sometimes the agent doesn't format responses appropriately
     semantic_types = json.loads(plan)
 
     # TODO:Include more formal checks that each column is accounted for.
@@ -129,31 +127,3 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     for col, stype in semantic_types.items():
         print(f"{col}: {stype}")
     return semantic_types
-
-
-# NOTE: Not needed anymore:
-# def match_to_semantic_types(df:pd.DataFrame, semantic_types:dict[str, str]) -> pd.DataFrame:
-#     """Converts columns in a dataframe to their specified semantic types.
-
-#     Args:
-#         df (pd.DataFrame): The input dataframe.
-#         semantic_types (dict[str, str]): The input semantic types.
-
-#     Returns:
-#         pd.DataFrame: Updated dataframe explicitly matching specified semantic types.
-#     """
-#     df = df.copy()
-#     for col, semantic_type in semantic_types.items():
-#         if semantic_type == "Integer":
-#             df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64") # Change?
-
-#         elif semantic_type == "Float":
-#             df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64") # Change?
-
-#         elif semantic_type == "Categorical":
-#             df[col] = df[col].astype("string").astype("category")
-
-#         elif semantic_type == "Ordinal":
-#             dtype = CategoricalDtype(categories=df[col].dropna().unique(), ordered=True)
-#             df[col] = df[col].astype("string").astype(dtype)
-#     return df

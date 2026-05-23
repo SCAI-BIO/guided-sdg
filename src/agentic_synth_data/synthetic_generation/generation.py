@@ -88,8 +88,6 @@ def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
         - (dict[str, Any]) The synthesis_request (either updated or not).
         - (str | None) The path of the synthetic data.                                    
     """
-    print("\n\n")
-    print("="*25+"[STEP: Synthesize data]"+"="*25)
     # TODO: Add a case where the model is already selected by the user and 
         # give a chance about agent feedback (pros/cons) regarding the generator selected
         # then, this would give the option for the user to still update how it is generated

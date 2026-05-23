@@ -3,7 +3,8 @@ import numpy as np
 import pyinputplus as pyip
 
 # TODO: Add when df is saved and updated (print statement)
-def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
+# TODO: Update docstring
+def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
     """Prior to assessing dtypes, convert any entries that are flagged as
     potential missing values to np.nan with user approval.
 
@@ -36,7 +37,7 @@ def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
 
     if missing_value_counts.empty:
         print("\n=> No potential missing value markers have been detected in the dataset.")
-        return df
+        return df, False
 
     detected_markers = list(missing_value_counts.index)
     # If more than one potential missing value marker is found
@@ -53,14 +54,14 @@ def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
             
             if choice == "Continue without replacement":
                 print("\n=> None of the markers detected have been replaced with a null value. The dataset remains unchanged.")
-                return df
+                return df, False
 
             elif choice == "Replace all":
                 mask = df_norm.isin(detected_markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
                 print(f"\n=> {replaced_count} of the following markers were replaced with null values: {detected_markers}")
-                return df # TODO: add new path
+                return df, True # TODO: add new path (well, original file path should be retained anyway..., could add path specific markers later)
 
             elif choice == "Replace specific marker(s)":
                 # TODO: Add option for a specific marker or more to be selected and updated.
@@ -78,7 +79,7 @@ def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
 
             if choice == "Continue without replacement":
                 print("\n\tNo values were replaced.")
-                return df
+                return df, False
 
             elif choice == "Replace marker":
                 print("\nReplacing marker...")
@@ -86,7 +87,7 @@ def missing_value_precheck(df:pd.DataFrame) -> pd.DataFrame:
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
                 print(f"\t{replaced_count} of the following marker were replaced with null values: {detected_markers}")
-                return df
+                return df, True
             
     # possible TODO: Incorporate my previous code such that missing value symbols that aren't
         # already listed can be manually added into the dataset.  
@@ -147,7 +148,8 @@ def infer_dtype(series:pd.Series) -> str:
     
     # TODO: add additional data types datetime
     return "string"
-
+    # Initial check for missing values (which can affect dtypes)
+    df, missing_markers_replaced = missing_value_precheck(df)
 
 # TODO Consider what to do with Datetime values (have to likely test with the tool if it can handle that)
 # (not of concern for right now) If there is a larger issues with a column, possibly employ agent to assist with cleaning the data
@@ -166,12 +168,6 @@ def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: The updated dataframe after dtype verification.
     """
     df = df.copy()
-
-    print("\n\n")
-    print("="*25+"[STEP: Handle data types]"+"="*25)
-
-    # Initial check for missing values (which can affect dtypes)
-    df = missing_value_precheck(df)
 
     # General check for majority int string or float and convert all in the column main dtype
     for col in df.columns:

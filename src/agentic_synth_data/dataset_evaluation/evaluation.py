@@ -19,8 +19,6 @@ def evaluation(
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
         ):
-    print("\n\n")
-    print("="*25+"[STEP: Evaluate synthesized data]"+"="*25)
     generator_used = synthesis_request["generator"]
     jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     print("Jenson-Shannon Distances:")
