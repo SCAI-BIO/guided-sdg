@@ -62,7 +62,11 @@ Rules:
  - If few rows have missing values, recommend "remove".
  - If many rows have missing values but only some rows are heavily incomplete, recommend "threshold".
  - If missing values are spread across many rows, recommend "impute".
- - Always include a user-facing plan and rationale.
+ - If "set_threshold" is not null, it must be an integer.
+ - Do not suggest invalid options.
+ - If a change is suggested that does not make sense for the analysis: 
+    - In "warning" specify the choice(s) that are not possible, or do not make sense for the dataset.
+    - In "rationale" briefly specify what would be a better fit and why.
 
 JSON format:
 {{
@@ -72,14 +76,10 @@ JSON format:
     "categorical_strategy": "most_frequent",
     "numerical_strategy": "mean",
     "columns_to_remove": [],
-    "needs_user_confirmation": true,
-    "rationale": "Brief explanation."
-
-    }}
+    "warning": [],
+    "rationale": "Brief explanation framed by the dataset's information."
+}}
 """
-
-# TODO: if imputation is not chosen at the end, make sure that  the categorical 
-# and numerical strategies are None. (Added instruction, but check if this works)
 
 
 def missing_feedback(prompt:str, feedback:str) -> str:

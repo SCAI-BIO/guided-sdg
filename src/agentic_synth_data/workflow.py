@@ -186,11 +186,6 @@ class DataGen:
 
         synth_df = self.synthetic_df.copy(deep=True)
         
-        # Quick comparison look (probably move unnamed removal to generate)
-        print(synth_df.head())
-        synth_df = synth_df.loc[:, ~synth_df.columns.str.contains("^Unnamed")]
-        print("\n updated", synth_df.head())
-
         self.evaluation_results = evaluation(
             real_df=real_df,
             synthetic_df=synth_df,

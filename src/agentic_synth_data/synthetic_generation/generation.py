@@ -4,11 +4,14 @@ from typing import Literal, Any
 import pyinputplus as pyip
 from pathlib import Path
 import subprocess as sp
+import json
 
 from langgraph.types import Command
 from langchain.tools import tool, BaseTool
+from langchain_core.messages import ToolMessage
 
 from agentic_synth_data.prompts.generator_selection import generator_selection_message
+from agentic_synth_data.utils import format_response
 
 load_dotenv()
 
@@ -105,8 +108,9 @@ def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
             }
         ]
     }
+
     self.synthetic_path = None
-    while True:
+    while self.synthetic_path is None:
         interrupted = False
         message_buffer = ""
 
@@ -118,20 +122,37 @@ def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
             ):
             if chunk["type"] == "messages":
                 msg = chunk["data"][0]
-                content = getattr(msg, "content", "")
                 
+                content = getattr(msg, "content", "")
                 if content:
                     message_buffer += content
 
                 # Capture tool return value
-                if msg.__class__.__name__ == "ToolMessage":
+                if isinstance(msg, ToolMessage):
                     self.synthetic_path = msg.content
 
             if chunk["type"] == "updates" and "__interrupt__" in chunk["data"]:
                 interrupted = True
 
                 if message_buffer.strip():
-                    print(message_buffer.split("</think>")[1])
+                    plan = message_buffer.split("</think>")[1]
+                    generation_plan = json.loads(plan)
+                
+                    print("\nSuggestion:")
+                    print(f"Data generator: {generation_plan['generator']}")
+
+                    print("\nPros:")
+                    format_response(generation_plan['pros'])
+
+                    print("\nCons:")
+                    format_response(generation_plan['cons'])
+
+                    print("\nRationale:")
+                    format_response(generation_plan['rationale'])
+
+                    if len(generation_plan['warning']) > 0:
+                        print("\nWarning:")
+                        format_response(generation_plan['warning'][0])
 
                 print("\nINTERRUPTED:")
                 # print(chunk["data"]["__interrupt__"])

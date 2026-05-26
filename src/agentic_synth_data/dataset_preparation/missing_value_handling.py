@@ -217,8 +217,8 @@ def handle_missing_values(
                 synthesis_request=synthesis_request, 
                 semantic_types=semantic_types, 
                 )
-            print("\nComing up with a suggestion for missing value handling...")
-            feedback = ""
+            print("\nAgent is coming up with a suggestion for missing value handling...")
+            feedback = None
             while True:
                 if feedback is None:
                     current_prompt = prompt
@@ -250,6 +250,10 @@ def handle_missing_values(
                     print(f"- Columns to remove: {missing_plan["columns_to_remove"]}")
                     # TODO: Implement a way to remove columns.
                 
+                if len(missing_plan["warning"]) > 0:
+                    print("\nWarning:")
+                    format_response(f"- Warning: {missing_plan["warning"][0]}")
+                
                 print(f"\nReasoning behind the suggestion:")
                 format_response(missing_plan["rationale"])
 
@@ -270,9 +274,6 @@ def handle_missing_values(
                 else:
                     print("\n\nPlease describe how you would want missing values to be handled and what changes you would make to the suggested plan.")
                     feedback = input()
-
-                print(f"\nReasoning behind the suggestion:")
-                print(format_response(missing_plan["rationale"]))
 
             # Update synthesis request with new specifications
             synthesis_request = auto_update_missing_plan(synthesis_request, missing_plan)

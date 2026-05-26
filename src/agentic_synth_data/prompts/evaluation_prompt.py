@@ -34,13 +34,11 @@ Interpretation:
 
 JSON format:
 {{
-"evaluation": {{
     "status": "satisfactory",
     "average_jsd": 0.0,
     "problem_columns": [],
     "recommendation": "Specific next action. Mention which workflow step should be revisited if needed.",
     "rationale": "Explain why this status was assigned, referring to average JSD, problem columns, generator fit, and any relevant workflow step."
-}}
 }}
 """
 

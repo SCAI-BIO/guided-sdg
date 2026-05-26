@@ -43,17 +43,16 @@ def evaluation(
     )
 
     plan = plan["messages"][-1].content.split("</think>")[1].strip()
-    parsed = json.loads(plan)
-    evaluation = parsed["evaluation"]
+    eval_plan = json.loads(plan)
 
     print("\nEvaluation:")
-    print(f"- Status: {evaluation['status']}")
-    print(f"- Average Jenson-Shannon distance: {evaluation['average_jsd']}")
-    print(f"- Problem columns: {evaluation['problem_columns']}")
+    print(f"- Status: {eval_plan['status']}")
+    print(f"- Average Jenson-Shannon distance: {eval_plan['average_jsd']}")
+    print(f"- Problem columns: {eval_plan['problem_columns']}")
     print(f"- Recommendation:")
-    format_response(evaluation["recommendation"])
+    format_response(eval_plan["recommendation"])
     print("- Rationale:")
-    format_response(evaluation["rationale"])
+    format_response(eval_plan["rationale"])
 
 
 # TODO: Add a plan for improvement of the workflow
