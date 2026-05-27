@@ -30,6 +30,8 @@ def evaluation(
         jsd_results=jsd_results,
         )
     
+    print("\nAgent is evaluating the results...")
+    
     plan = agent.invoke(
         {
             "messages": [

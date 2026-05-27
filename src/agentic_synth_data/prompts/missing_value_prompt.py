@@ -56,7 +56,7 @@ Allowed numerical_strategy values:
 
 Rules:
  - If any setting has "auto", this indicates the user wants your help to determine the optimal settings to use.
- - If mode is "impute", the categorical and numerical strategy, otherwise they should be empty.
+ - If mode is "impute", fill in the categorical and numerical strategy, otherwise they should be empty.
  - If the mode value has a key of the same name (impute, threshold), all entries within that key must be filled.
  - If there are no missing values, recommend mode "remove" and explain that no rows will be removed.
  - If few rows have missing values, recommend "remove".
@@ -64,7 +64,7 @@ Rules:
  - If missing values are spread across many rows, recommend "impute".
  - If "set_threshold" is not null, it must be an integer.
  - Do not suggest invalid options.
- - If a change is suggested that does not make sense for the analysis: 
+ - If a change is suggested that does not make sense for the dataset's features: 
     - In "warning" specify the choice(s) that are not possible, or do not make sense for the dataset.
     - In "rationale" briefly specify what would be a better fit and why.
 
