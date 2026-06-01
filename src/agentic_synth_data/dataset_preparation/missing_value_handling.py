@@ -3,6 +3,7 @@ import numpy as np
 import pyinputplus as pyip
 import pprint
 import json
+from pydantic import BaseModel
 from typing import Optional, Any
 from langgraph.graph.state import CompiledStateGraph
 
@@ -10,6 +11,17 @@ from sklearn.impute import SimpleImputer
 
 from agentic_synth_data.utils import format_response
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
+
+
+class MissingHandling(BaseModel):
+    mode: str
+    set_threshold: float
+    imputation_method: str
+    categorical_strategy: str
+    numerical_stategy: str
+    columns_to_remove: list[str]
+    warning: list[str]
+    rationale: str
 
 
 def update_missing_value_choice(synthesis_request:dict[str, Any]) -> dict[str, Any]:
@@ -81,7 +93,7 @@ def handle_missing_values(
         semantic_types:dict[str, str], 
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None,
-        ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        ) -> tuple[pd.DataFrame, dict[str, Any]] | None:
     """Handle missing values in a dataframe based on user defined preferences.
 
     Missing value strategies include:
@@ -100,9 +112,10 @@ def handle_missing_values(
         config (dict | None, optional): Configuration passed to the agent during invocation. Defaults to None.
 
     Returns:
-        tuple[pd.DataFrame, dict[str, Any]]: 
+        tuple[pd.DataFrame, dict[str, Any]] | None: 
         - (pd.DataFrame) The processed dataframe after missing value handling. 
         - (dict[str, Any]) The updated synthesis_request.
+        None: Agent planned missing value handling, approved by user.
     """
     if df.isna().sum().sum() == 0:
         print("\nThere are no missing values in the dataset. Continuing to the next step.")
@@ -237,7 +250,8 @@ def handle_missing_values(
                 )
                 plan = plan['messages'][-1].content.split("</think>")[1].replace("\n", "")
                 #print(plan) # sometimes agent outputs incorrect JSON format
-                missing_plan = json.loads(plan)
+                missing_plan = MissingHandling.model_validate_json(plan)
+                #missing_plan = json.loads(plan)
 
                 print("\nSuggested plan:")
                 print(f"- Mode: {missing_plan['mode']}")

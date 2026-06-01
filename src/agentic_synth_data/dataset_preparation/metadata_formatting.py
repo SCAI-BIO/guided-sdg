@@ -54,5 +54,5 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
 
     with open(json_path, "w") as f:
         json.dump(metadata, f, indent=2)
-    print(f"Metadata JSON created for generator input: {json_path}")
+    print(f"- Created JSON for generator input: {json_path}")
     return json_path

@@ -1,42 +1,47 @@
 import pandas as pd
 import pyinputplus as pyip
 import json
-from typing import Any
+from typing import Any, Literal
 
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
 
+from pydantic import RootModel
 
+class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Categorical", "Ordinal",]]]):
+    pass
+
+#report = MissingHandling.model_validate_json(response.content)
 def semantic_type_profile(df:pd.DataFrame) -> dict[str, dict[str, Any]]:
-    """Create a profile for each column in the dataframe containing the following 
-    information (basic): 
-    - Column names.
-    - Corrected dtypes of each column.
-    - Number of unique values (not null) in each column.
-
-    This will be used by the agent to infer the semantic types of each column.
+    """Create a profile for each column in the dataframe for the agent to use in 
+    inferring the semantic types of each column.
 
     Args:
         df (pd.DataFrame): The input dataframe with corrected dtypes.
 
     Returns:
         dict[str, dict[str, Any]: Semantic type profile where keys are column names
-        and values are dictionaries which hold information specific to the column.
+        and values are dictionaries which hold information specific to the column:
+        - dtype: Python data type (str).
+        - unique_values: Contains unique values and their counts (dict[str, int]).
+        - n_unique: The number of unique values (int).
     """
     profiles = {}
 
     for col in df.columns:
         profiles[col] = {
             "dtype": str(df[col].dtype),
-            "n_unique": df[col].nunique(), # .nunique() default is dropna=True
+            "unique_values": df[col].value_counts(dropna=False).head().to_dict(),
+            "n_unique": df[col].nunique(dropna=False),
         }
     return profiles
 
 
 def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> dict[str, str]:
     """Determine the semantic type of each column in a dataframe by:
-    1. Making a profile for each column (dtype and number of non null unique values).
+    1. Making a profile for each column (dtype, unique non null values and 
+       their counts, and total number of non null unique values).
     2. Agent infers the semantic type of columns based on their profile.
     3. User confirms or denies correctness of the agent's response.
     4. If corrections are needed, the user can manually update column types.
@@ -74,7 +79,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     prompt = semantic_type_message(profiles)
 
     # 2. Agent infers the semantic type of columns based on their profile.
-    print("\nAgent is inferring semantic data types based on dtype and number of unique samples...")
+    print("\nAgent is analyzing column data types, unique values, and value distributions to infer semantic types...")
     inference = agent.invoke(
         {
             "messages": [
@@ -89,7 +94,8 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
 
     plan = inference['messages'][-1].content.split("</think>")[1].replace("\n", "")
     #print(plan) # Sometimes the agent doesn't format responses appropriately
-    semantic_types = json.loads(plan)
+    semantic_types = STypeInference.model_validate_json(plan).root
+    #semantic_types = json.loads(plan)
 
     # TODO:Include more formal checks that each column is accounted for.
     print("\nDetected semantic types for each column:")
@@ -99,11 +105,11 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
         print(f"{col}: {stype}")
 
     # 3. User confirmation.
-    confirm = pyip.inputYesNo("\nDo any of the columns need correction?")
+    confirm = pyip.inputYesNo("\nAre all column data types correct?")
     # possible TODO: Add a way to select multiple columns as a group and to change their stype (semantic type).
     
     # 4. If corrections are needed, the user can manually update column types.
-    if confirm == "yes":
+    if confirm == "no":
         while True:
             print(f"\nInput column name/number to modify (enter 'exit' (not case-sensitive) or 1 to finish)")
             col = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)

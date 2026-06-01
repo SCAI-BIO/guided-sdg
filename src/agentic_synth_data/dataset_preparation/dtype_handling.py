@@ -1,10 +1,12 @@
 import pandas as pd
 import numpy as np
 import pyinputplus as pyip
+from typing import Hashable
 
 # TODO: Add when df is saved and updated (print statement)
-# TODO: Update docstring
-def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
+def missing_value_precheck(df:pd.DataFrame) -> tuple[
+    pd.DataFrame, bool, dict[Hashable, int], list[Hashable]
+    ]:
     """Prior to assessing dtypes, convert any entries that are flagged as
     potential missing values to np.nan with user approval.
 
@@ -18,8 +20,13 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
                            missing values.
 
     Returns:
-        pd.DataFrame: The dataframe where missing value markers have been replaced
-                      with np.nan or the unchanged dataframe if no markers were found.
+        tuple[ pd.DataFrame, bool, dict[Hashable, int], list[Hashable] ]:
+        - pd.DataFrame: The dataframe where missing value markers have been replaced
+                        with np.nan or the unchanged dataframe if no markers were found.
+        - bool: Indicator of whether missing value markers where detected.
+        - dict[Hashable, int]: Dictionary of missing value markers detected in the 
+                               dataframe and their counts.
+        - list[Hashable]: Missing value markers that were replaced.
     """
     # TODO: Add more possible missing values that could be detected.
     possible_missing_values = {
@@ -27,23 +34,21 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
             "-", "--", "", "`", "?", "??", ".", "...", 
             -999, None,
             }
-    df = df.copy()
-    df_norm = df.map(
-        lambda x: x.lower().strip() if isinstance(x, str) else x
-        )
+    df_norm = df.map(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
     norm_stack = df_norm.stack() # Flatten the df into a Series to vertically count values.
-    missing_value_counts = norm_stack[norm_stack.isin(possible_missing_values)].value_counts(dropna=False)
+    detected_markers = norm_stack[norm_stack.isin(possible_missing_values)].value_counts(dropna=False).to_dict()
+    replaced_markers = []
 
-    if missing_value_counts.empty:
+    if len(detected_markers) == 0:
         print("\n=> No potential missing value markers have been detected in the dataset.")
-        return df, False
+        return df, False, detected_markers, replaced_markers
 
-    detected_markers = list(missing_value_counts.index)
+    markers = list(detected_markers)
     # If more than one potential missing value marker is found
-    if len(missing_value_counts.index) > 1:
+    if len(detected_markers) > 1:
         print("\nThe following potential missing value marker(s) were detected:")
-        print(missing_value_counts)
+        print(detected_markers)
 
         while True:
             print("\nSelect what you would like to do, given the markers detected:")
@@ -54,15 +59,16 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
             
             if choice == "Continue without replacement":
                 print("\n=> None of the markers detected have been replaced with a null value. The dataset remains unchanged.")
-                return df, False
+                return df, False, detected_markers, replaced_markers
 
             elif choice == "Replace all":
-                mask = df_norm.isin(detected_markers)
+                mask = df_norm.isin(markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
-                print(f"\n=> {replaced_count} of the following markers were replaced with null values: {detected_markers}")
-                return df, True # TODO: add new path (well, original file path should be retained anyway..., could add path specific markers later)
-
+                print(f"\n=> {replaced_count} of the following markers were replaced with null values: {markers}")
+                replaced_markers = markers
+                return df, True, detected_markers, replaced_markers
+            
             elif choice == "Replace specific marker(s)":
                 # TODO: Add option for a specific marker or more to be selected and updated.
                 pass
@@ -70,7 +76,7 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
     # Only one potential missing value marker was found.
     else:
         print("\nThe following potential missing value marker was detected:")
-        print(missing_value_counts)
+        print(detected_markers)
 
         while True:
             options = ["Continue without replacement", "Replace marker"]#, "View column distribution"]
@@ -79,15 +85,16 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[pd.DataFrame, bool]:
 
             if choice == "Continue without replacement":
                 print("\n\tNo values were replaced.")
-                return df, False
+                return df, False, detected_markers, replaced_markers
 
             elif choice == "Replace marker":
                 print("\nReplacing marker...")
-                mask = df_norm.isin(detected_markers)
+                mask = df_norm.isin(markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
-                print(f"\t{replaced_count} of the following marker were replaced with null values: {detected_markers}")
-                return df, True
+                print(f"\t{replaced_count} of the following marker were replaced with null values: {markers}")
+                replaced_markers = markers
+                return df, True, detected_markers, replaced_markers
             
     # possible TODO: Incorporate my previous code such that missing value symbols that aren't
         # already listed can be manually added into the dataset.  
@@ -148,12 +155,9 @@ def infer_dtype(series:pd.Series) -> str:
     
     # TODO: add additional data types datetime
     return "string"
-    # Initial check for missing values (which can affect dtypes)
-    df, missing_markers_replaced = missing_value_precheck(df)
 
-# TODO Consider what to do with Datetime values (have to likely test with the tool if it can handle that)
-# (not of concern for right now) If there is a larger issues with a column, possibly employ agent to assist with cleaning the data
-def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
+
+def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
     """Handles the dtypes for the input dataframe in three main stages:
     1. missing_value_precheck: Initial check for missing value markers, which are intended as (and should be converted 
                                to) null values.
@@ -165,10 +169,10 @@ def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
         df (pd.DataFrame): The input dataframe.
 
     Returns:
-        pd.DataFrame: The updated dataframe after dtype verification.
+        tuple[pd.DataFrame, dict[Hashable, str]]:
+        - pd.DataFrame: The updated dataframe after dtype verification
+        - dict[Hashable, str]: Dictionary with the dtype of each column in the dataframe.
     """
-    df = df.copy()
-
     # General check for majority int string or float and convert all in the column main dtype
     for col in df.columns:
         found_dtype = infer_dtype(df[col])
@@ -180,13 +184,16 @@ def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
         elif found_dtype == "float64":
             df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
     
-    print(f"\nCurrent data types present in each column:\n{df.dtypes}")
+    print(f"\nCurrent (Python) data types present in each column:\n{df.dtypes}")
     print("\nSupported data types are as follows: Integer, Float, and String.")
-    confirm = pyip.inputYesNo("Do any of the columns need a correction?")
+    print("Examples:\n- Integer: -23, 0, 34, 120")
+    print("- Float: -23.2, 0.6, 34.9, 120.14")
+    print("- String: 'red 53', 'S', '12.6%', 'third'")
+    confirm = pyip.inputYesNo("\nAre all column data types (Python) correct?\n")
     # TODO: Add a way to select multiple columns and convert them to a specific datatype all together.
-    if confirm == "yes":
+    if confirm == "no":
         while True:
-            print(f"\nInput column name/number to modify (enter exit (not case-sensitive) or 1 to finish)")
+            print(f"\nInput column name/number to modify (enter exit (not case-sensitive) or 1 to finish)\n")
             var = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
 
             if var == "Exit":
@@ -214,8 +221,56 @@ def handle_dtypes(df:pd.DataFrame) -> pd.DataFrame:
     print()
     print("-"*25+"Final data types present in each column"+"-"*25)
     print(df.dtypes)
-    return df
+    py_dtypes = df.dtypes.astype(str).to_dict()
+    return df, py_dtypes
 
-# TODO: Add some sort of save (think about how to store for easy retrieval)
-# maybe saving and storing the path of each resulting dataframe after each block 
-# as a dictionary of lists where msot recent entries are at the end fo the lists (but that way, everything can be easily retrived)
+
+def match_dtypes(synthetic_df: pd.DataFrame, reference_dtypes: dict[Hashable, str]) -> pd.DataFrame:
+    """Match synthetic dataframe columns to previously defined dtypes for compatibility 
+    with Syndat.
+
+    Args:
+        synthetic_df (pd.DataFrame): The synthetic dataframe.
+        reference_dtypes (dict[Hashable, str]): The saved data types of each column.
+
+    Returns:
+        pd.DataFrame: The synthetic dataframe with consistent dtypes (if necessary).
+    """
+    synthetic_df = synthetic_df.copy()
+    synthetic_dtypes = synthetic_df.dtypes.astype(str).to_dict()
+
+    mismatched_dtypes = {}
+    for col, expected_dtype in reference_dtypes.items():
+        actual_dtype = synthetic_dtypes[col]
+
+        if actual_dtype != expected_dtype:
+            mismatched_dtypes[col] = {
+                "expected": expected_dtype,
+                "actual": actual_dtype,
+            }
+
+    if len(mismatched_dtypes) == 0:
+        print("\n=> Synthetic dataframe dtypes already match the prepared dataframe.")
+        return synthetic_df
+
+    print("\n=> Synthetic dataframe dtypes do not match the prepared dataframe.")
+    print("\nThe following column data types will be converted:")
+    for col, type_dict in mismatched_dtypes.items():
+        print(f"Column: {col}")
+        print(f"- Found type: {type_dict['actual']}")
+        print(f"- Expected type: {type_dict['expected']}\n")
+
+    for col, mismatch in mismatched_dtypes.items():
+        target_dtype = mismatch["expected"]
+
+        if target_dtype == "Int64":
+            synthetic_df[col] = pd.to_numeric(synthetic_df[col], errors="coerce").astype("Int64")
+
+        elif target_dtype == "float64":
+            synthetic_df[col] = pd.to_numeric(synthetic_df[col], errors="coerce").astype("float64")
+
+        else:
+            synthetic_df[col] = synthetic_df[col].astype("string")
+
+    print("\n=> Synthetic dataframe dtypes were converted for evaluation.")
+    return synthetic_df
