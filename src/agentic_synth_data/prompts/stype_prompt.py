@@ -11,6 +11,7 @@ counts of unique non null values, and the number of unique non null values.
 Allowed semantic types:
 - Float
 - Integer
+- Boolean
 - Categorical
 - Ordinal
 
@@ -23,6 +24,8 @@ Every column must appear exactly once.
 
 Return exactly one valid JSON object.
 Do not include ```json.
+Do not write prose outside the JSON.
+Do not include markdown.
 
 JSON format:
 

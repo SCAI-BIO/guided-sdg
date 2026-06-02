@@ -4,9 +4,7 @@ from pathlib import Path
 from typing import Any, Hashable
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import HumanInTheLoopMiddleware
 from langchain.chat_models import init_chat_model, BaseChatModel
-from langchain.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -14,13 +12,13 @@ from agentic_synth_data.utils import format_response
 from agentic_synth_data.preference_setup import select_preferences
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 
-from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck, match_dtypes
-from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types
+from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck
+from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, prepare_for_syndat
 
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.dataset_preparation.metadata_formatting import format_json
 
-from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator_tool, select_generator
+from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator
 from agentic_synth_data.dataset_evaluation.evaluation import evaluation
 
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
@@ -47,8 +45,6 @@ class DataGen:
         self.model:BaseChatModel = self.create_model()
         self.checkpointer = InMemorySaver()
         self.config:dict[str, dict[str, Any]] = {"configurable": {"thread_id": 1}}
-
-        self.generator_tool:BaseTool = self.create_select_generator_tool()
         self.agent:CompiledStateGraph = self.create_agent()
 
         self.report: dict = {
@@ -72,7 +68,7 @@ class DataGen:
 
 
     def create_model(self) -> BaseChatModel:
-        print("="*25+"[Setting up model...]"+"="*25)
+        #print("="*25+"[Setting up model...]"+"="*25)
         model = init_chat_model(
             "MiniMaxAI/MiniMax-M2.5",
             model_provider="openai",
@@ -82,27 +78,12 @@ class DataGen:
         return model    
 
 
-    def create_select_generator_tool(self) -> BaseTool:
-        return select_generator_tool
-    
-
     def create_agent(self):
         #print("\n\n")
-        print("="*25+"[Setting up agent...]"+"="*25)
+        #print("="*25+"[Setting up agent...]"+"="*25)
         agent = create_agent(
             model=self.model,
-            tools=[self.generator_tool],
             checkpointer=self.checkpointer,
-            # middleware=[
-            #     HumanInTheLoopMiddleware(
-            #         interrupt_on={
-            #             self.generator_tool.name: {
-            #                 "allowed_decisions": ["approve", "edit", "respond"]
-            #             }
-            #         },
-            #         description_prefix="Synthetic generator selection pending approval.",
-            #     )
-            # ],
             system_prompt=SYSTEM_PROMPT,
         )
         #print("=> Agent successfully created.")
@@ -112,7 +93,7 @@ class DataGen:
     def load_dataframe(self) -> pd.DataFrame:
         """Step 1: Setup source dataframe"""
         #print("\n\n")
-        print("="*25+"[STEP: Create the dataframe]"+"="*25)
+        #print("="*25+"[STEP: Create the dataframe]"+"="*25)
         self.source_df = load_df(self.data_path)#, self.synthesis_request["data_scope"]["selected_columns"])
         self.report["input"]["original_shape"] = self.source_df.shape
         return self.source_df
@@ -276,7 +257,9 @@ class DataGen:
         else:
             real_df = self.source_df.copy()
 
-        synth_df = match_dtypes(self.synthetic_df.copy(), self.python_dtypes)
+        synth_df = self.synthetic_df.copy()
+
+        real_df, synth_df = prepare_for_syndat(real_df=real_df, synthetic_df=synth_df, semantic_types=self.semantic_types)
        
         self.evaluation_results = evaluation(
             real_df=real_df,

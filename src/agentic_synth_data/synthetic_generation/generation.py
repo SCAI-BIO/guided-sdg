@@ -1,5 +1,6 @@
 import pandas as pd
 from dotenv import load_dotenv
+from pydantic import BaseModel
 from typing import Literal, Any
 import pyinputplus as pyip
 from pathlib import Path
@@ -16,68 +17,65 @@ from agentic_synth_data.utils import format_response
 load_dotenv()
 
 
-def make_generator_tool(self) -> BaseTool:
-    """Make the tool for an agent to generate synthetic data that only allows it
-    to choose the mechanism.
+class SelectGenerator(BaseModel):
+    generator: Literal["PrivBayes", "CTGAN", "PATEGAN", "BayesianNet"]
+    pros: str
+    cons: str
+    rationale: str
+    warning: list[str]
 
-    Raises:
-        RuntimeError: If the specified generator is unable to generate synthetic data.
 
-    Returns:
-        BaseTool: The tool the agent can access (limited to model choice).
-    """
-    @tool("run_synthetic_generator", description="Run the selected synthetic data generator.",) #return_direct=False # Have the tool immediately direct to user (default)
-    def run_synthetic_generator(mechanism:Literal["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",]) -> str:
-        # Set sample size
-        if self.synthesis_request["sample_size"]["mode"] == "fixed_value":
-            sample_size = self.synthesis_request["sample_size"]["fixed"]["value"]
-        else:
-            sample_size = pd.read_csv(self.data_path).shape[0]
+# TODO: add docstring.
+def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict,) -> str:
+    mechanism = synthesis_request["generator"]
+    # Set sample size
+    if synthesis_request["sample_size"]["mode"] == "fixed_value":
+        sample_size = synthesis_request["sample_size"]["fixed"]["value"]
+    else:
+        sample_size = pd.read_csv(data_path).shape[0]
 
-        # Set cleaned data and output paths
-        data_name = Path(self.clean_csv_path).stem
-        output_filename = f"synthetic_{data_name}_{mechanism.lower()}.csv"
-        host_output_path = Path("../output") / output_filename
-        container_output_path = f"/workspace/output/{output_filename}"
-        
-        print()
-        print("-"*25+f"Running {mechanism}"+"-"*25)
-
-        command = f"""
-        podman run -it --rm \
-            --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
-            docker.io/springepfl/synthetic-data:latest \
-            -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
-            -D /workspace/data/{data_name} \
-            -M {mechanism} \
-            -O {container_output_path} \
-            -N {sample_size}"
-            """
-        process = sp.Popen(
-            command,
-            shell=True,
-            stdout=sp.PIPE,
-            stderr=sp.STDOUT,
-            text=True
-            )
-
-        for line in process.stdout:
-            print(line, end="")
-
-        process.wait()
-        
-        # If process fails for a specific generator
-        if process.returncode !=0:
-            raise RuntimeError(f"{mechanism} failed.")
-
-        print(f"\n{mechanism}: {sample_size} synthetic samples successfully generated.")
-        return str(host_output_path)
+    # Set cleaned data and output paths
+    data_name = Path(clean_csv_path).stem
+    output_filename = f"synthetic_{data_name}_{mechanism.lower()}.csv"
+    host_output_path = Path("../output") / output_filename
+    container_output_path = f"/workspace/output/{output_filename}"
     
-    return run_synthetic_generator
+    print()
+    print("-"*25+f"Running {mechanism}"+"-"*25)
+
+    command = f"""
+    podman run -it --rm \
+        --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
+        docker.io/springepfl/synthetic-data:latest \
+        -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
+        -D /workspace/data/{data_name} \
+        -M {mechanism} \
+        -O {container_output_path} \
+        -N {sample_size}"
+        """
+    process = sp.Popen(
+        command,
+        shell=True,
+        stdout=sp.PIPE,
+        stderr=sp.STDOUT,
+        text=True
+        )
+
+    for line in process.stdout:
+        print(line, end="")
+
+    process.wait()
+    
+    # If process fails for a specific generator
+    if process.returncode !=0:
+        raise RuntimeError(f"{mechanism} failed.")
+
+    print(f"\n{mechanism}: {sample_size} synthetic samples successfully generated.")
+    return str(host_output_path)
 
 
-# TODO: Update docstring (more on choices etc.)
-def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
+# TODO: Update docstring
+def select_generator(synthesis_request, semantic_types, agent, config) -> dict[str, Any]:
     """Generate the synthetic data.
 
     Human In The Loop is incorporated here with the choices:
@@ -91,140 +89,74 @@ def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
         - (dict[str, Any]) The synthesis_request (either updated or not).
         - (str | None) The path of the synthetic data.                                    
     """
-    # TODO: Add a case where the model is already selected by the user and 
-        # give a chance about agent feedback (pros/cons) regarding the generator selected
-        # then, this would give the option for the user to still update how it is generated
-    message = generator_selection_message(
-        synthesis_request=self.synthesis_request,
-        semantic_types=self.semantic_types,
-        clean_csv_path=self.clean_csv_path, # Still not the best to put the path through the agent
-        )
-    
-    input_to_stream = {
-        "messages": [
+    feedback_hist = []
+    selected_mechanism = None
+    choice_confirmed = False
+
+    while not choice_confirmed:
+        message = generator_selection_message(synthesis_request=synthesis_request, semantic_types=semantic_types,)
+
+        if selected_mechanism is not None:
+            message += f"""
+The following generator is being considered:
+{selected_mechanism}
+
+Give pros, cons, rationale, and warnings for this selected generator.
+Do not automatically change the generator unless there is a strong reason.
+"""
+        
+        if feedback_hist:
+            message += "\n\nUser feedback so far:\n" + "\n".join(feedback_hist)
+
+        response = agent.invoke(
             {
-                "role": "user",
-                "content": message,
-            }
-        ]
-    }
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": message,
+                    }
+                ]
+            },
+            config=config
+        )
 
-    self.synthetic_path = None
-    while self.synthetic_path is None:
-        interrupted = False
-        message_buffer = ""
+        plan = response['messages'][-1].content.split("</think>")[1].replace("\n", "")
+        generation_plan = SelectGenerator.model_validate_json(plan)
 
-        for chunk in self.agent.stream(
-            input_to_stream, 
-            config=self.config, 
-            stream_mode=["updates", "messages"], 
-            version="v2",
-            ):
-            if chunk["type"] == "messages":
-                msg = chunk["data"][0]
-                
-                content = getattr(msg, "content", "")
-                if content:
-                    message_buffer += content
+        print("\nSuggestion:")
+        print(f"Data generator: {generation_plan.generator}")#['generator']}")
 
-                # Capture tool return value
-                if isinstance(msg, ToolMessage):
-                    self.synthetic_path = msg.content
+        print("\nPros:")
+        format_response(generation_plan.pros)#['pros'])
 
-            if chunk["type"] == "updates" and "__interrupt__" in chunk["data"]:
-                interrupted = True
+        print("\nCons:")
+        format_response(generation_plan.cons)#['cons'])
 
-                if message_buffer.strip():
-                    plan = message_buffer.split("</think>")[1]
-                    generation_plan = json.loads(plan)
-                
-                    print("\nSuggestion:")
-                    print(f"Data generator: {generation_plan['generator']}")
+        print("\nRationale:")
+        format_response(generation_plan.rationale)#['rationale'])
 
-                    print("\nPros:")
-                    format_response(generation_plan['pros'])
+        if len(generation_plan.warning) > 0:#["warning"]) > 0:
+            print("\nWarning:")
+            format_response(generation_plan.warning[0])#['warning'][0])
 
-                    print("\nCons:")
-                    format_response(generation_plan['cons'])
+        print("\nDo you approve using the suggested generator?\n")
+        decision = pyip.inputMenu(["approve", "choose another", "discuss",], numbered=True,)
 
-                    print("\nRationale:")
-                    format_response(generation_plan['rationale'])
-
-                    if len(generation_plan['warning']) > 0:
-                        print("\nWarning:")
-                        format_response(generation_plan['warning'][0])
-
-                print("\nINTERRUPTED:")
-                # print(chunk["data"]["__interrupt__"])
-                
-                # To extract the suggested mechanism (if approved, added to synthesis_request)
-                # made single
-                action_requests = chunk["data"]["__interrupt__"][0].value["action_requests"][0]
-
-                break
-
-        if not interrupted:
-            break    
-
-        decision = pyip.inputMenu(["approve", "edit", "respond", "reject"], numbered=True,)
-
-        # Might help to build response nodes (e.g., approval, response, etc with no need for redefinition if used in later parts)
         if decision == "approve":
-            input_to_stream = Command(
-                resume={
-                    "decisions": [
-                        {"type": "approve"}
-                    ]
-                }
-            )
-            self.synthesis_request["generator"] = action_requests["args"]["mechanism"]
+            synthesis_request["generator"] = generation_plan.generator#["generator"]
+            choice_confirmed = True
 
-        elif decision == "edit":
-            new_mechanism = pyip.inputMenu(["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",], "\nEnter replacement generator:\n", numbered=True,)
-
-            input_to_stream = Command(
-                resume={
-                    "decisions": [
-                        {
-                            "type": "edit",
-                            "edited_action": {
-                                "name": self.generator_tool.name,
-                                "args": {
-                                    "mechanism": new_mechanism
-                                },
-                            },
-                        }
-                    ]
-                }
-            )
-            # TODO: Add that if "edit" is selected, the user still can get the model's input on the decision.
-            self.synthesis_request["generator"] = new_mechanism
-
-        elif decision == "respond":
-            # TODO: Fix required. If user adds a response, no model is suggested and 
-            # the process stops running. Check if I forgot to connect something.
-            user_message = pyip.inputStr("\nWrite feedback regarding the data and tool choice:\n")
-            input_to_stream = Command(
-                resume={
-                    "decisions": [
-                        {
-                            "type": "respond",
-                            "message": user_message,
-                        }
-                    ]
-                }
-            )
-
-        else:
-            # In the basic human in the loop, but respond is likely sufficient
-            input_to_stream = Command(
-                resume={
-                    "decisions": [
-                        {
-                            "type": "reject",
-                            "message": "User rejected generator execution."
-                        }
-                    ]
-                }
-            )
-    return self.synthesis_request, self.synthetic_path
+        elif decision == "choose another":
+            selected_mechanism = pyip.inputMenu(
+                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",], 
+                "\nEnter generator to evaluate:\n", 
+                numbered=True,
+                )
+            continue
+        
+        else: # discuss
+            feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
+            feedback_hist.append(feedback)
+            continue
+        
+        return synthesis_request

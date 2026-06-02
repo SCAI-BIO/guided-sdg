@@ -75,7 +75,6 @@ JSON format:
     "imputation_method": null,
     "categorical_strategy": "most_frequent",
     "numerical_strategy": "mean",
-    "columns_to_remove": [],
     "warning": [],
     "rationale": "Brief explanation framed by the dataset's information."
 }}

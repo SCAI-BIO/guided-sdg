@@ -42,7 +42,7 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
                 "max": float(df[col].max())
                 })
 
-        elif semantic_type == "Integer":
+        elif semantic_type in ["Integer", "Boolean"]:
             columns.append({
                 "name": col,
                 "type": "Integer",

@@ -2,11 +2,10 @@ import pandas as pd
 import numpy as np
 import pyinputplus as pyip
 import pprint
-import json
-from pydantic import BaseModel
+
+from pydantic import BaseModel, Field
 from typing import Optional, Any
 from langgraph.graph.state import CompiledStateGraph
-
 from sklearn.impute import SimpleImputer
 
 from agentic_synth_data.utils import format_response
@@ -15,12 +14,11 @@ from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt
 
 class MissingHandling(BaseModel):
     mode: str
-    set_threshold: float
-    imputation_method: str
-    categorical_strategy: str
-    numerical_stategy: str
-    columns_to_remove: list[str]
-    warning: list[str]
+    set_threshold: int | None = None
+    imputation_method: str | None = None
+    categorical_strategy: str | None = None
+    numerical_strategy: str | None = None
+    warning: list[str] = Field(default_factory=list)
     rationale: str
 
 
@@ -249,37 +247,40 @@ def handle_missing_values(
                     config=config,
                 )
                 plan = plan['messages'][-1].content.split("</think>")[1].replace("\n", "")
-                #print(plan) # sometimes agent outputs incorrect JSON format
                 missing_plan = MissingHandling.model_validate_json(plan)
-                #missing_plan = json.loads(plan)
+
+                updated_plan = {
+                    "mode": missing_plan.mode,
+                    "imputation_method": missing_plan.imputation_method,
+                    "categorical_strategy": missing_plan.categorical_strategy, 
+                    "numerical_strategy": missing_plan.numerical_strategy,
+                    "set_threshold": missing_plan.set_threshold,
+                    "warning": missing_plan.warning,
+                    "rationale": missing_plan.rationale,
+                }
 
                 print("\nSuggested plan:")
-                print(f"- Mode: {missing_plan['mode']}")
-                print(f"- Threshold: {missing_plan['set_threshold']}")
-                print(f"- Imputation method: {missing_plan['imputation_method']}")
-                print(f"- Categorical strategy: {missing_plan['categorical_strategy']}")
-                print(f"- Numerical strategy: {missing_plan['numerical_strategy']}")
-
-                if len(missing_plan["columns_to_remove"]) > 0:
-                    print(f"- Columns to remove: {missing_plan["columns_to_remove"]}")
-                    # TODO: Implement a way to remove columns.
+                print(f"- Mode: {updated_plan['mode']}")
+                print(f"- Threshold: {updated_plan['set_threshold']}")
+                print(f"- Imputation method: {updated_plan['imputation_method']}")
+                print(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
+                print(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
                 
-                if len(missing_plan["warning"]) > 0:
+                if len(updated_plan["warning"]) > 0:
                     print("\nWarning:")
-                    format_response(f"- Warning: {missing_plan["warning"][0]}")
+                    format_response(f"- Warning: {updated_plan['warning'][0]}")
                 
                 print(f"\nReasoning behind the suggestion:")
-                format_response(missing_plan["rationale"])
+                format_response(updated_plan["rationale"])
 
                 confirm = pyip.inputYesNo("\nWould you like to proceed with the suggestion?")
                 if confirm == "yes":
                     synthesis_request.update({
-                        "mode": missing_plan["mode"],
-                        "set_threshold": missing_plan["set_threshold"],
-                        "imputation_method": missing_plan["imputation_method"],
-                        "categorical_strategy": missing_plan["categorical_strategy"],
-                        "numerical_strategy": missing_plan["numerical_strategy"],
-                        "columns_to_remove": missing_plan["columns_to_remove"],
+                        "mode": updated_plan["mode"],
+                        "set_threshold": updated_plan["set_threshold"],
+                        "imputation_method": updated_plan["imputation_method"],
+                        "categorical_strategy": updated_plan["categorical_strategy"],
+                        "numerical_strategy": updated_plan["numerical_strategy"],
                         })
                     print(f"\n\nThe missing value handling plan has been updated to the following:")
                     pprint.pprint(synthesis_request)
@@ -290,5 +291,5 @@ def handle_missing_values(
                     feedback = input()
 
             # Update synthesis request with new specifications
-            synthesis_request = auto_update_missing_plan(synthesis_request, missing_plan)
+            synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
             return handle_missing_values(df, synthesis_request, semantic_types)

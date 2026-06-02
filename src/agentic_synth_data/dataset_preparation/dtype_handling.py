@@ -140,7 +140,7 @@ def infer_dtype(series:pd.Series) -> str:
         return "string"
 
     elif majority_type == "int":
-        return "Int64"
+        return "int64"
     
     elif majority_type == "float":
         numeric_values = pd.to_numeric(non_missing, errors="coerce").dropna()
@@ -150,7 +150,7 @@ def infer_dtype(series:pd.Series) -> str:
         
         whole_numbers = ((numeric_values % 1) == 0).all()
         if whole_numbers:
-            return "Int64"
+            return "int64"
         return "float64"
     
     # TODO: add additional data types datetime
@@ -179,8 +179,8 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
         if found_dtype == "string":
             df[col] = df[col].astype("string")
         # Possibly could set errors to default (raise), but would have to try to handle this.
-        elif found_dtype == "Int64":
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+        elif found_dtype == "int64":
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("int64")
         elif found_dtype == "float64":
             df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
     
@@ -207,7 +207,7 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
             choice = pyip.inputMenu(["Integer", "Float", "String",], numbered=True) 
             
             if choice == "Integer":
-                df[var] = pd.to_numeric(df[var], errors="coerce").astype("Int64")
+                df[var] = pd.to_numeric(df[var], errors="coerce").astype("int64")
             
             elif choice == "Float":
                 df[var] = pd.to_numeric(df[var], errors="coerce").astype("float64")
@@ -223,54 +223,3 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
     print(df.dtypes)
     py_dtypes = df.dtypes.astype(str).to_dict()
     return df, py_dtypes
-
-
-def match_dtypes(synthetic_df: pd.DataFrame, reference_dtypes: dict[Hashable, str]) -> pd.DataFrame:
-    """Match synthetic dataframe columns to previously defined dtypes for compatibility 
-    with Syndat.
-
-    Args:
-        synthetic_df (pd.DataFrame): The synthetic dataframe.
-        reference_dtypes (dict[Hashable, str]): The saved data types of each column.
-
-    Returns:
-        pd.DataFrame: The synthetic dataframe with consistent dtypes (if necessary).
-    """
-    synthetic_df = synthetic_df.copy()
-    synthetic_dtypes = synthetic_df.dtypes.astype(str).to_dict()
-
-    mismatched_dtypes = {}
-    for col, expected_dtype in reference_dtypes.items():
-        actual_dtype = synthetic_dtypes[col]
-
-        if actual_dtype != expected_dtype:
-            mismatched_dtypes[col] = {
-                "expected": expected_dtype,
-                "actual": actual_dtype,
-            }
-
-    if len(mismatched_dtypes) == 0:
-        print("\n=> Synthetic dataframe dtypes already match the prepared dataframe.")
-        return synthetic_df
-
-    print("\n=> Synthetic dataframe dtypes do not match the prepared dataframe.")
-    print("\nThe following column data types will be converted:")
-    for col, type_dict in mismatched_dtypes.items():
-        print(f"Column: {col}")
-        print(f"- Found type: {type_dict['actual']}")
-        print(f"- Expected type: {type_dict['expected']}\n")
-
-    for col, mismatch in mismatched_dtypes.items():
-        target_dtype = mismatch["expected"]
-
-        if target_dtype == "Int64":
-            synthetic_df[col] = pd.to_numeric(synthetic_df[col], errors="coerce").astype("Int64")
-
-        elif target_dtype == "float64":
-            synthetic_df[col] = pd.to_numeric(synthetic_df[col], errors="coerce").astype("float64")
-
-        else:
-            synthetic_df[col] = synthetic_df[col].astype("string")
-
-    print("\n=> Synthetic dataframe dtypes were converted for evaluation.")
-    return synthetic_df

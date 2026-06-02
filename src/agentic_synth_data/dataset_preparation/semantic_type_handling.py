@@ -1,6 +1,5 @@
 import pandas as pd
 import pyinputplus as pyip
-import json
 from typing import Any, Literal
 
 from langgraph.graph.state import CompiledStateGraph
@@ -9,7 +8,7 @@ from agentic_synth_data.prompts.stype_prompt import semantic_type_message
 
 from pydantic import RootModel
 
-class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Categorical", "Ordinal",]]]):
+class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]]):
     pass
 
 #report = MissingHandling.model_validate_json(response.content)
@@ -99,7 +98,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
 
     # TODO:Include more formal checks that each column is accounted for.
     print("\nDetected semantic types for each column:")
-    print("Note: Supported types are Integer, Float, Categorical, and Ordinal.")
+    print("Note: Supported types are Integer, Float, Boolean, Categorical, and Ordinal.")
     print()
     for col, stype in semantic_types.items():
         print(f"{col}: {stype}")
@@ -119,7 +118,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
 
             print(f"\nSelected the following column: {col}")
             print(f"Current semantic type is '{semantic_types[col]}'. What should this be modified to?")
-            choice = pyip.inputMenu(["Integer", "Float","Categorical", "Ordinal"], numbered=True)
+            choice = pyip.inputMenu(["Integer", "Float", "Boolean", "Categorical", "Ordinal"], numbered=True)
 
             semantic_types[col] = choice
 
@@ -133,3 +132,42 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     for col, stype in semantic_types.items():
         print(f"{col}: {stype}")
     return semantic_types
+
+
+def prepare_for_syndat(
+        real_df: pd.DataFrame, synthetic_df: pd.DataFrame, semantic_types: dict[str, str]
+        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Match real and synthetic dataframe columns to previously defined dtypes for compatibility 
+    with Syndat.
+    Args:
+        real_df (pd.DataFrame): The real dataframe (either with missing values replaced or not).
+        synthetic_df (pd.DataFrame): The synthetic dataframe.
+        semantic_types (dict[str, str]): Dictionary with the semantic types of each column.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]:
+        - pd.DataFrame: The real dataframe with prepared dtypes.
+        - pd.DataFrame: The synthetic dataframe with prepared dtypes.
+    """
+    real = real_df.copy()
+    synth = synthetic_df.copy()
+
+    # same columns/order
+    synth = synth[real.columns]
+
+    for col in real.columns:
+        stype = semantic_types[col]
+
+        if stype in ["Categorical", "Ordinal", "Boolean"]:
+            real[col] = real[col].astype("object")
+            synth[col] = synth[col].astype("object")
+
+        elif stype == "Integer":
+            real[col] = pd.to_numeric(real[col], errors="coerce").astype("int64")
+            synth[col] = pd.to_numeric(synth[col], errors="coerce").astype("int64")
+
+        elif stype == "Float":
+            real[col] = pd.to_numeric(real[col], errors="coerce").astype("float64")
+            synth[col] = pd.to_numeric(synth[col], errors="coerce").astype("float64")
+
+    return real, synth

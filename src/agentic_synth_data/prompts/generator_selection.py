@@ -1,23 +1,20 @@
 from typing import Any
 
+
+# TODO: add more informatiion
 def generator_selection_message(
-        synthesis_request: dict[str, Any],
-        semantic_types: dict[str, str],
-        clean_csv_path: str,
-        ) -> str:
+    synthesis_request: dict[str, Any], 
+    semantic_types: dict[str, str],
+  ) -> str:
   return f"""
-Current workflow step: generator selection and execution.
+Current workflow step: generator selection.
 
-You must do exactly TWO things, in this order:
-1. Output exactly one valid JSON object describing the generator choice.
-2. After the JSON object, call the tool run_synthetic_generator using the selected generator.
-
-Do not stop after the JSON.
-Do not ask for confirmation.
+Return exactly ONE valid JSON object.
 Do not write prose outside the JSON.
 Do not include markdown.
 Do not include ```json.
 Do not include trailing commas.
+Do not include null.
 
 Allowed mechanisms:
 - PATEGAN
@@ -31,11 +28,8 @@ Current synthesis request:
 Semantic types:
 {semantic_types}
 
-Cleaned dataset path:
-{clean_csv_path}
-
 Selection rules:
-- If synthesis_request["generator"]["name"] is not "auto", use that generator.
+- If synthesis_request["generator"]["name"] is not "auto", use that generator:
 - If privacy mode is differentially_private:
   - mostly categorical data: PrivBayes
   - mostly numerical or mixed data: PATEGAN
@@ -45,11 +39,15 @@ Selection rules:
   - mixed data: CTGAN
 
 Warning rules:
-- Before calling the tool, output the requested response.
-- If a change is suggested that does not make sense for the dataset: 
+- If the selected generator does not fit the dataset well, include a warning.
   - In "warning" specify the choice(s) that are not possible, or do not make sense for the dataset.
   - In "rationale" briefly specify what would be a better fit and why.
-
+- Otherwise, use an empty warning list.
+  
+Description rules:
+- Do not be repetitive.
+- Do not refer to selection rules.
+- Be specific in the context of the dataset.
 
 JSON format:
 {{
@@ -59,13 +57,7 @@ JSON format:
   "rationale": "Briefly describe the choice in the context of the dataset.",
   "warning": []
 }}
-
-After outputting the JSON object, immediately call run_synthetic_generator with:
-{{
-  "mechanism": "<same value as generator>"
-}}
 """
-
 
 # TODO: Add explicit pros and cons given the dataset characteristics given agent AND user choices.
 #- [ ] generator prompt: ask for a structured output and gather (generator, 
