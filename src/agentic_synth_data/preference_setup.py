@@ -29,7 +29,6 @@ def select_preferences() -> dict[str, Any]:
         "sample_size": {
             # possible TODO: add fraction of the original dataset as an option (non-essential)
             "mode": None, # fixed_value, fraction, same_as_original
-            "value": None,
             "fixed": {
                 "value": None,
             },

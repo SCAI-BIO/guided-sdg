@@ -61,7 +61,8 @@ def update_missing_value_choice(synthesis_request:dict[str, Any]) -> dict[str, A
 
 def auto_update_missing_plan(synthesis_request:dict[str, Any], missing_plan:dict[str, Any]) -> dict[str, Any]:
     """When "auto" is selected in the missing value handling plan, the agent is called and 
-    returns a structured dictionary. 
+    returns a structured dictionary. This structured dictionary is changed to the format of
+    the synthesis request.
 
     Args:
         synthesis_request (dict): User preferences for data synthesis.
@@ -70,18 +71,17 @@ def auto_update_missing_plan(synthesis_request:dict[str, Any], missing_plan:dict
     Returns:
         dict: Updated synthesis request.
     """
-    update = synthesis_request["missing_value_handling"].copy()
-
-    update["mode"] = missing_plan["mode"]
-
-    update["impute"]["method"] = missing_plan["imputation_method"]
-    update["impute"]["categorical_strategy"] = missing_plan["categorical_strategy"]
-    update["impute"]["numerical_strategy"] = missing_plan["numerical_strategy"]
-
-    update["threshold"]["set_threshold"] = missing_plan["set_threshold"]
-
-    synthesis_request["missing_value_handling"] = update
-
+    synthesis_request["missing_value_handling"] = {
+        "mode": missing_plan["mode"],
+        "impute": {
+            "method": missing_plan["imputation_method"],
+            "categorical_strategy": missing_plan["categorical_strategy"],
+            "numerical_strategy": missing_plan["numerical_strategy"],
+        },
+        "threshold": {
+            "set_threshold": missing_plan["set_threshold"],
+        },
+    }
     return synthesis_request
 
 
@@ -275,13 +275,8 @@ def handle_missing_values(
 
                 confirm = pyip.inputYesNo("\nWould you like to proceed with the suggestion?")
                 if confirm == "yes":
-                    synthesis_request.update({
-                        "mode": updated_plan["mode"],
-                        "set_threshold": updated_plan["set_threshold"],
-                        "imputation_method": updated_plan["imputation_method"],
-                        "categorical_strategy": updated_plan["categorical_strategy"],
-                        "numerical_strategy": updated_plan["numerical_strategy"],
-                        })
+                    # Update synthesis request with new specifications
+                    synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
                     print(f"\n\nThe missing value handling plan has been updated to the following:")
                     pprint.pprint(synthesis_request)
                     break

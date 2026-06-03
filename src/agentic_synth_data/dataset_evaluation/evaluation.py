@@ -14,16 +14,17 @@ from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
 
 
 # possible TODO: hardcoding a threshold to limit the chance that the agent hallucinates information.
+# TODO: add docstring (finish typings)
 def evaluation(
         real_df:pd.DataFrame, 
         synthetic_df:pd.DataFrame, 
         synthesis_request:dict[str, Any],
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
-        ):
+        ) -> dict:
     generator_used = synthesis_request["generator"]
     jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
-    jsd_results["jsd_AVERAGE"] = np.mean(list(jsd_results.values()))
+    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
     print("Jenson-Shannon Distances:")
     pprint.pprint(jsd_results)
     print()

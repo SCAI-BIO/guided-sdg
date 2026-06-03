@@ -33,6 +33,7 @@ Total rows:
 
 Current synthesis request:
 {synthesis_request}
+ - The synthesis request states the desired number of samples to be generated if fixed is selected (i.e., synthesis_request['sample_size']['fixed']['value']).
 
 Semantic types:
 {semantic_types}

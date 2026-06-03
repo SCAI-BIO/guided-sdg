@@ -24,9 +24,10 @@ class SelectGenerator(BaseModel):
 
 # TODO: add docstring.
 def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict,) -> str:
+    # TODO: fix the number of samples, if specified only generating the number of columns present in the df.
     mechanism = synthesis_request["generator"]
     # Set sample size
-    if synthesis_request["sample_size"]["mode"] == "fixed_value":
+    if synthesis_request["sample_size"]["mode"] == "fixed value":
         sample_size = synthesis_request["sample_size"]["fixed"]["value"]
     else:
         sample_size = pd.read_csv(data_path).shape[0]
@@ -67,7 +68,7 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict,) ->
     if process.returncode !=0:
         raise RuntimeError(f"{mechanism} failed.")
 
-    print(f"\n{mechanism}: {sample_size} synthetic samples successfully generated.")
+    print(f"\n=> {mechanism}: {sample_size} synthetic samples successfully generated.")
     return str(host_output_path)
 
 
