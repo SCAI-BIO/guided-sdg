@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import pyinputplus as pyip
 from typing import Any, Literal
 
@@ -162,12 +163,15 @@ def prepare_for_syndat(
             real[col] = real[col].astype("object")
             synth[col] = synth[col].astype("object")
 
+            real[col] = real[col].where(~real[col].isna(), np.nan)
+            synth[col] = synth[col].where(~synth[col].isna(), np.nan)
+
         elif stype == "Integer":
-            real[col] = pd.to_numeric(real[col], errors="coerce").astype("int64")
-            synth[col] = pd.to_numeric(synth[col], errors="coerce").astype("int64")
+            real[col] = pd.to_numeric(real[col], errors="coerce")
+            synth[col] = pd.to_numeric(synth[col], errors="coerce")
 
         elif stype == "Float":
-            real[col] = pd.to_numeric(real[col], errors="coerce").astype("float64")
-            synth[col] = pd.to_numeric(synth[col], errors="coerce").astype("float64")
+            real[col] = pd.to_numeric(real[col], errors="coerce")
+            synth[col] = pd.to_numeric(synth[col], errors="coerce")
 
     return real, synth

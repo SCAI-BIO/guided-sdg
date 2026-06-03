@@ -19,7 +19,7 @@ from agentic_synth_data.dataset_preparation.missing_value_handling import handle
 from agentic_synth_data.dataset_preparation.metadata_formatting import format_json
 
 from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator
-from agentic_synth_data.dataset_evaluation.evaluation import evaluation
+from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_report
 
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 # Note: usage_metadata could later be used to assess prompting and the workflow
@@ -62,11 +62,15 @@ class DataGen:
             "gen": {"prep_path": {}, "synth_path": {}, "synth_shape": {},},
             "eval": {
                 "jsd": {},
-                "conclusion": {},
+                "norm_corr_diff": {},
+                "discrim_auc": {},
+                "problem_columns": {},
+                "recommendation": {},
+                "rationale": {},
             },
         }
 
-
+        
     def create_model(self) -> BaseChatModel:
         #print("="*25+"[Setting up model...]"+"="*25)
         model = init_chat_model(
@@ -115,7 +119,8 @@ class DataGen:
         # Initial check for missing value markers (can affect dtypes)
         print("\n\n")
         print("="*25+"[STEP: Normalize missing values]"+"="*25)
-        norm_df, is_replaced, detected_markers, replaced_markers = missing_value_precheck(self.source_df)
+        source_df = self.source_df.copy()
+        norm_df, is_replaced, detected_markers, replaced_markers = missing_value_precheck(source_df)
 
         self.report["prep"]["missing_markers"]["detected"] = detected_markers
         self.report["prep"]["missing_markers"]["replaced"] = replaced_markers
@@ -261,16 +266,21 @@ class DataGen:
 
         real_df, synth_df = prepare_for_syndat(real_df=real_df, synthetic_df=synth_df, semantic_types=self.semantic_types)
        
-        self.evaluation_results = evaluation(
+        results = evaluation(
             real_df=real_df,
             synthetic_df=synth_df,
             synthesis_request=self.synthesis_request,
             agent=self.agent,
             config=self.config,
         )
-        self.report["eval"]["jsd"] = {}
-        return self.evaluation_results
+        self.report["eval"]["jsd"] = results["jsd"]
+        self.report["eval"]["norm_corr_diff"] = results["norm_corr_diff"]
+        self.report["eval"]["discrim_auc"] = results["discrim_auc"]
+        self.report["eval"]["problem_columns"] = results["problem_columns"]
+        self.report["eval"]["recommendation"] = results["recommendation"]
+        self.report["eval"]["rationale"] = results["rationale"]
 
+        write_report(report=self.report, synthesis_request=self.synthesis_request, data_path=self.data_path)
 
     def run(self):
         self.load_dataframe()
@@ -286,9 +296,8 @@ class DataGen:
         self.create_metadata()
         self.run_synthesis()
 
-        # Evaluate results
+        # Evaluate results and make report
         self.evaluate()
 
-        # make final report
-        # if needed, retrace workflow steps (only back to generator).
-        return self.missing_handled_df
+        # TODO: implement a method to retrace workflow steps (returning to the generation step, etc.)
+        return self.synthetic_df

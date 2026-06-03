@@ -2,6 +2,9 @@ from typing import Any
 
 
 # TODO: add more informatiion
+# should use size of the reference dataset, 
+# how many unique values present in each column, 
+# possibly summary statistics for numerical cols
 def generator_selection_message(
     synthesis_request: dict[str, Any], 
     semantic_types: dict[str, str],

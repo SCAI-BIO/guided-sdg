@@ -5,11 +5,8 @@ from typing import Literal, Any
 import pyinputplus as pyip
 from pathlib import Path
 import subprocess as sp
-import json
 
-from langgraph.types import Command
-from langchain.tools import tool, BaseTool
-from langchain_core.messages import ToolMessage
+from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.generator_selection import generator_selection_message
 from agentic_synth_data.utils import format_response
@@ -75,14 +72,16 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict,) ->
 
 
 # TODO: Update docstring
-def select_generator(synthesis_request, semantic_types, agent, config) -> dict[str, Any]:
-    """Generate the synthetic data.
+def select_generator(synthesis_request:dict[str, Any], semantic_types:dict[str, str], agent:CompiledStateGraph, config:dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Based on the user's preferences and information about the dataset, the agent selects a data generator mechanism.
 
-    Human In The Loop is incorporated here with the choices:
-    - approve
-    - edit
-    - respond
-    - reject
+    Args:
+        synthesis_request (pd.DataFrame): 
+                           missing values.
+        synthesis_request (pd.DataFrame): 
+                           missing values.
+        synthesis_request (pd.DataFrame): 
+                synthesis_request (pd.DataFrame):
 
     Returns:
         tuple[dict[str, Any], str | None]:
