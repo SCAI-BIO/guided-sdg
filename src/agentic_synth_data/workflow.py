@@ -157,7 +157,7 @@ class DataGen:
 
     def preprocess_missing_vals(self):
         """Step 3: Preprocess
-            i. Handle missing values (if needed for the generator)
+            iv. Handle missing values (if needed for the generator)
         """
         self.report["prep"]["missing_handling"]["before"] = self.dtype_handled_df.isna().sum().sum()
 
