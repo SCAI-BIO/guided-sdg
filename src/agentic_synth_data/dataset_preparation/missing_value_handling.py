@@ -1,11 +1,11 @@
+from typing import Optional, Any
+import pprint
+
 import pandas as pd
 import numpy as np
 import pyinputplus as pyip
-import pprint
-
-from pydantic import BaseModel, Field
-from typing import Optional, Any
 from langgraph.graph.state import CompiledStateGraph
+from pydantic import BaseModel, Field
 from sklearn.impute import SimpleImputer
 
 from agentic_synth_data.utils import format_response
@@ -235,6 +235,7 @@ def handle_missing_values(
                     current_prompt = prompt
                 else:
                     current_prompt = missing_feedback(prompt, feedback)
+                    print("Waiting for agent response...")
                 plan = agent.invoke(
                     {
                         "messages": [

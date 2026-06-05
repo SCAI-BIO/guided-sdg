@@ -1,20 +1,18 @@
-import json
-import pprint
+from pathlib import Path
 from typing import Optional, Any
+import pprint
+import json
+
 import pandas as pd
 import numpy as np
-from pathlib import Path
-
-from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
-
 from langgraph.graph.state import CompiledStateGraph
+from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
 from agentic_synth_data.utils import format_response
 from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
 
 
 # possible TODO: hardcoding a threshold to limit the chance that the agent hallucinates information.
-# TODO: add docstring (finish typings)
 def evaluation(
         real_df:pd.DataFrame, 
         synthetic_df:pd.DataFrame, 
@@ -22,6 +20,24 @@ def evaluation(
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
         ) -> dict:
+    """SYNDAT metrics are calculated (Jenson-Shannon Distance, Normalized Correlation Difference,
+    Discriminator AUC) for the synthetic dataset, which the agent then evaluates and determines
+    whether or not additional steps are needed, and possible alternative choices that could be
+    pursued to improve results (if necessary). 
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+        synthesis_request (dict[str, Any]): Dictionary of the user's preferences. This is used as a
+                                record of the processing done to generate the synthetic data.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
+                                synthetic data based on SYNDAT metrics. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation. Defaults to None.
+
+    Returns:
+        dict: _description_
+    """
     generator_used = synthesis_request["generator"]
     jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
@@ -80,6 +96,8 @@ def evaluation(
     # TODO:implement greater communication of results.
     return decision
 
+
+def rerun_path():
 # TODO make a tool for the agent to rerun synthetic data generation method can be expanded to additional steps later.#
     # - Should allow for user confirmation of the agent's assessments.
     # - Should allow for the display and editing of steps
@@ -88,6 +106,8 @@ def evaluation(
         # the appended additions to the workflow. 
         # - Possibly then allow for the agent to make a comparison between both stages and agent suggests which version to keep
         # (this would likely be good to update the final report with)
+    pass
+
 
 def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, Any], data_path: str) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.

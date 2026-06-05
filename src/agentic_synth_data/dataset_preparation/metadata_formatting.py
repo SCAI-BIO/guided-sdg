@@ -1,6 +1,8 @@
-import pandas as pd
-import json
 from pathlib import Path
+import json
+
+import pandas as pd
+
 
 def format_json(csv_path:str, semantic_types:dict) -> str:
     """Store information about the prepared dataset in JSON file format for use

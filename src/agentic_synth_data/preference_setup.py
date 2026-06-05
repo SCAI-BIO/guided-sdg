@@ -1,12 +1,19 @@
-import pyinputplus as pyip
-import pprint
-from agentic_synth_data.utils import format_response
 from typing import Any
+import pprint
+
+import pyinputplus as pyip
+
+from agentic_synth_data.utils import format_response
 
 # possible TODO: change all parts to the nested format (have to match with all other files that call the same information)
 # TODO: allow for selection of columns of interest
 
 def select_preferences() -> dict[str, Any]:
+    """Initial setup of user preferences.
+
+    Returns:
+        dict[str, Any]: Dictionary of the user's preferences.
+    """
     #cols_of_interest = [] # if empty, all columns should be included
     synthesis_request = {
         # Q: What would you like to use the synthetic data for?
@@ -60,12 +67,10 @@ def select_preferences() -> dict[str, Any]:
 
     # Fill synthesis goal
     # print("What would you like to use the synthetic data for?")
-
     # choice = pyip.inputMenu(["basic generation", "predictive utility"], numbered=True)
     # if choice == "predictive utility":
     #     synthesis_request["synthesis_goal"]["goal"] = "predictive_utility"
     #     print("\nWhich downstream machine learning task are you interested in?")
-        
     #     choice = pyip.inputMenu(["classification", "regression", "survival"], numbered=True) # default none
     #     synthesis_request["synthesis_goal"]["task"] = choice
     #     print("\nWhat is the target column? Select 'auto' if you would like a suggestion.")
@@ -74,13 +79,12 @@ def select_preferences() -> dict[str, Any]:
             # and perfectly type in all column names to be accepted.
         #target = pyip.inputChoice([],"If applicable, what is the target column?") # one entry or auto?
         #synthesis_request["synthesis_goal"]["target_column"] = target 
-
     # Fill data_scope: Assume user wants to use all of the columns in the df uploaded
     #response = pyip.inputYesNo("Are there any columns in the dataset that you would like to exclude from generation?")
         # Q: Which columns should be included?
         # TODO add above questoin as prompt
     #synthesis_request["data_scope"]["selected_columns"] = cols_of_interest
-
+   
     # Fill sample size
     #print("\nWould you like to generate the same amount of samples as the dataset or a fixed number of samples?")
     format_response("Would you like to generate the same amount of samples as the dataset or a fixed number of samples?")
@@ -112,8 +116,6 @@ def select_preferences() -> dict[str, Any]:
     else:
         print(f"\t=> Your data will be generated using {choice}.")
     synthesis_request["generator"] = choice
-    # check that the data generator is available for use (probably ctgan, pategan, and tvae)
-    # check parameter preferences of the user. Depends on generators used/available
         
     # Missing value handling preferences
     print()

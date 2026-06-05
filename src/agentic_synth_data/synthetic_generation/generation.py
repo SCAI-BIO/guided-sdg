@@ -1,12 +1,12 @@
-import pandas as pd
-from dotenv import load_dotenv
-from pydantic import BaseModel
-from typing import Literal, Any
-import pyinputplus as pyip
 from pathlib import Path
 import subprocess as sp
+from typing import Literal, Any
 
+import pandas as pd
+import pyinputplus as pyip
+from dotenv import load_dotenv
 from langgraph.graph.state import CompiledStateGraph
+from pydantic import BaseModel
 
 from agentic_synth_data.prompts.generator_selection import generator_selection_message
 from agentic_synth_data.utils import format_response
@@ -22,9 +22,26 @@ class SelectGenerator(BaseModel):
     warning: list[str]
 
 
-# TODO: add docstring.
-def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict,) -> str:
-    # TODO: fix the number of samples, if specified only generating the number of columns present in the df.
+# TODO: If run_generator fails, for example, plug the error message into the agent and try to
+# have the agent repair the issue.
+def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict[str, Any],) -> str:
+    """Run the selected data generator based on user preferences and agent recommendation.
+
+    Args:
+        data_path (str): Initial path of the data (used to obtain original sample size if 
+                        same_as_original is selected).
+        clean_csv_path (str): Path of the prepared data (ends with "_prepared.csv"). Used as
+                        a basis to generate the synthetic data. This dataset may include the 
+                        following changes:
+                        - Missing value marker replacement with null
+                        - dtype handling
+                        - Missing value handling
+        synthesis_request (dict[str, Any]): Dictionary of the user's preferences, with the 
+                        decided generator.
+
+    Returns:
+        str: Path of the synthetic dataset.                                  
+    """
     mechanism = synthesis_request["generator"]
     # Set sample size
     if synthesis_request["sample_size"]["mode"] == "fixed value":
@@ -72,22 +89,24 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict,) ->
     return str(host_output_path)
 
 
-# TODO: Update docstring
-def select_generator(synthesis_request:dict[str, Any], semantic_types:dict[str, str], agent:CompiledStateGraph, config:dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """Based on the user's preferences and information about the dataset, the agent selects a data generator mechanism.
+# TODO: Expand to parameter selection.
+def select_generator(
+        synthesis_request:dict[str, Any], 
+        semantic_types:dict[str, str], 
+        agent:CompiledStateGraph, 
+        config:dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+    """Based on the user's preferences and information about the dataset, the agent 
+    selects a data generator mechanism.
 
     Args:
-        synthesis_request (pd.DataFrame): 
-                           missing values.
-        synthesis_request (pd.DataFrame): 
-                           missing values.
-        synthesis_request (pd.DataFrame): 
-                synthesis_request (pd.DataFrame):
+        synthesis_request (dict[str, Any]): Dictionary of the user's preferences.
+        semantic_types (dict[str, str]): The semantic dtypes for each column in the dataset.
+        agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
+        config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
 
     Returns:
-        tuple[dict[str, Any], str | None]:
-        - (dict[str, Any]) The synthesis_request (either updated or not).
-        - (str | None) The path of the synthetic data.                                    
+        dict[str, Any]: Synthesis request with updated generator information.                       
     """
     feedback_hist = []
     selected_mechanism = None
@@ -124,26 +143,26 @@ Do not automatically change the generator unless there is a strong reason.
         generation_plan = SelectGenerator.model_validate_json(plan)
 
         print("\nSuggestion:")
-        print(f"Data generator: {generation_plan.generator}")#['generator']}")
+        print(f"Data generator: {generation_plan.generator}")
 
         print("\nPros:")
-        format_response(generation_plan.pros)#['pros'])
+        format_response(generation_plan.pros)
 
         print("\nCons:")
-        format_response(generation_plan.cons)#['cons'])
+        format_response(generation_plan.cons)
 
         print("\nRationale:")
-        format_response(generation_plan.rationale)#['rationale'])
+        format_response(generation_plan.rationale)
 
-        if len(generation_plan.warning) > 0:#["warning"]) > 0:
+        if len(generation_plan.warning) > 0:
             print("\nWarning:")
-            format_response(generation_plan.warning[0])#['warning'][0])
+            format_response(generation_plan.warning[0])
 
         print("\nDo you approve using the suggested generator?\n")
         decision = pyip.inputMenu(["approve", "choose another", "discuss",], numbered=True,)
 
         if decision == "approve":
-            synthesis_request["generator"] = generation_plan.generator#["generator"]
+            synthesis_request["generator"] = generation_plan.generator
             choice_confirmed = True
 
         elif decision == "choose another":
@@ -152,11 +171,13 @@ Do not automatically change the generator unless there is a strong reason.
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
                 )
+            print("\nWaiting for agent response...\n")
             continue
         
         else: # discuss
             feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
             feedback_hist.append(feedback)
+            print("\nWaiting for agent response...\n")
             continue
         
-        return synthesis_request
+    return synthesis_request

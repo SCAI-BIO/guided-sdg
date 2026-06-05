@@ -1,13 +1,13 @@
-import pandas as pd
-import numpy as np
-import pyinputplus as pyip
 from typing import Any, Literal
 
+import pandas as pd
+import numpy as np
+from pydantic import RootModel
+import pyinputplus as pyip
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
 
-from pydantic import RootModel
 
 class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]]):
     pass

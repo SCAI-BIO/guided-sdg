@@ -1,7 +1,9 @@
+from typing import Hashable
+
 import pandas as pd
 import numpy as np
 import pyinputplus as pyip
-from typing import Hashable
+
 
 # TODO: Add when df is saved and updated (print statement)
 def missing_value_precheck(df:pd.DataFrame) -> tuple[
