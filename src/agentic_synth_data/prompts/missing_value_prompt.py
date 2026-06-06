@@ -10,9 +10,8 @@ def missing_value_prompt(
     return f"""
 Current workflow step: missing value handling only.
 
-Do not call tools.
-Do not proceed to synthesis.
 Return exactly one valid JSON object.
+Do not write prose outside the JSON.
 
 
 You must use this exact flat schema.

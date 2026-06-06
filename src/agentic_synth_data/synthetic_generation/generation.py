@@ -89,10 +89,79 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict[str,
     return str(host_output_path)
 
 
+def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
+    """Prior to selecting the generator, view correlations and summary statistics 
+    of numeric columns, which could help to inform data generator choice.
+
+    Args:
+        dtype_df (pd.DataFrame): The dataframe after dtype handling (dtype_handled_df).
+
+    Returns:
+        dict[str, Any]: A dictionary with the following information:
+            - The shape of the dataframe (no row removal up to this point).
+            - The number of unique values per column.
+            - Numeric columns:
+                - Summary statistics (including skew).
+                - Correlation.
+                - Correlation method.
+    """
+    # TODO: Add a warning about summary statistics for non local models.
+    # TODO: Add more metrics for categorical columns.
+    df = dtype_df.copy()
+    col_profiles = {}
+    shape = df.shape
+
+    for col in df.columns:
+        col_profiles[col] = {
+            "n_unique": df[col].nunique(dropna=False),
+        }
+    
+    num_df = df.select_dtypes(include="number")
+
+    if num_df.empty:  
+        return {
+            "shape": shape,
+            "col_nunique": col_profiles,
+            "num_summary": None,
+            "num_corr": None,
+            "corr_method": None,
+        }
+
+    # Select summary statistics (including skew)
+    num_summary = num_df.describe()
+    num_summary.loc["skew"] = num_df.skew().values
+    #stats.loc["kurt"] = num_df.kurtosis().values # from initial, not fully necessary
+
+    print("\nNumeric value summary statistics:")
+    print(num_summary)
+
+    # Select correlations (Pearson or Spearman)
+    # NOTE: could decide on the percentage of highly skewed columns
+    if num_df.skew().abs().max() > 2:
+        corr_method = "spearman"
+    else:
+        corr_method = "pearson"
+
+    num_corr = num_df.corr(method=corr_method, numeric_only=True)
+
+    print(f"\nCorrelation ({corr_method}):")
+    print(num_corr)
+
+    profile = {
+        "shape": shape,
+        "col_nunique": col_profiles,
+        "num_summary": num_summary,
+        "num_corr": num_corr,
+        "corr_method": corr_method,
+    }
+    return profile
+
+
 # TODO: Expand to parameter selection.
 def select_generator(
         synthesis_request:dict[str, Any], 
-        semantic_types:dict[str, str], 
+        semantic_types:dict[str, str],
+        profile:dict[str, Any],
         agent:CompiledStateGraph, 
         config:dict[str, dict[str, Any]],
     ) -> dict[str, Any]:
@@ -112,8 +181,14 @@ def select_generator(
     selected_mechanism = None
     choice_confirmed = False
 
+    format_response("Agent is coming up with a generator suggestion based on your preferences, the dataset's semantic types, the cardinality of the columns, and potential summary statistics and correlations...") 
+
     while not choice_confirmed:
-        message = generator_selection_message(synthesis_request=synthesis_request, semantic_types=semantic_types,)
+        message = generator_selection_message(
+            synthesis_request=synthesis_request, 
+            semantic_types=semantic_types,
+            profile=profile
+        )
 
         if selected_mechanism is not None:
             message += f"""
@@ -123,11 +198,10 @@ The following generator is being considered:
 Give pros, cons, rationale, and warnings for this selected generator.
 Do not automatically change the generator unless there is a strong reason.
 """
-        
         if feedback_hist:
             message += "\n\nUser feedback so far:\n" + "\n".join(feedback_hist)
 
-        response = agent.invoke(
+        raw_response = agent.invoke(
             {
                 "messages": [
                     {
@@ -139,7 +213,13 @@ Do not automatically change the generator unless there is a strong reason.
             config=config
         )
 
-        plan = response['messages'][-1].content.split("</think>")[1].replace("\n", "")
+        response = raw_response["messages"][-1].content
+        
+        if "</think>" in response:
+            plan = response.split("</think>")[1].replace("\n", "")
+        else:
+            plan = response.strip()
+
         generation_plan = SelectGenerator.model_validate_json(plan)
 
         print("\nSuggestion:")

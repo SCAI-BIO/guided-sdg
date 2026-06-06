@@ -12,7 +12,7 @@ from agentic_synth_data.prompts.stype_prompt import semantic_type_message
 class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]]):
     pass
 
-#report = MissingHandling.model_validate_json(response.content)
+
 def semantic_type_profile(df:pd.DataFrame) -> dict[str, dict[str, Any]]:
     """Create a profile for each column in the dataframe for the agent to use in 
     inferring the semantic types of each column.
@@ -32,13 +32,13 @@ def semantic_type_profile(df:pd.DataFrame) -> dict[str, dict[str, Any]]:
     for col in df.columns:
         profiles[col] = {
             "dtype": str(df[col].dtype),
-            "unique_values": df[col].value_counts(dropna=False).head().to_dict(),
+            "unique_values": df[col].value_counts(dropna=False).head(15).to_dict(),
             "n_unique": df[col].nunique(dropna=False),
         }
     return profiles
 
-
-def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> dict[str, str]:
+# Semantic type dict type channge to literal
+def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]:
     """Determine the semantic type of each column in a dataframe by:
     1. Making a profile for each column (dtype, unique non null values and 
        their counts, and total number of non null unique values).
@@ -80,7 +80,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
 
     # 2. Agent infers the semantic type of columns based on their profile.
     print("\nAgent is analyzing column data types, unique values, and value distributions to infer semantic types...")
-    inference = agent.invoke(
+    raw_inference = agent.invoke(
         {
             "messages": [
                 {
@@ -91,13 +91,19 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
         },
         config=config,
     )
-
-    plan = inference['messages'][-1].content.split("</think>")[1].replace("\n", "")
-    #print(plan) # Sometimes the agent doesn't format responses appropriately
+    response = raw_inference["messages"][-1].content
+    
+    if "</think>" in response:
+        plan = response.split("</think>")[1].replace("\n", "")
+    else:
+        plan = response.strip()
+        
     semantic_types = STypeInference.model_validate_json(plan).root
-    #semantic_types = json.loads(plan)
 
-    # TODO:Include more formal checks that each column is accounted for.
+    # TODO:Include more formal checks that each column is accounted for:
+    # - Output must match existing column names
+    # - Existing column count must match
+    # NOTE: No issues have been observed with this, but good to keep an eye out for.
     print("\nDetected semantic types for each column:")
     print("Note: Supported types are Integer, Float, Boolean, Categorical, and Ordinal.")
     print()
@@ -153,7 +159,7 @@ def prepare_for_syndat(
     real = real_df.copy()
     synth = synthetic_df.copy()
 
-    # same columns/order
+    # Same columns/order
     synth = synth[real.columns]
 
     for col in real.columns:

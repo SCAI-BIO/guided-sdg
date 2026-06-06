@@ -236,7 +236,7 @@ def handle_missing_values(
                 else:
                     current_prompt = missing_feedback(prompt, feedback)
                     print("Waiting for agent response...")
-                plan = agent.invoke(
+                raw_plan = agent.invoke(
                     {
                         "messages": [
                             {
@@ -247,7 +247,14 @@ def handle_missing_values(
                     },
                     config=config,
                 )
-                plan = plan['messages'][-1].content.split("</think>")[1].replace("\n", "")
+
+                response = raw_plan["messages"][-1].content
+                
+                if "</think>" in response:
+                    plan = response.split("</think>")[1].replace("\n", "")
+                else:
+                    plan = response.strip()
+                
                 missing_plan = MissingHandling.model_validate_json(plan)
 
                 updated_plan = {

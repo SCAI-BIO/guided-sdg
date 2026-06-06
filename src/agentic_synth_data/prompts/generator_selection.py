@@ -1,13 +1,12 @@
 from typing import Any
 
+import pandas as pd
 
-# TODO: add more informatiion
-# should use size of the reference dataset, 
-# how many unique values present in each column, 
-# possibly summary statistics for numerical cols
+
 def generator_selection_message(
     synthesis_request: dict[str, Any], 
     semantic_types: dict[str, str],
+    profile:dict[str, Any],
   ) -> str:
   return f"""
 Current workflow step: generator selection.
@@ -19,19 +18,32 @@ Do not include ```json.
 Do not include trailing commas.
 Do not include null.
 
-Allowed mechanisms:
-- PATEGAN
-- CTGAN
-- BayesianNet
-- PrivBayes
+Initial dataset shape: {profile["shape"]}.
+Use the following information to select a data generator:
 
-Current synthesis request:
+Current synthesis request (also indicates desired synthetic row count):
 {synthesis_request}
 
 Semantic types:
 {semantic_types}
 
-Selection rules:
+Unique values per column: 
+{profile['col_nunique']}
+
+Summary statistics for numeric columns:
+{profile['num_summary']}
+
+Correlation method: {profile['corr_method']}
+Correlation for numeric columns:
+{profile['num_corr']}
+
+Allowed generators:
+- PATEGAN
+- CTGAN
+- BayesianNet
+- PrivBayes
+
+General selection rules:
 - If synthesis_request["generator"]["name"] is not "auto", use that generator:
 - If privacy mode is differentially_private:
   - mostly categorical data: PrivBayes
@@ -61,7 +73,3 @@ JSON format:
   "warning": []
 }}
 """
-
-# TODO: Add explicit pros and cons given the dataset characteristics given agent AND user choices.
-#- [ ] generator prompt: ask for a structured output and gather (generator, 
-#  pros, cons, rationale given the dataset, etc.)

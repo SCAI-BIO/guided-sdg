@@ -16,7 +16,7 @@ from agentic_synth_data.dataset_preparation.metadata_formatting import format_js
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.preference_setup import select_preferences
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
-from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator
+from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator, generator_profile
 from agentic_synth_data.utils import format_response
 
 
@@ -145,8 +145,9 @@ class DataGen:
         print("\n\n")
         print("="*25+"[STEP: Select data generator]"+"="*25)
         print()
-        format_response("Agent is coming up with a generator suggestion based on your preferences and the dataset's semantic types...")
-        self.synthesis_request = select_generator(synthesis_request=self.synthesis_request, semantic_types=self.semantic_types, agent=self.agent, config=self.config,)
+        df = self.dtype_handled_df.copy()
+        profile = generator_profile(df)
+        self.synthesis_request = select_generator(synthesis_request=self.synthesis_request, semantic_types=self.semantic_types, profile=profile, agent=self.agent, config=self.config,)
         return self.synthesis_request
 
 

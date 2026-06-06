@@ -61,7 +61,7 @@ def evaluation(
     
     print("\nAgent is evaluating the results...")
     
-    plan = agent.invoke(
+    raw_response = agent.invoke(
         {
             "messages": [
                 {
@@ -73,7 +73,13 @@ def evaluation(
         config=config,
     )
 
-    plan = plan["messages"][-1].content.split("</think>")[1].strip()
+    response = raw_response["messages"][-1].content
+    
+    if "</think>" in response:
+        plan = response.split("</think>")[1].replace("\n", "")
+    else:
+        plan = response.strip()
+    
     eval_plan = json.loads(plan)
 
     print("\nEvaluation:")
@@ -95,18 +101,6 @@ def evaluation(
     }
     # TODO:implement greater communication of results.
     return decision
-
-
-def rerun_path():
-# TODO make a tool for the agent to rerun synthetic data generation method can be expanded to additional steps later.#
-    # - Should allow for user confirmation of the agent's assessments.
-    # - Should allow for the display and editing of steps
-    # - Should finally redirect to previous steps (not sure if confirmations with user are necessary or not when rerun)
-    # NOTE: the report that is generated should be updated stating which step was rerun and update the final report with 
-        # the appended additions to the workflow. 
-        # - Possibly then allow for the agent to make a comparison between both stages and agent suggests which version to keep
-        # (this would likely be good to update the final report with)
-    pass
 
 
 def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, Any], data_path: str) -> None:

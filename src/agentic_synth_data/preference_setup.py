@@ -101,7 +101,7 @@ def select_preferences() -> dict[str, Any]:
     
     # possible TODO: incorporate an option to for user to input a fraction of the dataset.
 
-    response = pyip.inputYesNo("\nAre you interested in differential privacy?")
+    response = pyip.inputYesNo("\nAre you interested in differential privacy?\n")
     if response == "yes":
         synthesis_request["privacy"]["mode"] = "differential_privacy"
         # TODO: check if there are any sensitive columns (what is a way to include columns that is not cumbesome?)
