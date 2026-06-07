@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
-from agentic_synth_data.prompts.generator_selection import generator_selection_message
+from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message
 from agentic_synth_data.utils import format_response
 
 load_dotenv()
@@ -181,6 +181,7 @@ def select_generator(
     selected_mechanism = None
     choice_confirmed = False
 
+    print()
     format_response("Agent is coming up with a generator suggestion based on your preferences, the dataset's semantic types, the cardinality of the columns, and potential summary statistics and correlations...") 
 
     while not choice_confirmed:

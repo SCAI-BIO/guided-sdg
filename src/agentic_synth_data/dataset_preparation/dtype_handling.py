@@ -182,7 +182,7 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
             df[col] = df[col].astype("string")
         # Possibly could set errors to default (raise), but would have to try to handle this.
         elif found_dtype == "int64":
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("int64")
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64") # NOTE: Will likely have to change dtype prior to eval
         elif found_dtype == "float64":
             df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
     
@@ -225,3 +225,15 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
     print(df.dtypes)
     py_dtypes = df.dtypes.astype(str).to_dict()
     return df, py_dtypes
+
+
+# def eval_change_dtypes(df):
+#     for col in df.columns:
+#     found_dtype = infer_dtype(df[col])
+#     if found_dtype == "string":
+#         df[col] = df[col].astype("string")
+#     # Possibly could set errors to default (raise), but would have to try to handle this.
+#     elif found_dtype == "int64":
+#         df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64") # NOTE: Will likely have to change dtype prior to eval
+#     elif found_dtype == "float64":
+#         df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
