@@ -4,14 +4,11 @@ from typing import Literal, Any
 
 import pandas as pd
 import pyinputplus as pyip
-from dotenv import load_dotenv
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
-from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message
-from agentic_synth_data.utils import format_response
-
-load_dotenv()
+from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
+from agentic_synth_data.utils import format_response, extract_output, parse_json
 
 
 class SelectGenerator(BaseModel):
@@ -192,13 +189,8 @@ def select_generator(
         )
 
         if selected_mechanism is not None:
-            message += f"""
-The following generator is being considered:
-{selected_mechanism}
+            message += generator_review_message(selected_mechanism)
 
-Give pros, cons, rationale, and warnings for this selected generator.
-Do not automatically change the generator unless there is a strong reason.
-"""
         if feedback_hist:
             message += "\n\nUser feedback so far:\n" + "\n".join(feedback_hist)
 
@@ -211,17 +203,12 @@ Do not automatically change the generator unless there is a strong reason.
                     }
                 ]
             },
-            config=config
+            config=config,
         )
 
-        response = raw_response["messages"][-1].content
-        
-        if "</think>" in response:
-            plan = response.split("</think>")[1].replace("\n", "")
-        else:
-            plan = response.strip()
+        plan = extract_output(raw_message=raw_response)
 
-        generation_plan = SelectGenerator.model_validate_json(plan)
+        generation_plan = parse_json(plan=plan, model_cls=SelectGenerator, agent=agent, config=config) # TODO: check more extensively
 
         print("\nSuggestion:")
         print(f"Data generator: {generation_plan.generator}")

@@ -26,6 +26,10 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
 
     for col in df.columns:
         semantic_type = semantic_types[col]
+        
+        if semantic_type == "Boolean":
+            semantic_type = "Categorical"
+
         if semantic_type in ["Categorical", "Ordinal"]:
             values = sorted(df[col].dropna().astype(str).unique().tolist())
 
@@ -44,7 +48,7 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
                 "max": float(df[col].max())
                 })
 
-        elif semantic_type in ["Integer", "Boolean"]:
+        elif semantic_type == "Integer":
             columns.append({
                 "name": col,
                 "type": "Integer",

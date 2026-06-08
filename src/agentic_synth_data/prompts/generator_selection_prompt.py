@@ -1,7 +1,5 @@
 from typing import Any
 
-import pandas as pd
-
 
 def generator_selection_message(
     synthesis_request: dict[str, Any], 
@@ -72,4 +70,14 @@ JSON format:
   "rationale": "Briefly describe the choice in the context of the dataset.",
   "warning": []
 }}
+"""
+
+
+def generator_review_message(selected_mechanism):
+  return f"""
+The following generator is being considered:
+{selected_mechanism}
+
+Give pros, cons, rationale, and warnings for this selected generator.
+Do not automatically change the generator unless there is a strong reason.
 """

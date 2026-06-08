@@ -8,7 +8,7 @@ import numpy as np
 from langgraph.graph.state import CompiledStateGraph
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
-from agentic_synth_data.utils import format_response
+from agentic_synth_data.utils import format_response, extract_output
 from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
 
 
@@ -42,10 +42,11 @@ def evaluation(
     jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
     print("Jenson-Shannon Distances:")
-    pprint.pprint(jsd_results)
+    for col, jsd_score in jsd_results.items():
+        print(col, jsd_score)
     print()
 
-    norm_corr_diff = normalized_correlation_difference(real=real_df, synthetic=synthetic_df)
+    norm_corr_diff = normalized_correlation_difference(real=real_df, synthetic=synthetic_df, ignore_cat=True)
     print(f"\nNormalized correlation difference: {norm_corr_diff}")
 
     discrim_auc = discriminator_auc(real=real_df, synthetic=synthetic_df)
@@ -73,12 +74,7 @@ def evaluation(
         config=config,
     )
 
-    response = raw_response["messages"][-1].content
-    
-    if "</think>" in response:
-        plan = response.split("</think>")[1].replace("\n", "")
-    else:
-        plan = response.strip()
+    plan = extract_output(raw_response)
     
     eval_plan = json.loads(plan)
 
@@ -112,42 +108,54 @@ def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, 
         data_path (str): Initial path of the data (used for naming the report).
     """
     data_name = Path(data_path).stem
-    output_filename = f"report_{data_name}.txt"
+    output_filename = f"report_{data_name}.md"
     output_path = Path("../output") / output_filename
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write("SYNTHETIC DATA GENERATION REPORT\n")
-        f.write("=" * 60 + "\n\n")
+        f.write("# SYNTHETIC DATA GENERATION REPORT\n")
 
-        f.write("Input Dataset:\n")
-        f.write(f"Path: {report['input']['path']}\n")
-        f.write(f"Original shape: {report['input']['original_shape']}\n")
-        f.write(f"Prepared shape: {report['input']['prepared_shape']}\n\n")
+        f.write("## Input Dataset:\n")
+        f.write(f"- Path: {report['input']['path']}\n")
+        f.write(f"- Original shape: {report['input']['original_shape']}\n")
+        f.write(f"- Prepared shape: {report['input']['prepared_shape']}\n\n")
 
-        f.write("Preprocessing:\n")
+        f.write("## Preprocessing:\n")
         f.write("Missing Value Detection\n")
-        f.write(f"Detected markers:\n")
+        f.write("Detected markers:\n")
+        f.write("```python\n")
         pprint.pprint(report["prep"]["missing_markers"]["detected"], stream=f, sort_dicts=False,)
 
-        f.write("\nReplaced markers:\n")
+        f.write("\n Replaced markers:\n")
+        f.write("```python\n")
         pprint.pprint(report["prep"]["missing_markers"]["replaced"], stream=f, sort_dicts=False,)
+        f.write("```\n")
 
-        f.write("\n\nPython data types\n")
+        f.write("\n\n### Python data types\n")
+        f.write("```python\n")
         pprint.pprint(report["prep"]["dtypes"], stream=f, sort_dicts=False)
+        f.write("```\n")
 
-        f.write("\n\nSemantic data types\n")
+        f.write("\n\n### Semantic data types\n")
+        f.write("```python\n")
         pprint.pprint(report["prep"]["stypes"], stream=f, sort_dicts=False)
+        f.write("```\n")
 
-        f.write("\n\nMissing Value Handling\n")
+        f.write("\n\n### Missing Value Handling\n")
+        f.write("```python\n")
         pprint.pprint(report["prep"]["missing_handling"], stream=f, sort_dicts=False,)
+        f.write("```\n")
 
-        f.write("\n\nGeneration:\n")
+        f.write("\n\n### Generation:\n")
         f.write(f"Chosen generator: {synthesis_request["generator"]}\n")
         f.write(f"Prepared dataset: {report['gen']['prep_path']}\n")
         f.write(f"Synthetic dataset: {report['gen']['synth_path']}\n")
         f.write(f"Synthetic shape: {report['gen']['synth_shape']}\n")
 
-        f.write("\n\nEvaluation\n")
+        f.write("\n\n### Evaluation\n")
+        f.write("```python\n")
         pprint.pprint(report["eval"]["jsd"], stream=f, sort_dicts=False)
+        f.write("```\n")
 
         f.write("\nConclusion\n")
+        f.write("```python\n")
         pprint.pprint(report["eval"]["recommendation"], stream=f, sort_dicts=False,)
+        f.write("```\n")

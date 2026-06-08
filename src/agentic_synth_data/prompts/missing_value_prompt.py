@@ -55,8 +55,9 @@ Allowed numerical_strategy values:
  - most_frequent
 
 Rules:
- - If any setting has "auto", this indicates the user wants your help to determine the optimal settings to use.
- - If mode is "impute", fill in the categorical and numerical strategy, otherwise they should be empty.
+ - If any setting has "auto", this indicates that you must determine the optimal settings to use.
+ - IMPORTANT: If mode is "impute", BOTH categorical AND numerical strategies CANNOT be empty.
+    - If mode is not "impute", categorical and numerical strategy must be empty.
  - If the mode value has a key of the same name (impute, threshold), all entries within that key must be filled.
  - If there are no missing values, recommend mode "remove" and explain that no rows will be removed.
  - If few rows have missing values, recommend "remove".

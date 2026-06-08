@@ -8,7 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 from sklearn.impute import SimpleImputer
 
-from agentic_synth_data.utils import format_response
+from agentic_synth_data.utils import format_response, extract_output, parse_json
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 
 
@@ -247,15 +247,10 @@ def handle_missing_values(
                     },
                     config=config,
                 )
+                
+                plan = extract_output(raw_plan)
 
-                response = raw_plan["messages"][-1].content
-                
-                if "</think>" in response:
-                    plan = response.split("</think>")[1].replace("\n", "")
-                else:
-                    plan = response.strip()
-                
-                missing_plan = MissingHandling.model_validate_json(plan)
+                missing_plan = parse_json(plan=plan, model_cls=MissingHandling, agent=agent, config=config)
 
                 updated_plan = {
                     "mode": missing_plan.mode,
@@ -269,10 +264,14 @@ def handle_missing_values(
 
                 print("\nSuggested plan:")
                 print(f"- Mode: {updated_plan['mode']}")
-                print(f"- Threshold: {updated_plan['set_threshold']}")
-                print(f"- Imputation method: {updated_plan['imputation_method']}")
-                print(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
-                print(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
+                if updated_plan["set_threshold"] is not None:
+                    print(f"- Threshold: {updated_plan['set_threshold']}")
+                if updated_plan["imputation_method"] is not None:
+                    print(f"- Imputation method: {updated_plan['imputation_method']}")
+                if updated_plan["categorical_strategy"] is not None:
+                    print(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
+                if updated_plan["numerical_strategy"]:
+                    print(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
                 
                 if len(updated_plan["warning"]) > 0:
                     print("\nWarning:")

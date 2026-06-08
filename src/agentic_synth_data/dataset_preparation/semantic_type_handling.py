@@ -7,6 +7,7 @@ import pyinputplus as pyip
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
+from agentic_synth_data.utils import extract_output, parse_json
 
 
 class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]]):
@@ -91,14 +92,10 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
         },
         config=config,
     )
-    response = raw_inference["messages"][-1].content
     
-    if "</think>" in response:
-        plan = response.split("</think>")[1].replace("\n", "")
-    else:
-        plan = response.strip()
-        
-    semantic_types = STypeInference.model_validate_json(plan).root
+    plan = extract_output(raw_inference)
+
+    semantic_types = parse_json(plan=plan, model_cls=STypeInference, agent=agent, config=config, root=True) # TODO: check more extensively
 
     # TODO:Include more formal checks that each column is accounted for:
     # - Output must match existing column names
