@@ -2,12 +2,13 @@ import textwrap
 from typing import Optional
 
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel
 
 
 def format_response(text:str):
     print(textwrap.fill(text, width=100))
 
+
+# TODO: Move to prompts/
 def json_repair_prompt(error, plan, model_cls):
     return f"""
 The previous response could not be parsed as valid JSON.
@@ -21,6 +22,8 @@ Invalid response:
 Return exactly one valid JSON object matching this schema:
 {model_cls.model_json_schema()}
 
+Do not include ```json.
+Do not include trailing commas.
 No markdown.
 No explanation outside JSON.
 """

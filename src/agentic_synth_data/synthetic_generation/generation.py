@@ -129,7 +129,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
     num_summary.loc["skew"] = num_df.skew().values
     #stats.loc["kurt"] = num_df.kurtosis().values # from initial, not fully necessary
 
-    print("\nNumeric value summary statistics:")
+    print("Numeric value summary statistics:")
     print(num_summary)
 
     # Select correlations (Pearson or Spearman)
@@ -232,6 +232,7 @@ def select_generator(
         if decision == "approve":
             synthesis_request["generator"] = generation_plan.generator
             choice_confirmed = True
+            print(f"\n=> {generation_plan.generator} has been approved.")
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(

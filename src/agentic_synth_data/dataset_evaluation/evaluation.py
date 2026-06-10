@@ -41,16 +41,16 @@ def evaluation(
     generator_used = synthesis_request["generator"]
     jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
-    print("Jenson-Shannon Distances:")
+    print("\nJenson-Shannon Distances:")
     for col, jsd_score in jsd_results.items():
-        print(col, jsd_score)
+        print(col, round(jsd_score, 4))
     print()
 
     norm_corr_diff = normalized_correlation_difference(real=real_df, synthetic=synthetic_df, ignore_cat=True)
-    print(f"\nNormalized correlation difference: {norm_corr_diff}")
+    print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
 
     discrim_auc = discriminator_auc(real=real_df, synthetic=synthetic_df)
-    print(f"\nDiscriminator AUC: {discrim_auc}")
+    print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
 
     prompt = evaluation_prompt(
         synthesis_request=synthesis_request, 
