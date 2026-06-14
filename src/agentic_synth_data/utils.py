@@ -1,38 +1,33 @@
 import textwrap
-from typing import Optional
+from typing import Optional, Type
 
+from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
+
+from agentic_synth_data.prompts.system_prompt import json_repair_prompt
 
 
 def format_response(text:str):
     print(textwrap.fill(text, width=100))
 
 
-# TODO: Move to prompts/
-def json_repair_prompt(error, plan, model_cls):
-    return f"""
-The previous response could not be parsed as valid JSON.
-
-Error:
-{error}
-
-Invalid response:
-{plan}
-
-Return exactly one valid JSON object matching this schema:
-{model_cls.model_json_schema()}
-
-Do not include ```json.
-Do not include trailing commas.
-No markdown.
-No explanation outside JSON.
-"""
-
-# TODO update typing and docstring
-def parse_json(plan, model_cls, agent:Optional[CompiledStateGraph], config:dict, root:bool=False):
+def parse_json(
+        plan:str, model_cls:Type[BaseModel], agent:Optional[CompiledStateGraph], config:dict, root:bool=False
+        ) -> BaseModel:
     """If agent fails to correctly format JSON response, prompts to 
-    try again."""
-    if root: # semantic type handling follows a diffrent structure from other steps
+    try again.
+
+    Args:
+        plan (str): The agent output.
+        model_cls (Type[BaseModel]): Pydantic model class used to validate JSON response.
+        agent (Optional[CompiledStateGraph]): LangGraph agent.
+        config (dict): Configuration passed to the agent during invocation.
+        root (bool, optional): Indicates whether in semantic_type_handling (True) or not. Defaults to False.
+
+    Returns:
+        BaseModel: Validated instance of the given Pydantic model.
+    """
+    if root: # semantic_type_handling follows a different structure than the other steps
         try:
             return model_cls.model_validate_json(plan).root
 
@@ -84,10 +79,15 @@ def parse_json(plan, model_cls, agent:Optional[CompiledStateGraph], config:dict,
             return model_cls.model_validate_json(repaired_plan)
     
 
-# TODO update typing and docstring
-def extract_output(raw_message):
-    """Extract content from the agent's invocation output"""
-    
+def extract_output(raw_message:dict) -> str:
+    """Extract content from the agent's invocation output
+
+    Args:
+        raw_message (dict): Raw agent invocation output.
+
+    Returns:
+        str: Agent message.
+    """
     response = raw_message["messages"][-1].content
     
     if "</think>" in response:

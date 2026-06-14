@@ -1,29 +1,70 @@
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Literal
 import pprint
 import json
 
 import pandas as pd
 import numpy as np
+from pydantic import BaseModel, Field
 from langgraph.graph.state import CompiledStateGraph
+import pyinputplus as pyip
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
-from agentic_synth_data.utils import format_response, extract_output
+from agentic_synth_data.utils import format_response, extract_output, parse_json
 from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
 
 
-# possible TODO: hardcoding a threshold to limit the chance that the agent hallucinates information.
+class AgentEval(BaseModel):
+    status: Literal["satisfactory", "needs review", "not satisfactory"]
+    problem_columns: list[str] = Field(default_factory=list)
+    recommendation: str
+    rationale: str
+
+
+def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
+    """Calculate metrics comparing the original dataframe (optionally, with missing value markers removed)
+    with the synthetic dataframe.
+
+    Calculates SYNDAT metrics:
+    - Jenson-Shannon Distance
+    - Normalized Correlation Difference
+    - Discriminator AUC
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+
+    Returns:
+        dict: The decision plan based on the agent's assessment.
+    """
+    jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
+    
+    print("\nJenson-Shannon Distances:")
+    for col, jsd_score in jsd_results.items():
+        print(col, round(jsd_score, 4))
+    
+    norm_corr_diff = normalized_correlation_difference(real=real_df, synthetic=synthetic_df, ignore_cat=True)
+    print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
+
+    discrim_auc = discriminator_auc(real=real_df, synthetic=synthetic_df)
+    print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
+
+    return {
+        "jsd": jsd_results,
+        "norm_corr_diff": norm_corr_diff,
+        "discrim_auc": discrim_auc,
+    }
+
+
 def evaluation(
-        real_df:pd.DataFrame, 
-        synthetic_df:pd.DataFrame, 
         synthesis_request:dict[str, Any],
+        metrics:dict[str, Any],
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
         ) -> dict:
-    """SYNDAT metrics are calculated (Jenson-Shannon Distance, Normalized Correlation Difference,
-    Discriminator AUC) for the synthetic dataset, which the agent then evaluates and determines
-    whether or not additional steps are needed, and possible alternative choices that could be
-    pursued to improve results (if necessary). 
+    """The agent evaluates the synthetic dataset using calculated metrics.
 
     Args:
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
@@ -36,29 +77,9 @@ def evaluation(
         config (dict | None, optional): Configuration passed to the agent during invocation. Defaults to None.
 
     Returns:
-        dict: _description_
+        dict: The decision plan based on the agent's assessment.
     """
-    generator_used = synthesis_request["generator"]
-    jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
-    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
-    print("\nJenson-Shannon Distances:")
-    for col, jsd_score in jsd_results.items():
-        print(col, round(jsd_score, 4))
-    print()
-
-    norm_corr_diff = normalized_correlation_difference(real=real_df, synthetic=synthetic_df, ignore_cat=True)
-    print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
-
-    discrim_auc = discriminator_auc(real=real_df, synthetic=synthetic_df)
-    print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
-
-    prompt = evaluation_prompt(
-        synthesis_request=synthesis_request, 
-        generator_used=generator_used,
-        jsd_results=jsd_results,
-        norm_corr_diff=norm_corr_diff,
-        discrim_auc=discrim_auc,
-        )
+    prompt = evaluation_prompt(synthesis_request=synthesis_request, metrics=metrics,)
     
     print("\nAgent is evaluating the results...")
     
@@ -75,28 +96,70 @@ def evaluation(
     )
 
     plan = extract_output(raw_response)
+
+    eval_plan = parse_json(plan, AgentEval, agent, config)
     
-    eval_plan = json.loads(plan)
-
     print("\nEvaluation:")
-    print(f"- Status: {eval_plan['status']}")
-    print(f"- Problem columns: {eval_plan['problem_columns']}")
+    print(f"- Status: {eval_plan.status}")
+    if len(eval_plan.problem_columns) > 0:
+        print(f"- Problem columns: {eval_plan.problem_columns}")
     print(f"- Recommendation:")
-    format_response(eval_plan["recommendation"])
+    format_response(eval_plan.recommendation)
     print("- Rationale:")
-    format_response(eval_plan["rationale"])
-
+    format_response(eval_plan.rationale)
+    
     decision = {
-    "status": eval_plan['status'],
-    "jsd": jsd_results,
-    "norm_corr_diff": norm_corr_diff,
-    "discrim_auc": discrim_auc,
-    "problem_columns": eval_plan['problem_columns'],
-    "recommendation": eval_plan["recommendation"],
-    "rationale": eval_plan["rationale"],
+        "status": eval_plan.status,
+        "problem_columns": eval_plan.problem_columns,
+        "recommendation": eval_plan.recommendation,
+        "rationale": eval_plan.rationale,
     }
-    # TODO:implement greater communication of results.
     return decision
+
+
+def evaluation_review(
+        eval_decision:dict[str, Any], 
+        agent:Optional[CompiledStateGraph] | None = None, 
+        config:dict | None = None
+        ) -> str:
+    """User asks questions about agent's assessment/discusses details to focus on."""
+    confirm = pyip.inputYesNo("\nDo you have questions about the evaluation results?\n")
+    
+    while confirm == "yes":
+        response = pyip.inputStr("\nEnter your question/concern:\n")
+        prompt = f"""
+You are answering a question about the synthetic data evaluation notes.
+
+Evaluation results:
+{json.dumps(eval_decision, indent=2)}
+
+User question:
+{response}
+
+Answer in plain text only.
+
+Answer the user's question using the evaluation results.
+"""
+        raw_response = agent.invoke(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ]
+            },
+            config=config,
+        )
+
+        format_response(extract_output(raw_response))
+
+        confirm = pyip.inputYesNo("\nDo you have another question?\n")
+
+    print(f"\nWorkflow result status: {eval_decision['status']}")
+    choice = pyip.inputMenu(["finish", "revise"], "\nWould you like to finish or revise the workflow?\n", numbered=True)
+    
+    return choice
 
 
 def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, Any], data_path: str) -> None:
@@ -145,7 +208,7 @@ def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, 
         f.write("```\n")
 
         f.write("\n\n### Generation:\n")
-        f.write(f"Chosen generator: {synthesis_request["generator"]}\n")
+        f.write(f"Chosen generator: {synthesis_request['generator']}\n")
         f.write(f"Prepared dataset: {report['gen']['prep_path']}\n")
         f.write(f"Synthetic dataset: {report['gen']['synth_path']}\n")
         f.write(f"Synthetic shape: {report['gen']['synth_shape']}\n")

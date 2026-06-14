@@ -55,26 +55,6 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     Returns:
         dict[str, str]: Semantic types (value) assigned to each column (key).
     """
-    # Manual semantic type inference based purely on dtype.
-    # possible TODO: incorporate this as a manual way to gather semantic types.
-        # Something like this (removing the df editing)
-    # choice = pyip.inputMenu(["Auto", "Manual"], numbered=True)
-    # if choice == "Manual":
-    #     semantic_types = {}
-    #     for col in df:
-    #         if pd.api.types.is_integer_dtype(df[col]):
-    #             semantic_types[col] = "Integer"
-    #         elif pd.api.types.is_float_dtype(df[col]):
-    #             semantic_types[col] = "Float"
-    #         elif pd.api.types.is_string_dtype(df[col]):
-    #             df[col] = df[col].astype("category")
-    #             semantic_types[col] = "Categorical"
-
-    #     print("\nView of the rudimentary semantic types found for each column:")
-    #     print("\nNote: Integer, Float, Categorical, and Ordinal are supported types.")
-    #     for col in df.columns:
-    #         print(f"{col}: {semantic_types[col]}")
-
     # 1. Make a profile of the semantic types of each column.
     profiles = semantic_type_profile(df)
     prompt = semantic_type_message(profiles)

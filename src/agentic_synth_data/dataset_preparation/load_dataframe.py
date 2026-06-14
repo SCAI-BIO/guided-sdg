@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def load_df(data_path:str) -> pd.DataFrame:#, selected_columns:list) -> pd.DataFrame:
+def load_df(data_path:str) -> pd.DataFrame:
     """Load a dataset file into a pandas DataFrame.
 
     Args:
@@ -19,16 +19,10 @@ def load_df(data_path:str) -> pd.DataFrame:#, selected_columns:list) -> pd.DataF
 
     for sep in [",", "\t", ";", "|"]:
         try:
-            # NOTE: Commented out the check to load only user selected columns.
-            #if len(selected_columns) == 0:
             df = pd.read_csv(data_path, delimiter=sep)
             if df.shape[0] > 1 and df.shape[1] > 1:
                 #print("=> The dataframe was successfully made.")
                 return df
-            # else:
-            #     df = pd.read_csv(data_path, usecols=selected_columns, delimiter=sep)
-            #     if df.shape[0] > 1 and df.shape[1] > 1:
-            #         return df
             
         except Exception:
             continue

@@ -5,8 +5,6 @@ import pyinputplus as pyip
 
 from agentic_synth_data.utils import format_response
 
-# possible TODO: change all parts to the nested format (have to match with all other files that call the same information)
-# TODO: allow for selection of columns of interest
 
 def select_preferences() -> dict[str, Any]:
     """Initial setup of user preferences.
@@ -14,29 +12,10 @@ def select_preferences() -> dict[str, Any]:
     Returns:
         dict[str, Any]: Dictionary of the user's preferences.
     """
-    #cols_of_interest = [] # if empty, all columns should be included
     synthesis_request = {
-        # Q: What would you like to use the synthetic data for?
-        # "synthesis_goal": {
-        #     "goal": "basic_generation",  
-        #     # TODO: change predictive utility to the format below
-        #     # "predictive_utility": {
-        #     #     "task": None, # regression, classification, survival, None
-        #     #     "target_column": None,
-        #     # }
-        #     "task": None,
-        #     "target_column": None,
-        # },
-
-        # Q: Which columns should be included?
-        # Should assume that the user wants to use all columns uploaded.
-        # "data_scope": {
-        #     "selected_columns": cols_of_interest # If empty, all cols
-        #     },
         "sample_size": {
-            # possible TODO: add fraction of the original dataset as an option (non-essential)
-            "mode": None, # fixed_value, fraction, same_as_original
-            "fixed": {
+            "mode": None, # fixed_value, same_as_original
+            "fixed": {# switch to fixed: None (for the value)
                 "value": None,
             },
         },
@@ -46,7 +25,7 @@ def select_preferences() -> dict[str, Any]:
             # "differentially_private": {
             #     "sensitive_columns": [],
             # }
-            "sensitive_columns": [],
+            "sensitive_columns": [], # look into how sensitive columns are added for example
         },
         "generator": {
             "name": None, # auto, CTGAN, PATEGAN, BaysianNet, PrivBayes
@@ -59,34 +38,13 @@ def select_preferences() -> dict[str, Any]:
                 "categorical_strategy": None, # auto, most_frequent, constant
                 "numerical_strategy": None, # auto, mean, median, most_frequent
             },
-            "threshold": {
+            "threshold": {# could also move threshold to be less keys/values
                 "set_threshold": None, # minimum number of missing columns in a sample to disregard
             }
         }
     }
 
-    # Fill synthesis goal
-    # print("What would you like to use the synthetic data for?")
-    # choice = pyip.inputMenu(["basic generation", "predictive utility"], numbered=True)
-    # if choice == "predictive utility":
-    #     synthesis_request["synthesis_goal"]["goal"] = "predictive_utility"
-    #     print("\nWhich downstream machine learning task are you interested in?")
-    #     choice = pyip.inputMenu(["classification", "regression", "survival"], numbered=True) # default none
-    #     synthesis_request["synthesis_goal"]["task"] = choice
-    #     print("\nWhat is the target column? Select 'auto' if you would like a suggestion.")
-        # TODO think about how to include column names in an easier way
-            # I can think of giving an all selection option, but it is very annoying to individually
-            # and perfectly type in all column names to be accepted.
-        #target = pyip.inputChoice([],"If applicable, what is the target column?") # one entry or auto?
-        #synthesis_request["synthesis_goal"]["target_column"] = target 
-    # Fill data_scope: Assume user wants to use all of the columns in the df uploaded
-    #response = pyip.inputYesNo("Are there any columns in the dataset that you would like to exclude from generation?")
-        # Q: Which columns should be included?
-        # TODO add above questoin as prompt
-    #synthesis_request["data_scope"]["selected_columns"] = cols_of_interest
-   
     # Fill sample size
-    #print("\nWould you like to generate the same amount of samples as the dataset or a fixed number of samples?")
     format_response("Would you like to generate the same amount of samples as the dataset or a fixed number of samples?")
 
     choice = pyip.inputMenu(["fixed value", "same as original"], numbered=True) # fixed, same_as_original, fraction_of_original
@@ -98,8 +56,6 @@ def select_preferences() -> dict[str, Any]:
 
         value = pyip.inputInt(min=1)
         synthesis_request["sample_size"]["fixed"]["value"] = value
-    
-    # possible TODO: incorporate an option to for user to input a fraction of the dataset.
 
     response = pyip.inputYesNo("\nAre you interested in differential privacy?\n")
     if response == "yes":

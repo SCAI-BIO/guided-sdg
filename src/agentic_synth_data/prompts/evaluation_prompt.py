@@ -1,11 +1,9 @@
 from typing import Any
 
+
 def evaluation_prompt(
         synthesis_request:dict[str, Any], 
-        generator_used:str, # Already gathered from synthesis request, can be removed.
-        jsd_results:dict,
-        norm_corr_diff:float,
-        discrim_auc:float,
+        metrics:dict[str, Any],
     ) -> str:
     return f"""
 Evaluate whether synthetic data quality is satisfactory.
@@ -18,16 +16,16 @@ Synthesis request:
 {synthesis_request}
 
 Generator used:
-{generator_used}
+{synthesis_request['generator']}
 
 Jensen-Shannon distance results:
-{jsd_results}
+{metrics['jsd']}
 
 Normalized correlation difference:
-{norm_corr_diff}
+{metrics['norm_corr_diff']}
 
 Discriminator AUC: 
-{discrim_auc}
+{metrics['discrim_auc']}
 
 Evaluate whether the synthetic data is satisfactory.
 
@@ -68,6 +66,11 @@ Consider:
 - Whether the selected generator is appropriate for the dataset characteristics.
 - Whether any workflow step should be revisited.
 
+Allowed status:
+- satisfactory
+- needs review
+- not satisfactory
+
 JSON format:
 {{
     "status": "satisfactory",
@@ -76,7 +79,3 @@ JSON format:
     "rationale": "Explain why this status was assigned, referring to average JSD, problem columns, generator fit, and any relevant workflow step."
 }}
 """
-
-# TODO: Add more instruction behind the evaluation.
-# possibly add whether reviisting steps is recommended
-# And specifying where to revisit
