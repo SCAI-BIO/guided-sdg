@@ -10,9 +10,8 @@ def missing_value_prompt(
     return f"""
 Current workflow step: missing value handling only.
 
-Do not call tools.
-Do not proceed to synthesis.
 Return exactly one valid JSON object.
+Do not write prose outside the JSON.
 
 
 You must use this exact flat schema.
@@ -33,6 +32,7 @@ Total rows:
 
 Current synthesis request:
 {synthesis_request}
+ - The synthesis request states the desired number of samples to be generated if fixed is selected (i.e., synthesis_request['sample_size']['fixed']['value']).
 
 Semantic types:
 {semantic_types}
@@ -55,8 +55,9 @@ Allowed numerical_strategy values:
  - most_frequent
 
 Rules:
- - If any setting has "auto", this indicates the user wants your help to determine the optimal settings to use.
- - If mode is "impute", fill in the categorical and numerical strategy, otherwise they should be empty.
+ - If any setting has "auto", this indicates that you must determine the optimal settings to use.
+ - IMPORTANT: If mode is "impute", BOTH categorical AND numerical strategies CANNOT be empty.
+    - If mode is not "impute", categorical and numerical strategy must be empty.
  - If the mode value has a key of the same name (impute, threshold), all entries within that key must be filled.
  - If there are no missing values, recommend mode "remove" and explain that no rows will be removed.
  - If few rows have missing values, recommend "remove".
@@ -75,7 +76,6 @@ JSON format:
     "imputation_method": null,
     "categorical_strategy": "most_frequent",
     "numerical_strategy": "mean",
-    "columns_to_remove": [],
     "warning": [],
     "rationale": "Brief explanation framed by the dataset's information."
 }}
