@@ -8,13 +8,13 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_report
+from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_report, calculate_metrics, evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, prepare_for_syndat
 from agentic_synth_data.dataset_preparation.metadata_formatting import format_json
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
-from agentic_synth_data.preference_setup import select_preferences
+from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator, generator_profile
 from agentic_synth_data.utils import format_response
@@ -23,7 +23,7 @@ from agentic_synth_data.utils import format_response
 class DataGen:
     def __init__(self, data_path):
         self.data_path:str = data_path
-        self.synthesis_request:dict[str, Any] | None = None
+        self.synthesis_request:SynthesisRequest | None = None
         self.python_dtypes: dict[Hashable, str] | None = None
         self.semantic_types: dict[str, str] | None = None
     
@@ -93,7 +93,7 @@ class DataGen:
         """Step 1: Setup source dataframe"""
         #print("\n\n")
         #print("="*25+"[STEP: Create the dataframe]"+"="*25)
-        self.source_df = load_df(self.data_path)#, self.synthesis_request["data_scope"]["selected_columns"])
+        self.source_df = load_df(self.data_path)
         self.report["input"]["original_shape"] = self.source_df.shape
         return self.source_df
     
@@ -157,10 +157,12 @@ class DataGen:
         """
         self.report["prep"]["missing_handling"]["before"] = self.dtype_handled_df.isna().sum().sum()
 
-        mechanism = self.synthesis_request["generator"]
+        mechanism = self.synthesis_request.generator.name
+        
         if mechanism in ["PATEGAN", "CTGAN",]:
             print("\n\n")
             print("="*25+"[STEP: Handle missing values]"+"="*25)
+            
             self.missing_handled_df, self.synthesis_request = handle_missing_values(
                 df=self.dtype_handled_df.copy(), 
                 synthesis_request=self.synthesis_request, 
@@ -168,30 +170,29 @@ class DataGen:
                 agent=self.agent, 
                 config=self.config,
                 )
-            self.prepared_df = self.missing_handled_df
+            
+            self.prepared_df = self.missing_handled_df.copy()
             self.report["input"]["prepared_shape"] = self.prepared_df.shape
-            self.report["prep"]["missing_handling"]["after"] = self.dtype_handled_df.isna().sum().sum()
+            self.report["prep"]["missing_handling"]["after"] = self.missing_handled_df.isna().sum().sum()
+            
             return self.prepared_df, self.synthesis_request
+        
         else:
-            self.prepared_df = self.dtype_handled_df
+            self.prepared_df = self.dtype_handled_df.copy()
             self.report["input"]["prepared_shape"] = self.prepared_df.shape
             self.report["prep"]["missing_handling"]["after"] = self.prepared_df.isna().sum().sum()
 
             print(f"\nThe selected data generator does not require missing value handling: {mechanism}")
 
             # Set back to default
-            miss = self.synthesis_request["missing_value_handling"]
-            if miss["mode"] == "impute":
-                miss["impute"] = None
-                miss["method"] = None
-                miss["numerical_strategy"] = None
-                miss["impute"]["categorical_strategy"] = None
-            
-            elif miss["impute"] == "threshold":
-                miss["threshold"] = None
-                miss["threshold"]["set_threshold"] = None
+            if self.synthesis_request.missing_values.mode == "impute":
+                self.synthesis_request.missing_values.impute = ImputationConfig()
+       
+            elif self.synthesis_request.missing_values.impute == "threshold":
+                self.synthesis_request.missing_values.threshold = None
 
-            miss["mode"] = None
+            self.synthesis_request.missing_values.mode = None
+
             return self.prepared_df, self.synthesis_request
 
 
@@ -253,30 +254,33 @@ class DataGen:
         """Step 6: Evaluate results"""
         print("\n\n")
         print("="*25+"[STEP: Evaluate synthetic data]"+"="*25)
+        synth_df = self.synthetic_df.copy()
         if self.norm_na_df is not None:
             real_df = self.norm_na_df.copy()
         else:
             real_df = self.source_df.copy()
 
-        synth_df = self.synthetic_df.copy()
-
         real_df, synth_df = prepare_for_syndat(real_df=real_df, synthetic_df=synth_df, semantic_types=self.semantic_types)
-       
-        results = evaluation(
-            real_df=real_df,
-            synthetic_df=synth_df,
+        
+        metrics = calculate_metrics(real_df=real_df, synthetic_df=synth_df)
+        self.report["eval"]["jsd"] = metrics["jsd"]
+        self.report["eval"]["norm_corr_diff"] = metrics["norm_corr_diff"]
+        self.report["eval"]["discrim_auc"] = metrics["discrim_auc"]
+
+        agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
+            metrics=metrics,
             agent=self.agent,
             config=self.config,
         )
-        self.report["eval"]["jsd"] = results["jsd"]
-        self.report["eval"]["norm_corr_diff"] = results["norm_corr_diff"]
-        self.report["eval"]["discrim_auc"] = results["discrim_auc"]
-        self.report["eval"]["problem_columns"] = results["problem_columns"]
-        self.report["eval"]["recommendation"] = results["recommendation"]
-        self.report["eval"]["rationale"] = results["rationale"]
+        self.report["eval"]["problem_columns"] = agent_decision["problem_columns"]
+        self.report["eval"]["recommendation"] = agent_decision["recommendation"]
+        self.report["eval"]["rationale"] = agent_decision["rationale"]
+
+        user_decision = evaluation_review(eval_decision=agent_decision, agent=self.agent, config=self.config)
 
         write_report(report=self.report, synthesis_request=self.synthesis_request, data_path=self.data_path)
+
 
     def run(self):
         self.load_dataframe()

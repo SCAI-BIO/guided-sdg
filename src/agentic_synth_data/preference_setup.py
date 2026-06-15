@@ -1,131 +1,139 @@
-from typing import Any
-import pprint
+from typing import Any, Literal
 
+from pydantic import BaseModel, Field
 import pyinputplus as pyip
 
-from agentic_synth_data.utils import format_response
+from agentic_synth_data.utils import format_response, display_synthesis_request
 
 
-def select_preferences() -> dict[str, Any]:
+class SampleSizeConfig(BaseModel):
+    mode: Literal["fixed_value", "same_as_original"] | None = None
+    fixed_value: int | None = None
+
+
+class PrivacyConfig(BaseModel):
+    mode: Literal["standard", "differential_privacy"] = "standard"
+    sensitive_columns: list[str] = Field(default_factory=list)
+
+
+class GeneratorConfig(BaseModel):
+    name: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"] | None = None
+    parameters: dict[str, Any] = Field(default_factory=dict) # Depends on generators used/available (not important for right now)
+
+
+class ImputationConfig(BaseModel):
+    method: Literal["SimpleImputer"] | None = None
+    categorical_strategy: Literal["auto", "most_frequent", "constant"] | None = None
+    numerical_strategy: Literal["auto", "mean", "median", "most_frequent"] | None = None
+
+
+class MissingValueConfig(BaseModel):
+    mode: Literal["auto", "impute", "threshold", "remove"] | None = None
+    impute: ImputationConfig = Field(default_factory=ImputationConfig)
+    threshold: int | None = None
+
+
+class SynthesisRequest(BaseModel):
+    sample_size: SampleSizeConfig = Field(default_factory=SampleSizeConfig)
+    privacy: PrivacyConfig = Field(default_factory=PrivacyConfig)
+    generator: GeneratorConfig = Field(default_factory=GeneratorConfig)
+    missing_values: MissingValueConfig = Field(default_factory=MissingValueConfig)
+
+
+def select_preferences() -> SynthesisRequest:
     """Initial setup of user preferences.
 
     Returns:
         dict[str, Any]: Dictionary of the user's preferences.
     """
-    synthesis_request = {
-        "sample_size": {
-            "mode": None, # fixed_value, same_as_original
-            "fixed": {# switch to fixed: None (for the value)
-                "value": None,
-            },
-        },
-        "privacy": {
-            "mode": None, # standard, differentially private
-            # TODO change to this structure
-            # "differentially_private": {
-            #     "sensitive_columns": [],
-            # }
-            "sensitive_columns": [], # look into how sensitive columns are added for example
-        },
-        "generator": {
-            "name": None, # auto, CTGAN, PATEGAN, BaysianNet, PrivBayes
-            #"parameters": {}, # Depends on generators used/available (not important for right now)
-        },
-        "missing_value_handling": {
-            "mode": None, # auto, impute, threshold, remove
-            "impute": {
-                "method": None, # SimpleImputer
-                "categorical_strategy": None, # auto, most_frequent, constant
-                "numerical_strategy": None, # auto, mean, median, most_frequent
-            },
-            "threshold": {# could also move threshold to be less keys/values
-                "set_threshold": None, # minimum number of missing columns in a sample to disregard
-            }
-        }
-    }
+    request = SynthesisRequest()
 
     # Fill sample size
     format_response("Would you like to generate the same amount of samples as the dataset or a fixed number of samples?")
-
-    choice = pyip.inputMenu(["fixed value", "same as original"], numbered=True) # fixed, same_as_original, fraction_of_original
-    synthesis_request["sample_size"]["mode"] = choice
+    choice = pyip.inputMenu(["fixed value", "same as original"], numbered=True)
     
     if choice == "fixed value":
+        request.sample_size.mode = "fixed_value"
         print()
         format_response("How many synthetic samples would you like to generate?")
-
         value = pyip.inputInt(min=1)
-        synthesis_request["sample_size"]["fixed"]["value"] = value
+        request.sample_size.fixed_value = value
+    
+    else:
+        request.sample_size.mode = "same_as_original"
 
     response = pyip.inputYesNo("\nAre you interested in differential privacy?\n")
     if response == "yes":
-        synthesis_request["privacy"]["mode"] = "differential_privacy"
-        # TODO: check if there are any sensitive columns (what is a way to include columns that is not cumbesome?)
+        request.privacy.mode = "differential_privacy"
 
     # Fill data generator preferences
     print("\n")
     format_response("Is there a specific data generator that you want to use on your data? Select 'auto' if you would like a suggestion.")
-    choice = pyip.inputMenu(["auto", "CTGAN", "PATEGAN", "BaysianNet", "PrivBayes"], numbered=True)
+    choice = pyip.inputMenu(["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"], numbered=True)
     if choice == "auto":
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
-        synthesis_request["generator"] = choice
+        request.generator.name = choice
+    
     else:
         print(f"\t=> Your data will be generated using {choice}.")
-    synthesis_request["generator"] = choice
+    request.generator.name = choice
         
     # Missing value handling preferences
     print()
     format_response("How would you like missing values to be handled? Select 'auto' if you would like a suggestion.")
     choice = pyip.inputMenu(["auto", "impute", "threshold", "remove"], numbered=True)
     if choice == "auto":
-        synthesis_request["missing_value_handling"]["mode"] = choice
+        request.missing_values.mode = choice
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
 
     elif choice == "threshold":
         # TODO: Add threshold limit
-        synthesis_request["missing_value_handling"]["mode"] = choice
+        request.missing_values.mode = choice
         value = pyip.inputInt("\nWhat is the minimum number of missing columns in a sample remove from the data?")
-        synthesis_request["missing_value_handling"][choice]["set_threshold"] = value
+        request.missing_values.threshold = value
 
     elif choice == "remove":
-        synthesis_request["missing_value_handling"]["mode"] = choice
+        request.missing_values.mode = choice
 
     elif choice == "impute":
-        synthesis_request["missing_value_handling"]["mode"] = choice
+        request.missing_values.mode = choice
         print()
         format_response("Currently, only the SimpleImputer imputation method is currently supported.")
-        synthesis_request["missing_value_handling"][choice]["method"] = "SimpleImputer"
+        request.missing_values.impute.method = "SimpleImputer"
         print("\t=> Your missing data will be imputed by SimpleImputer.")
-        # TODO Add additional imputers
         
         # Specify categorical handling.
         print()
         format_response("How would you like to handle missing categorical values? Select 'auto' if you would like a suggestion.")
-        choice = pyip.inputMenu(["auto", "mode", "constant"], numbered=True)
-        if choice == "mode": # Changed externally to be a bit more understandable: mode vs most_frequent
-            synthesis_request["missing_value_handling"]["impute"]["categorical_strategy"] = "most_frequent"
+        choice = pyip.inputMenu(["auto", "most frequent", "constant",], numbered=True)
+        
         if choice == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
-            synthesis_request["generator"] = choice
+        
+        if choice == "most frequent":
+            choice = "most_frequent"
+        
         else:
             print(f"\t=> Your missing categorical data will be imputed using {choice}.")
 
-        synthesis_request["missing_value_handling"]["impute"]["categorical_strategy"] = choice
+        request.missing_values.impute.categorical_strategy = choice
 
         # Specify numerical handling.
         print()
         format_response("How would you like to handle missing numerical values? Select 'auto' if you would like a suggestion.")
-        choice = pyip.inputMenu(["auto", "mean", "median", "mode"], numbered=True)
-        if choice == "mode":
-            synthesis_request["missing_value_handling"]["impute"]["numerical_strategy"] = "most_frequent"
+        choice = pyip.inputMenu(["auto", "mean", "median", "most frequent"], numbered=True)
+        
+        if choice == "most frequent":
+            choice = "most_frequent"
+        
         if choice == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
-            synthesis_request["generator"] = choice
+        
         else:
             print(f"\t=> Your missing numerical data will be imputed using {choice}.")
-        synthesis_request["missing_value_handling"]["impute"]["numerical_strategy"] = choice
+        request.missing_values.impute.numerical_strategy = choice
  
     print()
     print("-"*25+"Your preferences have been recorded"+"-"*25)
-    pprint.pprint(synthesis_request)
-    return synthesis_request
+    display_synthesis_request(request)
+    return request

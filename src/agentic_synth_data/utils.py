@@ -11,6 +11,27 @@ def format_response(text:str):
     print(textwrap.fill(text, width=100))
 
 
+def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
+    print(f"\nSample size mode: {synthesis_request.sample_size.mode}")
+
+    if synthesis_request.sample_size.fixed_value is not None:
+        print(f"Sample size: {synthesis_request.sample_size.fixed_value}")
+
+    print(f"Privacy mode: {synthesis_request.privacy.mode}")
+    
+    print(f"Generator: {synthesis_request.generator.name}") 
+    
+    print(f"Missing value handling: {synthesis_request.missing_values.mode}")
+
+    if synthesis_request.missing_values.mode == "impute":
+        print(f"- Imputer: {synthesis_request.missing_values.impute.method}")
+        print(f"- Categorical strategy: {synthesis_request.missing_values.impute.categorical_strategy}")
+        print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
+
+    elif synthesis_request.missing_values.mode == "threshold":
+        print(f"- Threshold: {synthesis_request.missing_values.threshold}")
+
+
 def parse_json(
         plan:str, model_cls:Type[BaseModel], agent:Optional[CompiledStateGraph], config:dict, root:bool=False
         ) -> BaseModel:

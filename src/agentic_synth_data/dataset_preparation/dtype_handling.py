@@ -97,27 +97,6 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
                 print(f"\t{replaced_count} of the following marker were replaced with null values: {markers}")
                 replaced_markers = markers
                 return df, True, detected_markers, replaced_markers
-            
-    # possible TODO: Incorporate my previous code such that missing value symbols that aren't
-        # already listed can be manually added into the dataset.  
-    # # Replace unofficial missing values:
-    # confirm = pyip.inputYesNo("Are there any missing values denoted by a character/value other than NA (e.g., '?', '`', 'NA')?")
-    # if confirm == "yes":
-    #     # TODO maybe incorportae a check if the value is a string or int/float so it can be represented.
-    #     value = input("Input the value that will replace all equivalent entries in the dataset:")
-    #     total = (df == value).sum().sum()
-
-    #     if total == 0:
-    #         print(f"\nThere are none of the specified value ({value}) in the dataset.")
-    #     else:
-    #         print(f"\nThere are {total} total values that will be replaced with NA in the dataset.")
-    #         confirm = pyip.inputYesNo(f"Should the following be replaced with NA?: {value}")
-    #         if confirm == "yes":
-    #             df = df.replace(value, np.nan)
-    #             print(f"\nThe following entry has been replaced with NA in the dataset: {value}")
-    #         else:
-    #             print(f"\nThe following entry has not been replaced with NA in the dataset: {value}")
-    #             # possible TODO: Add attempting another input?
 
 
 ## Maybe could be improved so that multiple columns can be assigned to a specific dtype at once?
@@ -225,15 +204,3 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
     print(df.dtypes)
     py_dtypes = df.dtypes.astype(str).to_dict()
     return df, py_dtypes
-
-
-# def eval_change_dtypes(df):
-#     for col in df.columns:
-#     found_dtype = infer_dtype(df[col])
-#     if found_dtype == "string":
-#         df[col] = df[col].astype("string")
-#     # Possibly could set errors to default (raise), but would have to try to handle this.
-#     elif found_dtype == "int64":
-#         df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64") # NOTE: Will likely have to change dtype prior to eval
-#     elif found_dtype == "float64":
-#         df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")

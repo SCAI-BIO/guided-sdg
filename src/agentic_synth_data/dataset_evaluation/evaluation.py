@@ -12,6 +12,7 @@ from syndat.metrics import jensen_shannon_distance, normalized_correlation_diffe
 
 from agentic_synth_data.utils import format_response, extract_output, parse_json
 from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
+from agentic_synth_data.preference_setup import SynthesisRequest
 
 
 class AgentEval(BaseModel):
@@ -59,7 +60,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
 
 
 def evaluation(
-        synthesis_request:dict[str, Any],
+        synthesis_request:SynthesisRequest,
         metrics:dict[str, Any],
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
@@ -70,7 +71,7 @@ def evaluation(
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
                                 missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
-        synthesis_request (dict[str, Any]): Dictionary of the user's preferences. This is used as a
+        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as a
                                 record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
                                 synthetic data based on SYNDAT metrics. Defaults to None.
@@ -79,7 +80,9 @@ def evaluation(
     Returns:
         dict: The decision plan based on the agent's assessment.
     """
-    prompt = evaluation_prompt(synthesis_request=synthesis_request, metrics=metrics,)
+    request_dict = synthesis_request.model_dump()
+    prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics,)
+    
     
     print("\nAgent is evaluating the results...")
     
@@ -162,14 +165,15 @@ Answer the user's question using the evaluation results.
     return choice
 
 
-def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, Any], data_path: str) -> None:
+def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisRequest, data_path: str) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
         report (dict[str, dict[str, Any]]): Dictionary containing information gathered throughout the workflow steps.
-        synthesis_request (dict[str, Any]): Dictionary with the user's preferences.
+        synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
         data_path (str): Initial path of the data (used for naming the report).
     """
+    request_dict = synthesis_request.model_dump()
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}.md"
     output_path = Path("../output") / output_filename
@@ -208,7 +212,7 @@ def write_report(report: dict[str, dict[str, Any]], synthesis_request:dict[str, 
         f.write("```\n")
 
         f.write("\n\n### Generation:\n")
-        f.write(f"Chosen generator: {synthesis_request['generator']}\n")
+        f.write(f"Chosen generator: {request_dict['generator']}\n")
         f.write(f"Prepared dataset: {report['gen']['prep_path']}\n")
         f.write(f"Synthetic dataset: {report['gen']['synth_path']}\n")
         f.write(f"Synthetic shape: {report['gen']['synth_shape']}\n")

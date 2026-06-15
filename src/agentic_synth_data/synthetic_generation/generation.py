@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
 from agentic_synth_data.utils import format_response, extract_output, parse_json
+from agentic_synth_data.preference_setup import SynthesisRequest
 
 
 class SelectGenerator(BaseModel):
@@ -21,7 +22,7 @@ class SelectGenerator(BaseModel):
 
 # TODO: If run_generator fails, for example, plug the error message into the agent and try to
 # have the agent repair the issue.
-def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict[str, Any],) -> str:
+def run_generator(data_path:str, clean_csv_path:str, synthesis_request:SynthesisRequest,) -> str:
     """Run the selected data generator based on user preferences and agent recommendation.
 
     Args:
@@ -33,16 +34,16 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:dict[str,
                         - Missing value marker replacement with null
                         - dtype handling
                         - Missing value handling
-        synthesis_request (dict[str, Any]): Dictionary of the user's preferences, with the 
+        synthesis_request (SynthesisRequest): Dictionary of the user's preferences, with the 
                         decided generator.
 
     Returns:
         str: Path of the synthetic dataset.                                  
     """
-    mechanism = synthesis_request["generator"]
+    mechanism = synthesis_request.generator.name
     # Set sample size
-    if synthesis_request["sample_size"]["mode"] == "fixed value":
-        sample_size = synthesis_request["sample_size"]["fixed"]["value"]
+    if synthesis_request.sample_size.mode == "fixed_value":
+        sample_size = synthesis_request.sample_size.fixed_value
     else:
         sample_size = pd.read_csv(data_path).shape[0]
 
@@ -156,23 +157,23 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
 
 # TODO: Expand to parameter selection.
 def select_generator(
-        synthesis_request:dict[str, Any], 
+        synthesis_request:SynthesisRequest, 
         semantic_types:dict[str, str],
         profile:dict[str, Any],
         agent:CompiledStateGraph, 
         config:dict[str, dict[str, Any]],
-    ) -> dict[str, Any]:
+    ) -> SynthesisRequest:
     """Based on the user's preferences and information about the dataset, the agent 
     selects a data generator mechanism.
 
     Args:
-        synthesis_request (dict[str, Any]): Dictionary of the user's preferences.
+        synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
         semantic_types (dict[str, str]): The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
 
     Returns:
-        dict[str, Any]: Synthesis request with updated generator information.                       
+        SynthesisRequest: Synthesis request with updated generator information.                       
     """
     feedback_hist = []
     selected_mechanism = None
@@ -182,8 +183,9 @@ def select_generator(
     format_response("Agent is coming up with a generator suggestion based on your preferences, the dataset's semantic types, the cardinality of the columns, and potential summary statistics and correlations...") 
 
     while not choice_confirmed:
+        request_dict = synthesis_request.model_dump()
         message = generator_selection_message(
-            synthesis_request=synthesis_request, 
+            synthesis_request=request_dict, 
             semantic_types=semantic_types,
             profile=profile
         )
@@ -230,7 +232,7 @@ def select_generator(
         decision = pyip.inputMenu(["approve", "choose another", "discuss",], numbered=True,)
 
         if decision == "approve":
-            synthesis_request["generator"] = generation_plan.generator
+            synthesis_request.generator.name = generation_plan.generator
             choice_confirmed = True
             print(f"\n=> {generation_plan.generator} has been approved.")
 
