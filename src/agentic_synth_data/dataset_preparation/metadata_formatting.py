@@ -1,8 +1,6 @@
-from pathlib import Path
-import json
-
 import pandas as pd
-
+import json
+from pathlib import Path
 
 def format_json(csv_path:str, semantic_types:dict) -> str:
     """Store information about the prepared dataset in JSON file format for use
@@ -26,10 +24,6 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
 
     for col in df.columns:
         semantic_type = semantic_types[col]
-        
-        if semantic_type == "Boolean":
-            semantic_type = "Categorical"
-
         if semantic_type in ["Categorical", "Ordinal"]:
             values = sorted(df[col].dropna().astype(str).unique().tolist())
 
@@ -60,5 +54,5 @@ def format_json(csv_path:str, semantic_types:dict) -> str:
 
     with open(json_path, "w") as f:
         json.dump(metadata, f, indent=2)
-    print(f"- Created JSON for generator input: {json_path}")
+    print(f"Metadata JSON created for generator input: {json_path}")
     return json_path

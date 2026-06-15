@@ -1,254 +1,230 @@
+import pandas as pd
+from dotenv import load_dotenv
+from typing import Literal, Any
+import pyinputplus as pyip
 from pathlib import Path
 import subprocess as sp
-from typing import Literal, Any
+import json
 
-import pandas as pd
-import pyinputplus as pyip
-from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel
+from langgraph.types import Command
+from langchain.tools import tool, BaseTool
+from langchain_core.messages import ToolMessage
 
-from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
-from agentic_synth_data.utils import format_response, extract_output, parse_json
-from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.prompts.generator_selection import generator_selection_message
+from agentic_synth_data.utils import format_response
 
-
-class SelectGenerator(BaseModel):
-    generator: Literal["PrivBayes", "CTGAN", "PATEGAN", "BayesianNet"]
-    pros: str
-    cons: str
-    rationale: str
-    warning: list[str]
+load_dotenv()
 
 
-# TODO: If run_generator fails, for example, plug the error message into the agent and try to
-# have the agent repair the issue.
-def run_generator(data_path:str, clean_csv_path:str, synthesis_request:SynthesisRequest,) -> str:
-    """Run the selected data generator based on user preferences and agent recommendation.
+def make_generator_tool(self) -> BaseTool:
+    """Make the tool for an agent to generate synthetic data that only allows it
+    to choose the mechanism.
 
-    Args:
-        data_path (str): Initial path of the data (used to obtain original sample size if 
-                        same_as_original is selected).
-        clean_csv_path (str): Path of the prepared data (ends with "_prepared.csv"). Used as
-                        a basis to generate the synthetic data. This dataset may include the 
-                        following changes:
-                        - Missing value marker replacement with null
-                        - dtype handling
-                        - Missing value handling
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences, with the 
-                        decided generator.
+    Raises:
+        RuntimeError: If the specified generator is unable to generate synthetic data.
 
     Returns:
-        str: Path of the synthetic dataset.                                  
+        BaseTool: The tool the agent can access (limited to model choice).
     """
-    mechanism = synthesis_request.generator.name
-    # Set sample size
-    if synthesis_request.sample_size.mode == "fixed_value":
-        sample_size = synthesis_request.sample_size.fixed_value
-    else:
-        sample_size = pd.read_csv(data_path).shape[0]
+    @tool("run_synthetic_generator", description="Run the selected synthetic data generator.",) #return_direct=False # Have the tool immediately direct to user (default)
+    def run_synthetic_generator(mechanism:Literal["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",]) -> str:
+        # Set sample size
+        if self.synthesis_request["sample_size"]["mode"] == "fixed_value":
+            sample_size = self.synthesis_request["sample_size"]["fixed"]["value"]
+        else:
+            sample_size = pd.read_csv(self.data_path).shape[0]
 
-    # Set cleaned data and output paths
-    data_name = Path(clean_csv_path).stem
-    output_filename = f"synthetic_{data_name}_{mechanism.lower()}.csv"
-    host_output_path = Path("../output") / output_filename
-    container_output_path = f"/workspace/output/{output_filename}"
+        # Set cleaned data and output paths
+        data_name = Path(self.clean_csv_path).stem
+        output_filename = f"synthetic_{data_name}_{mechanism.lower()}.csv"
+        host_output_path = Path("../output") / output_filename
+        container_output_path = f"/workspace/output/{output_filename}"
+        
+        print()
+        print("-"*25+f"Running {mechanism}"+"-"*25)
+
+        command = f"""
+        podman run -it --rm \
+            --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
+            docker.io/springepfl/synthetic-data:latest \
+            -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
+            -D /workspace/data/{data_name} \
+            -M {mechanism} \
+            -O {container_output_path} \
+            -N {sample_size}"
+            """
+        process = sp.Popen(
+            command,
+            shell=True,
+            stdout=sp.PIPE,
+            stderr=sp.STDOUT,
+            text=True
+            )
+
+        for line in process.stdout:
+            print(line, end="")
+
+        process.wait()
+        
+        # If process fails for a specific generator
+        if process.returncode !=0:
+            raise RuntimeError(f"{mechanism} failed.")
+
+        print(f"\n{mechanism}: {sample_size} synthetic samples successfully generated.")
+        return str(host_output_path)
     
-    print()
-    print("-"*25+f"Running {mechanism}"+"-"*25)
+    return run_synthetic_generator
 
-    command = f"""
-    podman run -it --rm \
-        --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
-        docker.io/springepfl/synthetic-data:latest \
-        -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
-        -D /workspace/data/{data_name} \
-        -M {mechanism} \
-        -O {container_output_path} \
-        -N {sample_size}"
-        """
-    process = sp.Popen(
-        command,
-        shell=True,
-        stdout=sp.PIPE,
-        stderr=sp.STDOUT,
-        text=True
+
+# TODO: Update docstring (more on choices etc.)
+def run_synthesis(self) -> tuple[dict[str, Any], str | None]:
+    """Generate the synthetic data.
+
+    Human In The Loop is incorporated here with the choices:
+    - approve
+    - edit
+    - respond
+    - reject
+
+    Returns:
+        tuple[dict[str, Any], str | None]:
+        - (dict[str, Any]) The synthesis_request (either updated or not).
+        - (str | None) The path of the synthetic data.                                    
+    """
+    # TODO: Add a case where the model is already selected by the user and 
+        # give a chance about agent feedback (pros/cons) regarding the generator selected
+        # then, this would give the option for the user to still update how it is generated
+    message = generator_selection_message(
+        synthesis_request=self.synthesis_request,
+        semantic_types=self.semantic_types,
+        clean_csv_path=self.clean_csv_path, # Still not the best to put the path through the agent
         )
-
-    for line in process.stdout:
-        print(line, end="")
-
-    process.wait()
     
-    # If process fails for a specific generator
-    if process.returncode !=0:
-        raise RuntimeError(f"{mechanism} failed.")
-
-    print(f"\n=> {mechanism}: {sample_size} synthetic samples successfully generated.")
-    return str(host_output_path)
-
-
-def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
-    """Prior to selecting the generator, view correlations and summary statistics 
-    of numeric columns, which could help to inform data generator choice.
-
-    Args:
-        dtype_df (pd.DataFrame): The dataframe after dtype handling (dtype_handled_df).
-
-    Returns:
-        dict[str, Any]: A dictionary with the following information:
-            - The shape of the dataframe (no row removal up to this point).
-            - The number of unique values per column.
-            - Numeric columns:
-                - Summary statistics (including skew).
-                - Correlation.
-                - Correlation method.
-    """
-    # TODO: Add a warning about summary statistics for non local models.
-    # TODO: Add more metrics for categorical columns.
-    df = dtype_df.copy()
-    col_profiles = {}
-    shape = df.shape
-
-    for col in df.columns:
-        col_profiles[col] = {
-            "n_unique": df[col].nunique(dropna=False),
-        }
-    
-    num_df = df.select_dtypes(include="number")
-
-    if num_df.empty:  
-        return {
-            "shape": shape,
-            "col_nunique": col_profiles,
-            "num_summary": None,
-            "num_corr": None,
-            "corr_method": None,
-        }
-
-    # Select summary statistics (including skew)
-    num_summary = num_df.describe()
-    num_summary.loc["skew"] = num_df.skew().values
-    #stats.loc["kurt"] = num_df.kurtosis().values # from initial, not fully necessary
-
-    print("Numeric value summary statistics:")
-    print(num_summary)
-
-    # Select correlations (Pearson or Spearman)
-    # NOTE: could decide on the percentage of highly skewed columns
-    if num_df.skew().abs().max() > 2:
-        corr_method = "spearman"
-    else:
-        corr_method = "pearson"
-
-    num_corr = num_df.corr(method=corr_method, numeric_only=True)
-
-    print(f"\nCorrelation ({corr_method}):")
-    print(num_corr)
-
-    profile = {
-        "shape": shape,
-        "col_nunique": col_profiles,
-        "num_summary": num_summary,
-        "num_corr": num_corr,
-        "corr_method": corr_method,
-    }
-    return profile
-
-
-# TODO: Expand to parameter selection.
-def select_generator(
-        synthesis_request:SynthesisRequest, 
-        semantic_types:dict[str, str],
-        profile:dict[str, Any],
-        agent:CompiledStateGraph, 
-        config:dict[str, dict[str, Any]],
-    ) -> SynthesisRequest:
-    """Based on the user's preferences and information about the dataset, the agent 
-    selects a data generator mechanism.
-
-    Args:
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (dict[str, str]): The semantic dtypes for each column in the dataset.
-        agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
-        config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
-
-    Returns:
-        SynthesisRequest: Synthesis request with updated generator information.                       
-    """
-    feedback_hist = []
-    selected_mechanism = None
-    choice_confirmed = False
-
-    print()
-    format_response("Agent is coming up with a generator suggestion based on your preferences, the dataset's semantic types, the cardinality of the columns, and potential summary statistics and correlations...") 
-
-    while not choice_confirmed:
-        request_dict = synthesis_request.model_dump()
-        message = generator_selection_message(
-            synthesis_request=request_dict, 
-            semantic_types=semantic_types,
-            profile=profile
-        )
-
-        if selected_mechanism is not None:
-            message += generator_review_message(selected_mechanism)
-
-        if feedback_hist:
-            message += "\n\nUser feedback so far:\n" + "\n".join(feedback_hist)
-
-        raw_response = agent.invoke(
+    input_to_stream = {
+        "messages": [
             {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": message,
-                    }
-                ]
-            },
-            config=config,
-        )
+                "role": "user",
+                "content": message,
+            }
+        ]
+    }
 
-        plan = extract_output(raw_message=raw_response)
+    self.synthetic_path = None
+    while self.synthetic_path is None:
+        interrupted = False
+        message_buffer = ""
 
-        generation_plan = parse_json(plan=plan, model_cls=SelectGenerator, agent=agent, config=config) # TODO: check more extensively
+        for chunk in self.agent.stream(
+            input_to_stream, 
+            config=self.config, 
+            stream_mode=["updates", "messages"], 
+            version="v2",
+            ):
+            if chunk["type"] == "messages":
+                msg = chunk["data"][0]
+                
+                content = getattr(msg, "content", "")
+                if content:
+                    message_buffer += content
 
-        print("\nSuggestion:")
-        print(f"Data generator: {generation_plan.generator}")
+                # Capture tool return value
+                if isinstance(msg, ToolMessage):
+                    self.synthetic_path = msg.content
 
-        print("\nPros:")
-        format_response(generation_plan.pros)
+            if chunk["type"] == "updates" and "__interrupt__" in chunk["data"]:
+                interrupted = True
 
-        print("\nCons:")
-        format_response(generation_plan.cons)
+                if message_buffer.strip():
+                    plan = message_buffer.split("</think>")[1]
+                    generation_plan = json.loads(plan)
+                
+                    print("\nSuggestion:")
+                    print(f"Data generator: {generation_plan['generator']}")
 
-        print("\nRationale:")
-        format_response(generation_plan.rationale)
+                    print("\nPros:")
+                    format_response(generation_plan['pros'])
 
-        if len(generation_plan.warning) > 0:
-            print("\nWarning:")
-            format_response(generation_plan.warning[0])
+                    print("\nCons:")
+                    format_response(generation_plan['cons'])
 
-        print("\nDo you approve using the suggested generator?\n")
-        decision = pyip.inputMenu(["approve", "choose another", "discuss",], numbered=True,)
+                    print("\nRationale:")
+                    format_response(generation_plan['rationale'])
 
+                    if len(generation_plan['warning']) > 0:
+                        print("\nWarning:")
+                        format_response(generation_plan['warning'][0])
+
+                print("\nINTERRUPTED:")
+                # print(chunk["data"]["__interrupt__"])
+                
+                # To extract the suggested mechanism (if approved, added to synthesis_request)
+                # made single
+                action_requests = chunk["data"]["__interrupt__"][0].value["action_requests"][0]
+
+                break
+
+        if not interrupted:
+            break    
+
+        decision = pyip.inputMenu(["approve", "edit", "respond", "reject"], numbered=True,)
+
+        # Might help to build response nodes (e.g., approval, response, etc with no need for redefinition if used in later parts)
         if decision == "approve":
-            synthesis_request.generator.name = generation_plan.generator
-            choice_confirmed = True
-            print(f"\n=> {generation_plan.generator} has been approved.")
+            input_to_stream = Command(
+                resume={
+                    "decisions": [
+                        {"type": "approve"}
+                    ]
+                }
+            )
+            self.synthesis_request["generator"] = action_requests["args"]["mechanism"]
 
-        elif decision == "choose another":
-            selected_mechanism = pyip.inputMenu(
-                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",], 
-                "\nEnter generator to evaluate:\n", 
-                numbered=True,
-                )
-            print("\nWaiting for agent response...\n")
-            continue
-        
-        else: # discuss
-            feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
-            feedback_hist.append(feedback)
-            print("\nWaiting for agent response...\n")
-            continue
-        
-    return synthesis_request
+        elif decision == "edit":
+            new_mechanism = pyip.inputMenu(["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",], "\nEnter replacement generator:\n", numbered=True,)
+
+            input_to_stream = Command(
+                resume={
+                    "decisions": [
+                        {
+                            "type": "edit",
+                            "edited_action": {
+                                "name": self.generator_tool.name,
+                                "args": {
+                                    "mechanism": new_mechanism
+                                },
+                            },
+                        }
+                    ]
+                }
+            )
+            # TODO: Add that if "edit" is selected, the user still can get the model's input on the decision.
+            self.synthesis_request["generator"] = new_mechanism
+
+        elif decision == "respond":
+            # TODO: Fix required. If user adds a response, no model is suggested and 
+            # the process stops running. Check if I forgot to connect something.
+            user_message = pyip.inputStr("\nWrite feedback regarding the data and tool choice:\n")
+            input_to_stream = Command(
+                resume={
+                    "decisions": [
+                        {
+                            "type": "respond",
+                            "message": user_message,
+                        }
+                    ]
+                }
+            )
+
+        else:
+            # In the basic human in the loop, but respond is likely sufficient
+            input_to_stream = Command(
+                resume={
+                    "decisions": [
+                        {
+                            "type": "reject",
+                            "message": "User rejected generator execution."
+                        }
+                    ]
+                }
+            )
+    return self.synthesis_request, self.synthetic_path
