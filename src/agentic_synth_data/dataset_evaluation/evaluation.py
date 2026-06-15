@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Optional, Any, Literal
 import pprint
-import json
 
 import pandas as pd
 import numpy as np
@@ -11,7 +10,7 @@ import pyinputplus as pyip
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
 from agentic_synth_data.utils import format_response, extract_output, parse_json
-from agentic_synth_data.prompts.evaluation_prompt import evaluation_prompt
+from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -130,19 +129,7 @@ def evaluation_review(
     
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
-        prompt = f"""
-You are answering a question about the synthetic data evaluation notes.
-
-Evaluation results:
-{json.dumps(eval_decision, indent=2)}
-
-User question:
-{response}
-
-Answer in plain text only.
-
-Answer the user's question using the evaluation results.
-"""
+        prompt = eval_review_message(eval_decision, response)
         raw_response = agent.invoke(
             {
                 "messages": [
@@ -165,17 +152,18 @@ Answer the user's question using the evaluation results.
     return choice
 
 
-def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisRequest, data_path: str) -> None:
+def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisRequest, data_path: str, version_id:int) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
         report (dict[str, dict[str, Any]]): Dictionary containing information gathered throughout the workflow steps.
         synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
         data_path (str): Initial path of the data (used for naming the report).
+        version_id (int): Denotes the version of the workflow attempt.
     """
     request_dict = synthesis_request.model_dump()
     data_name = Path(data_path).stem
-    output_filename = f"report_{data_name}.md"
+    output_filename = f"report_{data_name}_v{version_id}.md"
     output_path = Path("../output") / output_filename
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("# SYNTHETIC DATA GENERATION REPORT\n")
@@ -219,10 +207,10 @@ def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisR
 
         f.write("\n\n### Evaluation\n")
         f.write("```python\n")
-        pprint.pprint(report["eval"]["jsd"], stream=f, sort_dicts=False)
+        pprint.pprint(report["review"]["jsd"], stream=f, sort_dicts=False)
         f.write("```\n")
 
         f.write("\nConclusion\n")
         f.write("```python\n")
-        pprint.pprint(report["eval"]["recommendation"], stream=f, sort_dicts=False,)
+        pprint.pprint(report["review"]["recommendation"], stream=f, sort_dicts=False,)
         f.write("```\n")

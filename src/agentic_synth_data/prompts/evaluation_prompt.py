@@ -1,4 +1,5 @@
 from typing import Any
+import json
 
 
 def evaluation_prompt(
@@ -78,4 +79,20 @@ JSON format:
     "recommendation": "Specific next action. Mention which workflow step should be revisited if needed.",
     "rationale": "Explain why this status was assigned, referring to average JSD, problem columns, generator fit, and any relevant workflow step."
 }}
+"""
+
+
+def eval_review_message(eval_decision:dict[str, Any], response:str):
+    return f"""
+You are answering a question about the synthetic data evaluation notes.
+
+Evaluation results:
+{json.dumps(eval_decision, indent=2)}
+
+User question:
+{response}
+
+Answer in plain text only.
+
+Answer the user's question using the evaluation results.
 """

@@ -22,7 +22,7 @@ class SelectGenerator(BaseModel):
 
 # TODO: If run_generator fails, for example, plug the error message into the agent and try to
 # have the agent repair the issue.
-def run_generator(data_path:str, clean_csv_path:str, synthesis_request:SynthesisRequest,) -> str:
+def run_generator(data_path:str, clean_csv_path:str, synthesis_request:SynthesisRequest, version_id:int) -> str:
     """Run the selected data generator based on user preferences and agent recommendation.
 
     Args:
@@ -49,7 +49,7 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
 
     # Set cleaned data and output paths
     data_name = Path(clean_csv_path).stem
-    output_filename = f"synthetic_{data_name}_{mechanism.lower()}.csv"
+    output_filename = f"synthetic_{data_name}_{mechanism.lower()}_v{version_id}.csv"
     host_output_path = Path("../output") / output_filename
     container_output_path = f"/workspace/output/{output_filename}"
     

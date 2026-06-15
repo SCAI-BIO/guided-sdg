@@ -69,8 +69,7 @@ def parse_json(
                 config=config,
             )
 
-            repair_response = repair_raw["messages"][-1].content
-            repaired_plan = extract_output(repair_response)
+            repaired_plan = extract_output(repair_raw)
 
             return model_cls.model_validate_json(repaired_plan).root
     else:
@@ -94,8 +93,7 @@ def parse_json(
                 config=config,
             )
 
-            repair_response = repair_raw["messages"][-1].content
-            repaired_plan = extract_output(repair_response)
+            repaired_plan = extract_output(repair_raw)
 
             return model_cls.model_validate_json(repaired_plan)
     
