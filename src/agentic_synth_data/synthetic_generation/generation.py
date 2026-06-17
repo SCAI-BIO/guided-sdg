@@ -142,7 +142,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
 
     num_corr = num_df.corr(method=corr_method, numeric_only=True)
 
-    print(f"\nCorrelation ({corr_method}):")
+    print(f"\nCorrelation ({corr_method.capitalize()}):")
     print(num_corr)
 
     profile = {

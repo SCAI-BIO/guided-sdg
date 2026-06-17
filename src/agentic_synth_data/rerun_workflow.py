@@ -24,6 +24,7 @@ class RevisionPlan(BaseModel):
 def plan_update(
         synthesis_request:SynthesisRequest, 
         agent_decision:dict[str, Any], 
+        report:dict[str, Any],
         agent:Optional[CompiledStateGraph], 
         config:dict,
         ) -> RevisionOption | None:
@@ -33,7 +34,7 @@ def plan_update(
     # TODO: remind the agent about the dataset's information (possibly set up mroe like generator selection?)
     # TODO: Go over each step section (mainly generator selection and missing value handling)
     # have the agent output steps it would consider changing (in this case, (for now, leave it only at only changing the generator selection/parameters))
-    prompt = revision_message(synthesis_request, agent_decision)
+    prompt = revision_message(synthesis_request, report, agent_decision)
     raw_response = agent.invoke(
         {
             "messages": [

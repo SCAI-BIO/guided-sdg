@@ -60,9 +60,10 @@ class DataGen:
                 "missing_markers": {"detected": {}, "replaced": {},},
                 "dtypes": {},
                 "stypes": {},
+                "profile": {},
                 "missing_handling": {"before": {}, "after": {},},
             },
-            "gen": {"prep_path": {}, "synth_path": {}, "synth_shape": {},},
+            "gen": {"prep_path": {}, "synth_path": {}, "synth_shape": {}},
             "review": {
                 "jsd": {},
                 "norm_corr_diff": {},
@@ -157,6 +158,7 @@ class DataGen:
         print()
         df = self.dtype_handled_df.copy()
         profile = generator_profile(df)
+        self.report["gen"]["profile"] = profile
         self.synthesis_request = select_generator(synthesis_request=self.synthesis_request, semantic_types=self.semantic_types, profile=profile, agent=self.agent, config=self.config,)
         return self.synthesis_request
 
@@ -295,7 +297,7 @@ class DataGen:
 
 
     def post_evaluation_check(self):
-        """Step 7: Check in with user and possibly"""
+        """Revise: Check in with user and possibly change the plan"""
         print("\n\n")
         print("="*25+"[END: Evaluate workflow]"+"="*25)
         
@@ -305,6 +307,7 @@ class DataGen:
             selected_updates =  plan_update(
                 synthesis_request=self.synthesis_request,
                 agent_decision=self.agent_decision,
+                report=self.report,
                 agent=self.agent,
                 config=self.config,
             )
@@ -341,6 +344,7 @@ class DataGen:
         final_gen = self.post_evaluation_check()
         return final_gen.synthetic_df
     
+
     def create_revision(self, revision_choice:RevisionOption) -> "DataGen":
         """Copy datagen with the approved revisions. Currently can only change gnerator name"""
         print("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
@@ -394,6 +398,8 @@ class DataGen:
         self.create_metadata()
         self.run_synthesis()
         self.evaluate()
+        final_gen = self.post_evaluation_check()
+        return final_gen.synthetic_df
 
 
     def _reset_from_generator_selection(self) -> None:
