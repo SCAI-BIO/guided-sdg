@@ -126,7 +126,7 @@ def handle_missing_values(
         None: Agent planned missing value handling, approved by user.
     """
     if df.isna().sum().sum() == 0:
-        print("\nThere are no missing values in the dataset. Continuing to the next step.")
+        print("\nThere are no missing values in the dataset. Continuing to synthetic data generation.")
         return df, synthesis_request
     else:
         print(f"\n{df.isna().sum().sum()} samples with missing values detected in the dataset.")

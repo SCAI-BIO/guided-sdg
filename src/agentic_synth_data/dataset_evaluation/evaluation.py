@@ -15,7 +15,7 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 
 
 class AgentEval(BaseModel):
-    status: Literal["satisfactory", "needs review", "not satisfactory"]
+    status: Literal["satisfactory", "needs_review", "not_satisfactory"]
     problem_columns: list[str] = Field(default_factory=list)
     recommendation: str
     rationale: str
@@ -124,7 +124,16 @@ def evaluation_review(
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
         ) -> str:
-    """User asks questions about agent's assessment/discusses details to focus on."""
+    """User asks questions about agent's assessment/discusses details to focus on.
+
+    Args:
+        eval_decision (dict[str, Any]): Agent's evaluation decision (from evaluation).
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the evaluation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation.. Defaults to None.
+
+    Returns:
+        str: Whether the workflow should finish or be revised.
+    """
     confirm = pyip.inputYesNo("\nDo you have questions about the evaluation results?\n")
     
     while confirm == "yes":

@@ -1,5 +1,6 @@
 from typing import Any, Hashable
 
+
 def missing_value_prompt(
     proportion_missing:dict[Hashable, Any],
     rows_with_missing:int,

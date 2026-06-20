@@ -113,3 +113,23 @@ def extract_output(raw_message:dict) -> str:
         return response.split("</think>")[1].strip()
     
     return response.strip()
+
+
+def newline_every_n_words(option:str, n:int) -> str:
+    """Format the options output by the agent to improve the readability of pyinputplus's 
+    choice menu.
+
+    Args:
+        option (str): The option output by the agent.
+        n (int): The number of words allowed before a newline is added.
+
+    Returns:
+        str: The option output by agent with a newline every n words.
+    """
+    words = option.split()
+    lines = []
+
+    for i in range(0, len(words), n):
+        lines.append(" ".join(words[i:i+n]))
+
+    return "\n".join(lines)
