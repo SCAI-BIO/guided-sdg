@@ -183,9 +183,8 @@ def select_generator(
     format_response("Agent is coming up with a generator suggestion based on your preferences, the dataset's semantic types, the cardinality of the columns, and potential summary statistics and correlations...") 
 
     while not choice_confirmed:
-        request_dict = synthesis_request.model_dump()
         message = generator_selection_message(
-            synthesis_request=request_dict, 
+            synthesis_request=synthesis_request, 
             semantic_types=semantic_types,
             profile=profile
         )
