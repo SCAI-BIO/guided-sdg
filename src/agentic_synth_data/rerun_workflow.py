@@ -202,15 +202,15 @@ def parameter_update(
         return None
 
     if selected_mechanism == "PATEGAN":
-        mech_params = f"{param_revision.eps}:1e-5:False:10:100:128:1e-4:False"
+        mech_params = f"{param_revision.eps},1e-5,False,10,100,128,1e-4,False"
         selection = ("epsilon", 1, param_revision.eps)
     
     elif selected_mechanism == "PrivBayes":
-        mech_params = f"10:1:{param_revision.epsilon}:False:True:None"
+        mech_params = f"10,1,{param_revision.epsilon},False,True,None"
         selection = ("epsilon", .1, param_revision.epsilon)
         
     elif selected_mechanism == "CTGAN":
-        mech_params = f"128:(256, 256):(256, 256):1e-6:500:{param_revision.epochs}:False"
+        mech_params = f"128,(256, 256),(256, 256),1e-6,500,{param_revision.epochs},False"
         selection = ("epochs", 300, param_revision.epochs)
 
     print(f"\n=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} (default = {selection[1]})")

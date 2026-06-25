@@ -166,7 +166,6 @@ class DataGen:
         profile = generator_profile(df)
         self.report["gen"]["profile"] = profile
         self.synthesis_request = select_generator(synthesis_request=self.synthesis_request, semantic_types=self.semantic_types, profile=profile, agent=self.agent, config=self.config,)
-        self.synthesis_request.generator.parameters = output_default_parameters(self.synthesis_request.generator.name)
         return self.synthesis_request
 
 
@@ -267,6 +266,7 @@ class DataGen:
 
         self.report["gen"]["synth_path"] = self.synthetic_path
         self.report["gen"]["synth_shape"] = self.synthetic_df.shape
+        self.report["gen"]["params"] = self.synthesis_request.generator.parameters
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
 

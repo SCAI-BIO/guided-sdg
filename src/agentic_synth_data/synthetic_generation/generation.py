@@ -8,7 +8,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
-from agentic_synth_data.utils import format_response, extract_output, parse_json
+from agentic_synth_data.utils import format_response, extract_output, output_default_parameters, parse_json
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -41,6 +41,7 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
         str: Path of the synthetic dataset.                                  
     """
     mechanism = synthesis_request.generator.name
+    parameters =synthesis_request.generator.parameters
     # Set sample size
     if synthesis_request.sample_size.mode == "fixed_value":
         sample_size = synthesis_request.sample_size.fixed_value
@@ -63,6 +64,7 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
         -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
         -D /workspace/data/{data_name} \
         -M {mechanism} \
+        -P {parameters} \
         -O {container_output_path} \
         -N {sample_size}"
         """
@@ -82,7 +84,6 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
     # If process fails for a specific generator
     if process.returncode !=0:
         raise RuntimeError(f"{mechanism} failed.")
-
     print(f"\n=> {mechanism}: {sample_size} synthetic samples successfully generated.")
     return str(host_output_path)
 
@@ -128,7 +129,6 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
     # Select summary statistics (including skew)
     num_summary = num_df.describe()
     num_summary.loc["skew"] = num_df.skew().values
-    #stats.loc["kurt"] = num_df.kurtosis().values # from initial, not fully necessary
 
     print("Numeric value summary statistics:")
     print(num_summary)
@@ -233,6 +233,7 @@ def select_generator(
 
         if decision == "approve":
             synthesis_request.generator.name = generation_plan.generator
+            synthesis_request.generator.parameters = output_default_parameters(synthesis_request.generator.name)
             choice_confirmed = True
             print(f"\n=> {generation_plan.generator} has been approved.")
 
