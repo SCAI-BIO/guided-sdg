@@ -1,9 +1,9 @@
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 import pyinputplus as pyip
 
-from agentic_synth_data.utils import format_response, display_synthesis_request
+from agentic_synth_data.utils import format_response, display_synthesis_request, output_default_parameters
 
 
 class SampleSizeConfig(BaseModel):
@@ -18,7 +18,7 @@ class PrivacyConfig(BaseModel):
 
 class GeneratorConfig(BaseModel):
     name: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"] | None = None
-    parameters: dict[str, Any] = Field(default_factory=dict) # Depends on generators used/available (not important for right now)
+    parameters: str | None = None
 
 
 class ImputationConfig(BaseModel):
@@ -77,6 +77,7 @@ def select_preferences() -> SynthesisRequest:
     else:
         print(f"\t=> Your data will be generated using {choice}.")
     request.generator.name = choice
+    request.generator.parameters = output_default_parameters(choice) # default parameters
         
     # Missing value handling preferences
     print()

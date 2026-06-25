@@ -1,5 +1,5 @@
 import textwrap
-from typing import Optional, Type
+from typing import Optional, Type, Literal
 
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
@@ -133,3 +133,20 @@ def newline_every_n_words(option:str, n:int) -> str:
         lines.append(" ".join(words[i:i+n]))
 
     return "\n".join(lines)
+
+
+def output_default_parameters(generator_name:Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]):
+    if generator_name == "PATEGAN":
+       return "1:1e-5:False:10:100:128:1e-4:False"
+    
+    elif generator_name == "BayesianNet":
+        return "10:1:False:True:None"
+    
+    elif generator_name == "PrivBayes":
+        return "10:1:.1:False:True:None"
+    
+    elif generator_name == "CTGAN":
+        return "128:(256, 256):(256, 256):1e-6:500:300:False"
+    
+    else: # "auto"
+        return None

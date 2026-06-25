@@ -5,7 +5,7 @@ import pyinputplus as pyip
 from pydantic import BaseModel, Field
 
 from agentic_synth_data.preference_setup import SynthesisRequest
-from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message
+from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, parameter_revision_message
 from agentic_synth_data.utils import parse_json, extract_output, newline_every_n_words
 
 
@@ -19,7 +19,25 @@ class GeneratorRevisionOption(BaseModel):
 class GeneratorRevisionPlan(BaseModel):
     options: list[GeneratorRevisionOption]
 
-# TODO: add parameter revision (make user selectable?)
+
+class PATEGANConfig(BaseModel):
+    eps: int = Field(default=1, ge=0, le=10) # the highest value synthetic data release used was 10
+
+
+class PrivBayesConfig(BaseModel):
+    epsilon: float = Field(default=0.1, ge=0.0, le=1.0)
+
+
+class CTGANConfig(BaseModel):
+    epochs: int = Field(default=300, ge=300, le=1000)
+
+
+CONFIG_MAP = {
+   "PATEGAN": PATEGANConfig,
+   "PrivBayes": PrivBayesConfig,
+   "CTGAN": CTGANConfig,
+}
+
 
 class MissingRevisionOption(BaseModel):
     id: str
@@ -61,16 +79,16 @@ def plan_update(
     # Select mechanism
     update_mech = generator_update(synthesis_request, agent_decision, report, agent, config)
 
-    # Mechanism parameters
-    # update_params should have a similar structure (but depends on if user should be selecting the option)
-
-    # Missing handling
-    update_missing = None
-
     if update_mech is not None:
         effective_generator = update_mech.generator_name
     else:
         effective_generator = synthesis_request.generator.name
+
+    # Mechanism parameters
+    update_params = parameter_update(effective_generator, agent, config)
+
+    # Missing handling
+    update_missing = None
 
     if effective_generator in ["PrivBayes", "BayesianNet"]:
         print("\n=> The data generator selected allows for missing values. Missing value handling will not be applied.")
@@ -81,8 +99,8 @@ def plan_update(
     if update_mech:
         update_plan["update_mech"] = update_mech
     
-    # if update_params: # TODO: implement this
-    #     updated_plan["update_params"] = update_params
+    if update_params:
+        update_plan["update_params"] = update_params
 
     if update_missing is not None:
         update_plan["update_missing"] = update_missing
@@ -109,6 +127,7 @@ def generator_update(
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
     """
+    print("\nAgent is coming up with a generator revision options...")
     prompt = revision_message(synthesis_request, report, agent_decision)
     raw_response = agent.invoke(
         {
@@ -139,6 +158,65 @@ def generator_update(
     return menu_options[choice]
 
 
+def parameter_update(
+        selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"],
+        agent:Optional[CompiledStateGraph], 
+        config:dict,
+        ) -> str | None:
+    """Ask agent for possible parameter revision.
+
+    Args:
+        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
+        config (dict): Configuration passed to the agent during invocation.
+
+    Returns:
+        GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
+    """
+    if selected_mechanism == "BayesianNet":
+        print("=> Currently, BayesianNet can only be set to default. Default parameters retained.")
+        return None
+    
+    print("\nAgent is coming up with a parameter revision...")
+    prompt = parameter_revision_message(selected_mechanism)
+    raw_response = agent.invoke(
+        {
+            "messages": [
+                {
+                    "role": "user", 
+                    "content": prompt,
+                }
+            ]
+        }, 
+        config=config,
+    )
+
+    raw_params = extract_output(raw_response)
+
+    param_revision = parse_json(raw_params, CONFIG_MAP[selected_mechanism], agent, config)
+
+    changed_params = param_revision.model_dump(exclude_defaults=True)
+
+    if not changed_params:
+        print("\n=> Default parameters retained.")
+        return None
+
+    if selected_mechanism == "PATEGAN":
+        mech_params = f"{param_revision.eps}:1e-5:False:10:100:128:1e-4:False"
+        selection = ("epsilon", 1, param_revision.eps)
+    
+    elif selected_mechanism == "PrivBayes":
+        mech_params = f"10:1:{param_revision.epsilon}:False:True:None"
+        selection = ("epsilon", .1, param_revision.epsilon)
+        
+    elif selected_mechanism == "CTGAN":
+        mech_params = f"128:(256, 256):(256, 256):1e-6:500:{param_revision.epochs}:False"
+        selection = ("epochs", 300, param_revision.epochs)
+
+    print(f"\n=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} (default = {selection[1]})")
+    return mech_params
+
+
 def missing_update(
         synthesis_request:SynthesisRequest, 
         agent:Optional[CompiledStateGraph], 
@@ -155,6 +233,7 @@ def missing_update(
     Returns:
         MissingRevisionOption | None: Selected generator revision, or None if cancelled.
     """
+    print("\nAgent is coming up with missing value handling options...")
     prompt = missing_revision_message(synthesis_request)
     raw_response = agent.invoke(
         {
