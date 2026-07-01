@@ -1,5 +1,6 @@
 from typing import Any
-import json
+
+from agentic_synth_data.schemas.models import AgentEval
 
 
 def evaluation_prompt(
@@ -82,12 +83,12 @@ JSON format:
 """
 
 
-def eval_review_message(eval_decision:dict[str, Any], response:str):
+def eval_review_message(agent_decision:AgentEval, response:str):
     return f"""
 You are answering a question about the synthetic data evaluation notes.
 
 Evaluation results:
-{json.dumps(eval_decision, indent=2)}
+{agent_decision.model_dump()}
 
 User question:
 {response}
