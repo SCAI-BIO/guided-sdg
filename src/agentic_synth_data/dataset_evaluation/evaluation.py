@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import Optional, Any, Literal
 import pprint
 
+from anonymeter.stats.confidence import PrivacyRisk
+from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
 import pandas as pd
 import numpy as np
 from pydantic import BaseModel, Field
@@ -10,7 +12,7 @@ import pyinputplus as pyip
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
 from agentic_synth_data.utils import format_response, extract_output, parse_json
-from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
+from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -19,6 +21,13 @@ class AgentEval(BaseModel):
     problem_columns: list[str] = Field(default_factory=list)
     recommendation: str
     rationale: str
+
+
+class AttackColumns(BaseModel):
+    linkability_aux_cols:list[list[str]] = Field(min_length=2, max_length=2)
+    inference_aux_cols:list[str] = Field(min_length=1) # possible TODO: Add additional constraints
+    secret:str
+    rationale:str
 
 
 def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
@@ -58,9 +67,89 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     }
 
 
+def calculate_attack_metrics(
+    real_df:pd.DataFrame,
+    synthetic_df:pd.DataFrame,
+    semantic_types:dict[str, str],
+    agent:Optional[CompiledStateGraph] | None = None, 
+    config:dict | None = None
+    ) -> dict[str, PrivacyRisk]:
+    print("\nEvaluating singling out risk...")
+    singling_out = SinglingOutEvaluator(ori=real_df, syn=synthetic_df, max_attempts=1_000)
+    singling_out.evaluate()
+    singling_out_risk = singling_out.risk()
+    print(f"\n=> Singling out risk:\n  - Value: {round(singling_out_risk.value*100, 3)}%" \
+        f"\n  - Confidence interval between: {round(singling_out_risk.ci[0]*100,3)}%" \
+        f" and {round(singling_out_risk.ci[1]*100,3)}%")
+
+    prompt = attack_column_selection_message(semantic_types=semantic_types)
+    print("\nAgent is selecting columns for the following privacy metrics to be assessed:" \
+        "\n- Inference risk (short explanation)\n- Linkability risk (short explanation)")
+
+    raw_response = agent.invoke({"messages": [{"role": "user", "content": prompt,}]}, config=config,)
+    raw_response = agent.invoke(
+        {"messages": [{"role": "user", "content": prompt,}]}, config=config,
+        )
+    raw_response = agent.invoke(
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ]
+        },
+        config=config,
+    )
+
+    plan = extract_output(raw_response)
+
+    selected_cols = parse_json(plan, AttackColumns, agent, config)
+
+    print(f"\nSelected columns:\n- Linkability:\n  - Auxiliary columns: " \
+        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary" \
+        f" columns: {selected_cols.inference_aux_cols}\n  - Secret " \
+        f"column: {selected_cols.secret}\n\nRationale:")
+    format_response(selected_cols.rationale)
+
+    print("\nEvaluating inference risk...")
+    inference = InferenceEvaluator(
+        ori=real_df,
+        syn=synthetic_df,
+        aux_cols=selected_cols.inference_aux_cols,
+        secret=selected_cols.secret,
+        n_attacks=min(500, len(real_df))
+        )
+    inference.evaluate()
+    inference_risk = inference.risk()
+    print(f"\n=> Inference out risk:\n  - Value: {round(inference_risk.value*100, 3)}%" \
+        f"\n  - Confidence interval: between {round(inference_risk.ci[0]*100,3)}%" \
+        f" and {round(inference_risk.ci[1]*100,3)}%")
+
+    print("\nEvaluating linkability risk...")
+    linkability = LinkabilityEvaluator(
+        ori=real_df,
+        syn=synthetic_df,
+        aux_cols=selected_cols.linkability_aux_cols,
+        n_attacks=min(500, len(real_df))
+        )
+    linkability.evaluate()
+    linkability_risk = linkability.risk()
+    print(f"\n=> Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%" \
+        f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
+        f" and {round(linkability_risk.ci[1]*100,3)}%")
+
+    return {
+        "singling_out_risk": singling_out_risk,
+        "inference_risk": inference_risk,
+        "linkability_risk": linkability_risk,
+    }
+
+
 def evaluation(
         synthesis_request:SynthesisRequest,
         metrics:dict[str, Any],
+        attack_metrics:dict[str, Any],
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
         ) -> dict:
@@ -80,7 +169,7 @@ def evaluation(
         dict: The decision plan based on the agent's assessment.
     """
     request_dict = synthesis_request.model_dump()
-    prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics,)
+    prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics, attack_metrics=attack_metrics)
     
     
     print("\nAgent is evaluating the results...")

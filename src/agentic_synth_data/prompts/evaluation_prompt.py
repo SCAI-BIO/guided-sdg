@@ -1,10 +1,14 @@
+from textwrap import dedent
 from typing import Any
 import json
+
+from anonymeter.stats.confidence import PrivacyRisk
 
 
 def evaluation_prompt(
         synthesis_request:dict[str, Any], 
         metrics:dict[str, Any],
+        attack_metrics:dict[str, PrivacyRisk]
     ) -> str:
     return f"""
 Evaluate whether synthetic data quality is satisfactory.
@@ -96,3 +100,33 @@ Answer in plain text only.
 
 Answer the user's question using the evaluation results.
 """
+
+
+def attack_column_selection_message(semantic_types:dict[str, str]) -> str:
+    return dedent(f"""
+        You need to come up with appropriate auxiliary columns and secret arguments for 
+        both linkability and inference risks. The columns selected will be used for 
+        their calculation.
+
+        The dataset has the following column names and semantic types:
+        {semantic_types}
+
+        Rules:
+        - Only use columns that are present in the dataset.
+        - Linkability aux_cols and inference aux_cols may be different.
+        - Linkability aux_cols must be a list containing exactly two non-empty column groups.
+        - Inference aux_cols must be a flat list of columns.
+        - Inference secret must be one column.
+        - Do not include the inference secret inside inference aux_cols.
+        - Prefer quasi-identifiers for aux_cols.
+        - Prefer either sensitive, target-like, or outcome-like columns for the inference secret.
+        - Return valid JSON only. No markdown. No explanation.
+
+        JSON format:
+        {{
+            "linkability_aux_cols": [["col_a", "col_b"],["col_c", "col_d"]],
+            "inference_aux_cols": ["col_e", "col_f", "col_g"],
+            "secret": "col_h",
+            "rationale": "short explanation of why you chose certain assignments."
+        }}
+    """)

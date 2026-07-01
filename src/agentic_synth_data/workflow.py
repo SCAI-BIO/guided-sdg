@@ -9,7 +9,7 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_report, calculate_metrics, evaluation_review
+from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, prepare_for_syndat
@@ -281,9 +281,18 @@ class DataGen:
         self.report["review"]["norm_corr_diff"] = metrics["norm_corr_diff"]
         self.report["review"]["discrim_auc"] = metrics["discrim_auc"]
 
+        attack_metrics = calculate_attack_metrics(
+            real_df=real_df,
+            synthetic_df=synth_df,
+            semantic_types=self.semantic_types,
+            agent=self.agent,
+            config=self.config
+            )
+
         agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
             metrics=metrics,
+            attack_metrics=attack_metrics,
             agent=self.agent,
             config=self.config,
         )
