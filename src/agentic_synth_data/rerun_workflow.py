@@ -4,6 +4,7 @@ from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
 from pydantic import BaseModel, Field
 
+from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message
 from agentic_synth_data.utils import parse_json, extract_output, newline_every_n_words
@@ -37,7 +38,7 @@ class MissingRevisionPlan(BaseModel):
 
 def plan_update(
         synthesis_request:SynthesisRequest, 
-        agent_decision:dict[str, Any], 
+        agent_decision:AgentEval, 
         report:dict[str, Any],
         agent:Optional[CompiledStateGraph], 
         config:dict,
@@ -50,7 +51,7 @@ def plan_update(
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        agent_decision (dict[str, Any]): Agent decision on results: satisfactory | not_satisfactory | needs_review.
+        agent_decision (dict[str, Any]): Agent decision based on results.
         report (dict[str, Any]): Dictionary containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data synthesis plan.
         config (dict): Configuration passed to the agent during invocation.
@@ -92,7 +93,7 @@ def plan_update(
 
 def generator_update(
         synthesis_request:SynthesisRequest, 
-        agent_decision:dict[str, Any], 
+        agent_decision:AgentEval, 
         report:dict[str, Any],
         agent:Optional[CompiledStateGraph], 
         config:dict,
@@ -101,7 +102,7 @@ def generator_update(
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        agent_decision (dict[str, Any]): Agent decision on results: satisfactory | not_satisfactory | needs_review.
+        agent_decision (AgentEval): Agent decision on results: satisfactory | not_satisfactory | needs_review.
         report (dict[str, Any]): Dictionary containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (dict): Configuration passed to the agent during invocation.

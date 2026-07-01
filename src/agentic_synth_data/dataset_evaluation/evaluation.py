@@ -5,12 +5,14 @@ import pprint
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
 import pandas as pd
 import numpy as np
-from pydantic import BaseModel, Field
+
 from langgraph.graph.state import CompiledStateGraph
+from pydantic import BaseModel, Field
 import pyinputplus as pyip
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics
+from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.utils import format_response, extract_output, parse_json
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
@@ -140,7 +142,7 @@ def evaluation(
         attack_metrics:dict[str, Any],
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
-        ) -> dict:
+    ) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics.
 
     Args:
@@ -154,7 +156,7 @@ def evaluation(
         config (dict | None, optional): Configuration passed to the agent during invocation. Defaults to None.
 
     Returns:
-        dict: The decision plan based on the agent's assessment.
+        AgentEval: The decision plan based on the agent's assessment.
     """
     request_dict = synthesis_request.model_dump()
     prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics, attack_metrics=attack_metrics)
@@ -186,25 +188,18 @@ def evaluation(
     format_response(eval_plan.recommendation)
     print("- Rationale:")
     format_response(eval_plan.rationale)
-    
-    decision = {
-        "status": eval_plan.status,
-        "problem_columns": eval_plan.problem_columns,
-        "recommendation": eval_plan.recommendation,
-        "rationale": eval_plan.rationale,
-    }
-    return decision
+    return eval_plan
 
 
 def evaluation_review(
-        eval_decision:dict[str, Any], 
+        agent_decision:AgentEval, 
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
         ) -> str:
     """User asks questions about agent's assessment/discusses details to focus on.
 
     Args:
-        eval_decision (dict[str, Any]): Agent's evaluation decision (from evaluation).
+        agent_decision (AgentEval): Agent's evaluation decision.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the evaluation. Defaults to None.
         config (dict | None, optional): Configuration passed to the agent during invocation.. Defaults to None.
 
@@ -215,7 +210,7 @@ def evaluation_review(
     
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
-        prompt = eval_review_message(eval_decision, response)
+        prompt = eval_review_message(agent_decision, response)
         raw_response = agent.invoke(
             {
                 "messages": [
@@ -232,7 +227,7 @@ def evaluation_review(
 
         confirm = pyip.inputYesNo("\nDo you have another question?\n")
 
-    print(f"\nWorkflow result status: {eval_decision['status']}")
+    print(f"\nWorkflow result status: {agent_decision.status}")
     choice = pyip.inputMenu(["finish", "revise"], "\nWould you like to finish or revise the workflow?\n", numbered=True)
     
     return choice
