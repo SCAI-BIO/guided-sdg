@@ -69,8 +69,8 @@ Consider:
 
 Allowed status:
 - satisfactory
-- needs review
-- not satisfactory
+- needs_review
+- not_satisfactory
 
 JSON format:
 {{

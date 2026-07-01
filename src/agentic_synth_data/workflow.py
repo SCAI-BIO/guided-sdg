@@ -17,7 +17,7 @@ from agentic_synth_data.dataset_preparation.metadata_formatting import format_js
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
-from agentic_synth_data.rerun_workflow import RevisionOption, plan_update, rerun
+from agentic_synth_data.rerun_workflow import plan_update
 from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator, generator_profile
 from agentic_synth_data.utils import format_response
 
@@ -48,7 +48,7 @@ class DataGen:
         self.config:dict[str, dict[str, Any]] = {"configurable": {"thread_id": 1}}
         self.agent:CompiledStateGraph = self.create_agent()
 
-        self.report: dict = {
+        self.report: dict = { # TODO: wrap in object
             "input": {
                 "path": self.data_path,
                 "original_shape": {},
@@ -60,9 +60,10 @@ class DataGen:
                 "missing_markers": {"detected": {}, "replaced": {},},
                 "dtypes": {},
                 "stypes": {},
+                "profile": {},
                 "missing_handling": {"before": {}, "after": {},},
             },
-            "gen": {"prep_path": {}, "synth_path": {}, "synth_shape": {},},
+            "gen": {"prep_path": {}, "synth_path": {}, "synth_shape": {}},
             "review": {
                 "jsd": {},
                 "norm_corr_diff": {},
@@ -71,6 +72,7 @@ class DataGen:
                 "recommendation": {},
                 "rationale": {},
             },
+            "revisions": []
         }
 
 
@@ -157,6 +159,7 @@ class DataGen:
         print()
         df = self.dtype_handled_df.copy()
         profile = generator_profile(df)
+        self.report["gen"]["profile"] = profile
         self.synthesis_request = select_generator(synthesis_request=self.synthesis_request, semantic_types=self.semantic_types, profile=profile, agent=self.agent, config=self.config,)
         return self.synthesis_request
 
@@ -295,7 +298,7 @@ class DataGen:
 
 
     def post_evaluation_check(self):
-        """Step 7: Check in with user and possibly"""
+        """Revise: Check in with user and possibly change the plan"""
         print("\n\n")
         print("="*25+"[END: Evaluate workflow]"+"="*25)
         
@@ -305,13 +308,15 @@ class DataGen:
             selected_updates =  plan_update(
                 synthesis_request=self.synthesis_request,
                 agent_decision=self.agent_decision,
+                report=self.report,
                 agent=self.agent,
                 config=self.config,
             )
 
             if selected_updates is not None:
-                self.report["review"]["selected_plan_updates"] = selected_updates.model_dump()
-                
+                self.report["review"]["selected_plan_updates"] = {
+                    key: value.model_dump() for key, value in selected_updates.items()
+                }
                 revised = self.create_revision(selected_updates)
                 return revised
             
@@ -341,8 +346,9 @@ class DataGen:
         final_gen = self.post_evaluation_check()
         return final_gen.synthetic_df
     
-    def create_revision(self, revision_choice:RevisionOption) -> "DataGen":
-        """Copy datagen with the approved revisions. Currently can only change gnerator name"""
+
+    def create_revision(self, update_plan:dict) -> "DataGen":
+        """Copy datagen with the approved revisions."""
         print("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
         revised = DataGen(self.data_path)
 
@@ -355,8 +361,6 @@ class DataGen:
         revised.config = copy.deepcopy(self.config)
 
         revised.synthesis_request = self.synthesis_request.model_copy(deep=True)
-        revised.synthesis_request.generator.name = revision_choice.generator_name
-        revised.synthesis_request.generator.parameters = revision_choice.parameters
 
         revised.source_df = self.source_df.copy()
         revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
@@ -368,36 +372,48 @@ class DataGen:
         revised.report["input"]["version_id"] = revised.version_id
         revised.report["input"]["parent_version"] = revised.parent_version
 
-        revised._reset_from_generator_selection()
-        revised._rerun_generator_selection(revision_choice=revision_choice)
+        selection = revised._revision_scope(update_plan)
+
+        revised._apply_revision_plan(update_plan)
+        revised._reset_from_selection(selection)
+        revised._rerun_selection(update_plan)
         return revised
 
 
-    def _rerun_generator_selection(self, revision_choice: RevisionOption) -> None:
+    def _rerun_selection(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps."""
-        print("\n" + "=" * 25 + "[REVISION: Generator selection]" + "=" * 25)
-        print(f"New generator: {revision_choice.generator_name}")
-        print(f"Reason: {revision_choice.reason}")
+        print("\n" + "=" * 25 + f"[REVISION]" + "=" * 25)
+
+        if "update_mech" in update_plan:
+            print(f"\nNew generator: {update_plan['update_mech'].generator_name}")
+            print(f"\nReason: {update_plan['update_mech'].reason}")
+
+        if "update_missing" in update_plan:
+            print(f"\nNew missing handling strategy: {update_plan['update_missing'].mode}")
+            print(f"\nReason: {update_plan['update_missing'].reason}")
 
         self.report["revisions"].append(
             {
-                "rerun_step": revision_choice.rerun_step,
-                "generator_name": revision_choice.generator_name,
-                "parameters": revision_choice.parameters,
-                "reason": revision_choice.reason,
+                "version_id": self.version_id,
+                "parent_version": self.parent_version,
+                "updates": {key: value.model_dump() for key, value in update_plan.items()}
             }
         )
-
-        # Rerun steps from generator selection
         self.preprocess_missing_vals()
         self.save_prepared_data()
         self.create_metadata()
         self.run_synthesis()
         self.evaluate()
+        final_gen = self.post_evaluation_check()
+        return final_gen.synthetic_df
+    
 
-
-    def _reset_from_generator_selection(self) -> None:
-        """Clear outputs that are expected to be updated after chaning the generator"""
+    def _reset_from_selection(self, selection:str) -> None:
+        """Clears previous outputs which are expected to be updated after changing the generator,
+        missing value, or the selection of both options.
+        
+        Additionally, clears the report in the altered sections.
+        """
         self.missing_handled_df = None
         self.prepared_df = None
         self.prepared_path = None
@@ -406,7 +422,57 @@ class DataGen:
         self.metrics = None
         self.agent_decision = None
 
-        self.report["gen"] = {}
-        self.report["review"] = {}
+        if selection == "generator_selection":
+            self.report["gen"] = {"prep_path": {}, "synth_path": {}, "synth_shape": {}}
 
-        self.report.setdefault("revisions", [])
+        # TODO: Add parameter seleciton option.
+        
+        elif selection == "missing_value":
+            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
+
+        elif selection == "both":
+            self.report["gen"] = {"prep_path": {}, "synth_path": {}, "synth_shape": {}}
+            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
+
+        self.report["review"] = {
+                "jsd": {},
+                "norm_corr_diff": {},
+                "discrim_auc": {},
+                "problem_columns": {},
+                "recommendation": {},
+                "rationale": {},
+            }
+
+
+    def _revision_scope(self, update_plan: dict) -> str:
+        """Indicates what has been selected for revision in _reset_from_selection"""
+        has_generator = "update_mech" in update_plan
+        has_missing = "update_missing" in update_plan
+
+        if has_generator and has_missing:
+            return "both"
+        
+        if has_generator:
+            return "generator_selection"
+        
+        if has_missing:
+            return "missing_value"
+        
+        raise ValueError("No updates were selected.")
+
+
+    def _apply_revision_plan(self, update_plan:dict) -> None:
+        """Uses the update_plan to update the synthesis request according to the specified revision information."""
+        if "update_mech" in update_plan:
+            option = update_plan["update_mech"]
+            self.synthesis_request.generator.name = option.generator_name
+            self.synthesis_request.generator.parameters = option.parameters
+
+        if "update_missing" in update_plan:
+            option = update_plan["update_missing"]
+            self.synthesis_request.missing_values.mode = option.mode
+
+            if option.mode == "impute":
+                self.synthesis_request.missing_values.impute.method = option.imputation_method
+                self.synthesis_request.missing_values.impute.categorical_strategy = option.categorical_strategy
+                self.synthesis_request.missing_values.impute.numerical_strategy = option.numerical_strategy    
