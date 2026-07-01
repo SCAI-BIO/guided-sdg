@@ -2,13 +2,13 @@ from textwrap import dedent
 from typing import Any
 import json
 
-from anonymeter.stats.confidence import PrivacyRisk
+from agentic_synth_data.schemas.attack_model import AttackMetrics
 
 
 def evaluation_prompt(
         synthesis_request:dict[str, Any], 
         metrics:dict[str, Any],
-        attack_metrics:dict[str, PrivacyRisk]
+        attack_metrics:AttackMetrics
     ) -> str:
     return f"""
 Evaluate whether synthetic data quality is satisfactory.
@@ -32,6 +32,9 @@ Normalized correlation difference:
 Discriminator AUC: 
 {metrics['discrim_auc']}
 
+Privacy metrics:
+{attack_metrics.model_dump()}
+
 Evaluate whether the synthetic data is satisfactory.
 
 Interpretation:
@@ -52,6 +55,16 @@ Discriminator AUC:
 - AUC near 1.0 indicates real and synthetic data are easily distinguishable.
 - AUC near 0.5 indicates synthetic data resembles the real data.
 
+Privacy metrics:
+- Values are privacy-risk estimates between 0 and 1.
+- Lower is better.
+- value <= 0.05: low measurable risk.
+- 0.05 < value <= 0.15: moderate risk; needs review.
+- value > 0.15: high risk; not satisfactory unless utility is exceptional and privacy was not prioritized.
+- ci[0] and ci[1] are the confidence interval bounds.
+- If the confidence interval is wide, mention uncertainty.
+- Privacy warnings or unreliable estimates should be treated cautiously and mentioned in the rationale.
+
 ### Workflow steps that can be revisited
 
 | Step | Substep | Description | Agent |
@@ -70,6 +83,8 @@ Consider:
 - Whether synthetic data can be distinguished from real data (AUC).
 - Whether the selected generator is appropriate for the dataset characteristics.
 - Whether any workflow step should be revisited.
+- Whether privacy risk is low enough based on singling-out, inference, and linkability metrics.
+- Whether privacy was mentioned as an explicit concern.
 
 Allowed status:
 - satisfactory
@@ -81,7 +96,7 @@ JSON format:
     "status": "satisfactory",
     "problem_columns": [],
     "recommendation": "Specific next action. Mention which workflow step should be revisited if needed.",
-    "rationale": "Explain why this status was assigned, referring to average JSD, problem columns, generator fit, and any relevant workflow step."
+    "rationale": "Explain why this status was assigned, referring to average JSD, problem columns, generator fit, privacy risks, and any relevant workflow step."
 }}
 """
 

@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Optional, Any, Literal
 import pprint
 
-from anonymeter.stats.confidence import PrivacyRisk
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
 import pandas as pd
 import numpy as np
@@ -11,6 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
 from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
 
+from agentic_synth_data.schemas.attack_model import AttackMetrics
 from agentic_synth_data.utils import format_response, extract_output, parse_json
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
@@ -73,7 +73,7 @@ def calculate_attack_metrics(
     semantic_types:dict[str, str],
     agent:Optional[CompiledStateGraph] | None = None, 
     config:dict | None = None
-    ) -> dict[str, PrivacyRisk]:
+    ) -> AttackMetrics:
     print("\nEvaluating singling out risk...")
     singling_out = SinglingOutEvaluator(ori=real_df, syn=synthetic_df, max_attempts=1_000)
     singling_out.evaluate()
@@ -86,21 +86,9 @@ def calculate_attack_metrics(
     print("\nAgent is selecting columns for the following privacy metrics to be assessed:" \
         "\n- Inference risk (short explanation)\n- Linkability risk (short explanation)")
 
-    raw_response = agent.invoke({"messages": [{"role": "user", "content": prompt,}]}, config=config,)
     raw_response = agent.invoke(
         {"messages": [{"role": "user", "content": prompt,}]}, config=config,
         )
-    raw_response = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ]
-        },
-        config=config,
-    )
 
     plan = extract_output(raw_response)
 
@@ -139,11 +127,11 @@ def calculate_attack_metrics(
         f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
         f" and {round(linkability_risk.ci[1]*100,3)}%")
 
-    return {
-        "singling_out_risk": singling_out_risk,
-        "inference_risk": inference_risk,
-        "linkability_risk": linkability_risk,
-    }
+    return AttackMetrics(
+        singling_out= singling_out_risk, 
+        inference=inference_risk, 
+        linkability=linkability_risk
+    )
 
 
 def evaluation(
