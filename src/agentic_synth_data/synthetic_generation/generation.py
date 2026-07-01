@@ -128,7 +128,6 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
     # Select summary statistics (including skew)
     num_summary = num_df.describe()
     num_summary.loc["skew"] = num_df.skew().values
-    #stats.loc["kurt"] = num_df.kurtosis().values # from initial, not fully necessary
 
     print("Numeric value summary statistics:")
     print(num_summary)
@@ -180,7 +179,11 @@ def select_generator(
     choice_confirmed = False
 
     print()
-    format_response("Agent is coming up with a generator suggestion based on your preferences, the dataset's semantic types, the cardinality of the columns, and potential summary statistics and correlations...") 
+    format_response(
+        "Agent is coming up with a generator suggestion based on your preferences," \
+        " the dataset's semantic types, the cardinality of the columns, and" \
+        " potential summary statistics and correlations..."
+        )
 
     while not choice_confirmed:
         message = generator_selection_message(
@@ -209,7 +212,9 @@ def select_generator(
 
         plan = extract_output(raw_message=raw_response)
 
-        generation_plan = parse_json(plan=plan, model_cls=SelectGenerator, agent=agent, config=config) # TODO: check more extensively
+        generation_plan = parse_json(
+            plan=plan, model_cls=SelectGenerator, agent=agent, config=config
+            )
 
         print("\nSuggestion:")
         print(f"Data generator: {generation_plan.generator}")
@@ -243,11 +248,11 @@ def select_generator(
                 )
             print("\nWaiting for agent response...\n")
             continue
-        
+
         else: # discuss
             feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
             feedback_hist.append(feedback)
             print("\nWaiting for agent response...\n")
             continue
-        
+
     return synthesis_request

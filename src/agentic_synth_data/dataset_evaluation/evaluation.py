@@ -41,12 +41,14 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     """
     jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
-    
+
     print("\nJenson-Shannon Distances:")
     for col, jsd_score in jsd_results.items():
         print(col, round(jsd_score, 4))
-    
-    norm_corr_diff = syndat.metrics.normalized_correlation_difference(real=real_df, synthetic=synthetic_df, ignore_cat=True)
+
+    norm_corr_diff = syndat.metrics.normalized_correlation_difference(
+        real=real_df, synthetic=synthetic_df, ignore_cat=True
+        )
     print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
 
     discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
@@ -88,21 +90,21 @@ def evaluation(
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
                                 missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as a
-                                record of the processing done to generate the synthetic data.
+        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
+                                a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
                                 synthetic data based on SYNDAT metrics. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation. 
+                                Defaults to None.
 
     Returns:
         dict: The decision plan based on the agent's assessment.
     """
     request_dict = synthesis_request.model_dump()
     prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics,)
-    
-    
+
     print("\nAgent is evaluating the results...")
-    
+
     raw_response = agent.invoke(
         {
             "messages": [
@@ -118,7 +120,7 @@ def evaluation(
     plan = extract_output(raw_response)
 
     eval_plan = parse_json(plan, AgentEval, agent, config)
-    
+
     print("\nEvaluation:")
     print(f"- Status: {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
@@ -127,7 +129,7 @@ def evaluation(
     format_response(eval_plan.recommendation)
     print("- Rationale:")
     format_response(eval_plan.rationale)
-    
+
     decision = {
         "status": eval_plan.status,
         "problem_columns": eval_plan.problem_columns,
@@ -146,14 +148,16 @@ def evaluation_review(
 
     Args:
         eval_decision (dict[str, Any]): Agent's evaluation decision (from evaluation).
-        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the evaluation. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation.. Defaults to None.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
+                                                               evaluation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation.
+                                        Defaults to None.
 
     Returns:
         str: Whether the workflow should finish or be revised.
     """
     confirm = pyip.inputYesNo("\nDo you have questions about the evaluation results?\n")
-    
+
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
         prompt = eval_review_message(eval_decision, response)
@@ -174,8 +178,12 @@ def evaluation_review(
         confirm = pyip.inputYesNo("\nDo you have another question?\n")
 
     print(f"\nWorkflow result status: {eval_decision['status']}")
-    choice = pyip.inputMenu(["finish", "revise"], "\nWould you like to finish or revise the workflow?\n", numbered=True)
-    
+    choice = pyip.inputMenu(
+        ["finish", "revise"], 
+        "\nWould you like to finish or revise the workflow?\n", 
+        numbered=True
+        )
+
     return choice
 
 
@@ -183,7 +191,8 @@ def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisR
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
-        report (dict[str, dict[str, Any]]): Dictionary containing information gathered throughout the workflow steps.
+        report (dict[str, dict[str, Any]]): Dictionary containing information gathered throughout
+                                            the workflow steps.
         synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
         data_path (str): Initial path of the data (used for naming the report).
         version_id (int): Denotes the version of the workflow attempt.
