@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess as sp
+from textwrap import dedent
 from typing import Literal, Any
 
 import pandas as pd
@@ -53,21 +54,33 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
     output_filename = f"synthetic_{data_name}_{mechanism.lower()}_v{version_id}.csv"
     host_output_path = Path("../output") / output_filename
     container_output_path = f"/workspace/output/{output_filename}"
-    
+
     print()
     print("-"*25+f"Running {mechanism}"+"-"*25)
 
-    command = f"""
-    podman run -it --rm \
+    if mechanism == "CTGAN": # NOTE: To not include parameter specifications.
+        command = dedent(f"""
+        podman run -it --rm \
         --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
         docker.io/springepfl/synthetic-data:latest \
         -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
         -D /workspace/data/{data_name} \
         -M {mechanism} \
-        -P {parameters} \
         -O {container_output_path} \
         -N {sample_size}"
-        """
+        """)
+    else:
+        command = f"""
+        podman run -it --rm \
+            --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
+            docker.io/springepfl/synthetic-data:latest \
+            -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
+            -D /workspace/data/{data_name} \
+            -M {mechanism} \
+            -P {parameters} \
+            -O {container_output_path} \
+            -N {sample_size}"
+            """
     process = sp.Popen(
         command,
         shell=True,
@@ -80,7 +93,7 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
         print(line, end="")
 
     process.wait()
-    
+
     # If process fails for a specific generator
     if process.returncode !=0:
         raise RuntimeError(f"{mechanism} failed.")
@@ -114,7 +127,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
         col_profiles[col] = {
             "n_unique": df[col].nunique(dropna=False),
         }
-    
+
     num_df = df.select_dtypes(include="number")
 
     if num_df.empty:  
@@ -245,11 +258,11 @@ def select_generator(
                 )
             print("\nWaiting for agent response...\n")
             continue
-        
+
         else: # discuss
             feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
             feedback_hist.append(feedback)
             print("\nWaiting for agent response...\n")
             continue
-        
+
     return synthesis_request

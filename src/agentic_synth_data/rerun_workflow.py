@@ -12,7 +12,7 @@ from agentic_synth_data.utils import parse_json, extract_output, newline_every_n
 class GeneratorRevisionOption(BaseModel):
     id: str
     generator_name: Literal["CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"]
-    parameters: dict[str, Any] = Field(default_factory=dict) # NOTE: Not certain whether to implement together (user selection).
+    parameters: dict[str, Any] = Field(default_factory=dict)
     reason: str
 
 
@@ -21,28 +21,22 @@ class GeneratorRevisionPlan(BaseModel):
 
 
 class PATEGANConfig(BaseModel):
-    eps: int = Field(default=1, ge=0, le=10) # the highest value synthetic data release used was 10
+    eps: int = Field(default=1, ge=0, le=7)
 
 
 class PrivBayesConfig(BaseModel):
     epsilon: float = Field(default=0.1, ge=0.0, le=1.0)
 
 
-class CTGANConfig(BaseModel):
-    epochs: int = Field(default=300, ge=300, le=1000)
-
-
 CONFIG_MAP = {
    "PATEGAN": PATEGANConfig,
    "PrivBayes": PrivBayesConfig,
-   "CTGAN": CTGANConfig,
 }
 
 
 class MissingRevisionOption(BaseModel):
     id: str
-    mode: Literal["remove", "impute",] # Did not include threshold, it isn't safe (some nan might be present)
-    #set_threshold: int | None = None
+    mode: Literal["remove", "impute",] # NOTE: Did not include threshold, it isn't safe (some nan might be present)
     imputation_method: Literal["SimpleImputer"] | None = None
     categorical_strategy: Literal["most_frequent", "constant"] | None = None
     numerical_strategy: Literal["mean", "median", "most_frequent"] | None = None
@@ -95,10 +89,10 @@ def plan_update(
     else: 
         update_missing = missing_update(synthesis_request, agent, config)
 
-    update_plan = {} 
+    update_plan = {}
     if update_mech:
         update_plan["update_mech"] = update_mech
-    
+
     if update_params:
         update_plan["update_params"] = update_params
 
@@ -149,12 +143,17 @@ def generator_update(
         label = newline_every_n_words(f"{option.generator_name} - {option.reason}", 12)
         menu_options[label] = option
 
-    choice = pyip.inputMenu(list(menu_options.keys()) + ["Cancel"], "\nSelect a generator revision option:\n", numbered=True)
+    choice = pyip.inputMenu(
+        list(menu_options.keys()) + ["Cancel"], 
+        "\nSelect a generator revision option:\n", 
+        numbered=True
+        )
 
     if choice == "Cancel":
-        print("\n=> No revision has been selected for generator choice, continuing to missing value handling.")
+        print("\n=> No revision has been selected for generator choice, continuing to " \
+            "missing value handling.")
         return None
-    
+
     return menu_options[choice]
 
 
@@ -173,10 +172,11 @@ def parameter_update(
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
     """
-    if selected_mechanism == "BayesianNet":
-        print("=> Currently, BayesianNet can only be set to default. Default parameters retained.")
+    if selected_mechanism in ["BayesianNet", "CTGAN"]:
+        print(f"=> {selected_mechanism} can only be set to default." \
+              "Default parameters retained.")
         return None
-    
+
     print("\nAgent is coming up with a parameter revision...")
     prompt = parameter_revision_message(selected_mechanism)
     raw_response = agent.invoke(
@@ -187,7 +187,7 @@ def parameter_update(
                     "content": prompt,
                 }
             ]
-        }, 
+        },
         config=config,
     )
 
@@ -204,14 +204,10 @@ def parameter_update(
     if selected_mechanism == "PATEGAN":
         mech_params = f"{param_revision.eps},1e-5,False,10,100,128,1e-4,False"
         selection = ("epsilon", 1, param_revision.eps)
-    
+
     elif selected_mechanism == "PrivBayes":
         mech_params = f"10,1,{param_revision.epsilon},False,True,None"
         selection = ("epsilon", .1, param_revision.epsilon)
-        
-    elif selected_mechanism == "CTGAN":
-        mech_params = f"128,(256, 256),(256, 256),1e-6,500,{param_revision.epochs},False"
-        selection = ("epochs", 300, param_revision.epochs)
 
     print(f"\n=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} (default = {selection[1]})")
     return mech_params
@@ -223,11 +219,13 @@ def missing_update(
         config:dict,
         ) -> MissingRevisionOption | None:
     """
-    Ask agent for for possible generator revision options and returns the option selected by the user.
+    Ask agent for possible generator revision options and returns the option selected by the 
+    user.
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        agent (Optional[CompiledStateGraph]):  LangGraph agent used to recommend a strategy for missing values.
+        agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a strategy for 
+                                              missing values.
         config (dict): Configuration passed to the agent during invocation.
 
     Returns:
@@ -256,14 +254,20 @@ def missing_update(
             label = newline_every_n_words(f"Mode: {option.mode} - {option.reason}", 12)
 
         if option.mode == "impute":
-            label = f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, Categorical strategy: {option.categorical_strategy}\n- {newline_every_n_words(option.reason, 12)}"
-        
+            label = f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, " \
+            "Categorical strategy: {option.categorical_strategy}\n- {newline_every_n_words(option.reason, 12)}"
+
         menu_options[label] = option
 
-    choice = pyip.inputMenu(list(menu_options.keys()) + ["Cancel"], "\nSelect a missing value revision option:\n", numbered=True)
+    choice = pyip.inputMenu(
+        list(menu_options.keys()) + ["Cancel"], 
+        "\nSelect a missing value revision option:\n", 
+        numbered=True
+        )
 
     if choice == "Cancel":
-        print("\n=> No revision has been selected for missing value handling. Previously selected settings will be used.")
+        print("\n=> No revision has been selected for missing value handling. " \
+            "Previously selected settings will be used.")
         return None
     
     return menu_options[choice]
