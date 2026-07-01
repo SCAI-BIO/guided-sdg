@@ -1,3 +1,4 @@
+from textwrap import dedent
 from typing import Any, Literal
 
 from agentic_synth_data.preference_setup import SynthesisRequest
@@ -103,30 +104,29 @@ Give 1 to 3 options.
 
 
 def parameter_revision_message(selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"]) -> str:
-  return f"""
-The following generator has been selected {selected_mechanism}.
+  return dedent(f"""
+      The following generator has been selected {selected_mechanism}.
 
-Infer whether its default parameters should be updated:
+      Infer whether its default parameters should be updated:
 
-Default parameters:
-- PATEGAN: eps=1, delta=1e-5, infer_ranges=False, num_teachers=10, n_iters=100, batch_size=128, learning_rate=1e-4, multiprocess=False
-- BayesianNet: histogram_bins=10, degree=1, infer_ranges=False, multiprocess=True, seed=None
-- PrivBayes: histogram_bins=10, degree=1, epsilon=.1, infer_ranges=False, multiprocess=True, seed=None
-- CTGAN: embedding_dim=128, gen_dim=(256, 256), dis_dim=(256, 256), l2scale=1e-6, batch_size=500, epochs=300, multiprocess=False
+      Default parameters:
+      - PATEGAN: eps=1, delta=1e-5, infer_ranges=False, num_teachers=10, n_iters=100, batch_size=128, learning_rate=1e-4, multiprocess=False
+      - BayesianNet: histogram_bins=10, degree=1, infer_ranges=False, multiprocess=True, seed=None
+      - PrivBayes: histogram_bins=10, degree=1, epsilon=.1, infer_ranges=False, multiprocess=True, seed=None
+      - CTGAN: embedding_dim=128, gen_dim=(256, 256), dis_dim=(256, 256), l2scale=1e-6, batch_size=500, epochs=300, multiprocess=False
 
-Parameters that can be changed for each model:
-- PATEGAN:
-    - eps: integer between 0 and 10
-- PrivBayes:
-    - epsilon: float between 0.0 and 1.0
-- CTGAN:
-    - epochs: integer between 300 and 1000
-- BayesianNet:
-    - No parameter updates allowed.
-  
-Return valid JSON only with this structure:
-{{"epochs": 500}}
-"""
+      Parameters that can be changed for each model:
+      PATEGAN:
+      - eps: integer between 0 and 10
+      PrivBayes:
+      - epsilon: float between 0.0 and 1.0
+      CTGAN:
+      - epochs: integer between 300 and 1000
+      BayesianNet: No parameter updates allowed.
+        
+      Return valid JSON only with this structure:
+      {{"epochs": 500}}
+  """)
 
 
 # NOTE: have not included threshold as an option here (not stable with the current setup)
