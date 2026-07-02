@@ -175,7 +175,7 @@ class DataGen:
 
         mechanism = self.synthesis_request.generator.name
 
-        if mechanism in ["PATEGAN", "CTGAN",]:
+        if mechanism in ["PATEGAN", "CTGAN",]: # NOTE: for any mechanism that requires missing handling.
             print("\n\n")
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
