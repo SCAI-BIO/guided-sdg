@@ -1,11 +1,12 @@
 import textwrap
-from typing import Optional, Type
+from typing import Optional, Type, TypeVar
 
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
 
+T = TypeVar("T", bound=BaseModel)
 
 def format_response(text:str):
     print(textwrap.fill(text, width=100))
@@ -34,7 +35,7 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
 
 def parse_json(
         plan:str, model_cls:Type[BaseModel], agent:Optional[CompiledStateGraph], config:dict, root:bool=False
-        ) -> BaseModel:
+        ) -> T:
     """If agent fails to correctly format JSON response, prompts to 
     try again.
 
@@ -46,7 +47,7 @@ def parse_json(
         root (bool, optional): Indicates whether in semantic_type_handling (True) or not. Defaults to False.
 
     Returns:
-        BaseModel: Validated instance of the given Pydantic model.
+        T: Validated instance of the given Pydantic model.
     """
     if root: # semantic_type_handling follows a different structure than the other steps
         try:

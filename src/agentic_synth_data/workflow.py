@@ -19,6 +19,7 @@ from agentic_synth_data.dataset_preparation.missing_value_handling import handle
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.rerun_workflow import plan_update
+from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator, generator_profile
 from agentic_synth_data.utils import format_response
 
@@ -29,6 +30,7 @@ class DataGen:
         
         self.version_id = 1
         self.parent_version = None
+        self.agent_decision:AgentEval | None = None
 
         self.synthesis_request:SynthesisRequest | None = None
         self.python_dtypes: dict[Hashable, str] | None = None
@@ -285,19 +287,17 @@ class DataGen:
 
         plots = generate_plots(real_df, synth_df, self.version_id)
         self.report["review"]["plots"] = plots
-
-        agent_decision = evaluation(
+        self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
             metrics=metrics,
             agent=self.agent,
             config=self.config,
         )
 
-        self.agent_decision = agent_decision
-
-        self.report["review"]["problem_columns"] = agent_decision["problem_columns"]
-        self.report["review"]["recommendation"] = agent_decision["recommendation"]
-        self.report["review"]["rationale"] = agent_decision["rationale"]
+        self.report["review"]["problem_columns"] = self.agent_decision.status
+        self.report["review"]["problem_columns"] = self.agent_decision.problem_columns
+        self.report["review"]["recommendation"] = self.agent_decision.recommendation
+        self.report["review"]["rationale"] = self.agent_decision.rationale
 
         write_report(report=self.report, synthesis_request=self.synthesis_request, data_path=self.data_path, version_id=self.version_id)
 
@@ -307,7 +307,7 @@ class DataGen:
         print("\n\n")
         print("="*25+"[END: Evaluate workflow]"+"="*25)
         
-        choice = evaluation_review(eval_decision=self.agent_decision, agent=self.agent, config=self.config)
+        choice = evaluation_review(agent_decision=self.agent_decision, agent=self.agent, config=self.config)
     
         if choice == "revise":
             selected_updates =  plan_update(

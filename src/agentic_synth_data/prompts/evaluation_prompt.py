@@ -1,6 +1,7 @@
 from textwrap import dedent
 from typing import Any
-import json
+
+from agentic_synth_data.schemas.models import AgentEval
 
 
 def evaluation_prompt(
@@ -112,12 +113,12 @@ def evaluation_prompt(
         """)
 
 
-def eval_review_message(eval_decision:dict[str, Any], response:str):
-    return dedent(f"""
-        You are answering a question about the synthetic data evaluation notes.
+def eval_review_message(agent_decision:AgentEval, response:str):
+    return f"""
+You are answering a question about the synthetic data evaluation notes.
 
-        Evaluation results:
-        {json.dumps(eval_decision, indent=2)}
+Evaluation results:
+{agent_decision.model_dump()}
 
         User question:
         {response}
