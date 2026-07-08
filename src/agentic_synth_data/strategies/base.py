@@ -25,13 +25,13 @@ class GeneratorStrategy(ABC):
         return output_dir / synth_path
 
 
-    def _run(self, n_samples:int, prep_path:Path, parameters:str, version_id:int):
+    def _run(self, n_samples:int, prep_path:Path, version_id:int,): #parameters:str,):
         synth_path = self._make_synth_path(prep_path=prep_path, version_id=version_id)
         return self.run(
             n_samples=n_samples,
             prep_path=prep_path,
             synth_path=synth_path,
-            parameters=parameters,
+            #parameters=parameters,
         )
 
 

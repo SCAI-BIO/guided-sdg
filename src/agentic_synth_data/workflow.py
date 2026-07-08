@@ -259,7 +259,7 @@ class DataGen:
         self.synthetic_path, self.synthetic_df = strategy._run(
             n_samples=sample_size,
             prep_path=self.prepared_path,
-            parameters=self.synthesis_request.generator.parameters,
+            #parameters=self.synthesis_request.generator.parameters,
             version_id=self.version_id,
         )
 
