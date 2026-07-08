@@ -256,7 +256,7 @@ def missing_update(
 
         if option.mode == "impute":
             label = f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, " \
-            "Categorical strategy: {option.categorical_strategy}\n- {newline_every_n_words(option.reason, 12)}"
+            f"Categorical strategy: {option.categorical_strategy}\n- {newline_every_n_words(option.reason, 12)}"
 
         menu_options[label] = option
 
