@@ -9,8 +9,9 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 def revision_message(
         synthesis_request:SynthesisRequest, report:Report, agent_decision:AgentEval,
     ) -> str:
-    """Remind agent of all steps taken so far the latest attempt in the workflow and other outputs associated
-    with that attempt. This then prompts the agent to recommend a generator update (no params at this point).
+    """Remind agent of all steps taken so far the latest attempt in the workflow and other outputs
+    associated with that attempt. This then prompts the agent to recommend a generator update
+    (no params at this point).
     """
     if len(report.prep.missing_markers_detected) > 0:
         missing_markers = dedent(f"""
@@ -35,7 +36,6 @@ def revision_message(
         if synthesis_request.generator.name in ["PrivBayes", "BayesianNet"]:
             missing_handling = "- Missing value handling was not applied, the generator used allows " \
             "for missing values."
-
     return dedent(f"""
         The workflow should be revised. For now, only start with generator selection.
         Input dataframe shape: {report.input.original_shape}
@@ -92,6 +92,31 @@ def revision_message(
         }}
 
         Give 1 to 3 options.
+    """)
+
+
+def parameter_revision_message(selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"]) -> str:
+    return dedent(f"""
+    The following generator has been selected {selected_mechanism}.
+
+    Infer whether its default parameters should be updated:
+
+    Default parameters:
+    - PATEGAN: eps=1, delta=1e-5, infer_ranges=False, num_teachers=10, n_iters=100, batch_size=128, learning_rate=1e-4, multiprocess=False
+    - BayesianNet: histogram_bins=10, degree=1, infer_ranges=False, multiprocess=True, seed=None
+    - PrivBayes: histogram_bins=10, degree=1, epsilon=.1, infer_ranges=False, multiprocess=True, seed=None
+    - CTGAN: embedding_dim=128, gen_dim=(256, 256), dis_dim=(256, 256), l2scale=1e-6, batch_size=500, epochs=300, multiprocess=False
+
+    Parameters that can be changed for each model:
+    PATEGAN:
+    - eps: integer between 0 and 10
+    PrivBayes:
+    - epsilon: float between 0.0 and 1.0
+    CTGAN: No parameter updates allowed.
+    BayesianNet: No parameter updates allowed.
+
+    Return valid JSON only with this structure:
+    {{"epochs": 500}}
     """)
 
 
