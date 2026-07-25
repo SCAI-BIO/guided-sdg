@@ -1,5 +1,5 @@
 import textwrap
-from typing import Optional, Type, TypeVar
+from typing import Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
