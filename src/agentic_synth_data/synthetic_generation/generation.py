@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess as sp
+from textwrap import dedent
 from typing import Literal, Any
 
 import pandas as pd
@@ -8,7 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
-from agentic_synth_data.utils import format_response, extract_output, parse_json
+from agentic_synth_data.utils import format_response, extract_output, output_default_parameters, parse_json
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -41,6 +42,7 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
         str: Path of the synthetic dataset.                                  
     """
     mechanism = synthesis_request.generator.name
+    parameters =synthesis_request.generator.parameters
     # Set sample size
     if synthesis_request.sample_size.mode == "fixed_value":
         sample_size = synthesis_request.sample_size.fixed_value
@@ -52,12 +54,13 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
     output_filename = f"synthetic_{data_name}_{mechanism.lower()}_v{version_id}.csv"
     host_output_path = Path("../output") / output_filename
     container_output_path = f"/workspace/output/{output_filename}"
-    
+
     print()
     print("-"*25+f"Running {mechanism}"+"-"*25)
 
-    command = f"""
-    podman run -it --rm \
+    if mechanism == "CTGAN": # NOTE: To not include parameter specifications.
+        command = dedent(f"""
+        podman run -it --rm \
         --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
         docker.io/springepfl/synthetic-data:latest \
         -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
@@ -65,7 +68,19 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
         -M {mechanism} \
         -O {container_output_path} \
         -N {sample_size}"
-        """
+        """)
+    else:
+        command = f"""
+        podman run -it --rm \
+            --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
+            docker.io/springepfl/synthetic-data:latest \
+            -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
+            -D /workspace/data/{data_name} \
+            -M {mechanism} \
+            -P {parameters} \
+            -O {container_output_path} \
+            -N {sample_size}"
+            """
     process = sp.Popen(
         command,
         shell=True,
@@ -78,11 +93,10 @@ def run_generator(data_path:str, clean_csv_path:str, synthesis_request:Synthesis
         print(line, end="")
 
     process.wait()
-    
+
     # If process fails for a specific generator
     if process.returncode !=0:
         raise RuntimeError(f"{mechanism} failed.")
-
     print(f"\n=> {mechanism}: {sample_size} synthetic samples successfully generated.")
     return str(host_output_path)
 
@@ -113,7 +127,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
         col_profiles[col] = {
             "n_unique": df[col].nunique(dropna=False),
         }
-    
+
     num_df = df.select_dtypes(include="number")
 
     if num_df.empty:  
@@ -237,6 +251,7 @@ def select_generator(
 
         if decision == "approve":
             synthesis_request.generator.name = generation_plan.generator
+            synthesis_request.generator.parameters = output_default_parameters(synthesis_request.generator.name)
             choice_confirmed = True
             print(f"\n=> {generation_plan.generator} has been approved.")
 

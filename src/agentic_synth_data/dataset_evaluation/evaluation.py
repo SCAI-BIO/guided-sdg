@@ -149,7 +149,8 @@ def evaluation_review(
 
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
-        prompt = eval_review_message(agent_decision, response)
+        print("\nAgent is preparing its response...")
+        prompt = eval_review_message(eval_decision, response)
         raw_response = agent.invoke(
             {
                 "messages": [
