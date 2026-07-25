@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal, Any
 
 import pandas as pd
@@ -6,7 +7,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
-from agentic_synth_data.utils import format_response, extract_output, parse_json
+from agentic_synth_data.utils import format_response, extract_output, output_default_parameters, parse_json
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -44,7 +45,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
         col_profiles[col] = {
             "n_unique": df[col].nunique(dropna=False),
         }
-    
+
     num_df = df.select_dtypes(include="number")
 
     if num_df.empty:  
@@ -59,7 +60,6 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
     # Select summary statistics (including skew)
     num_summary = num_df.describe()
     num_summary.loc["skew"] = num_df.skew().values
-    #stats.loc["kurt"] = num_df.kurtosis().values # from initial, not fully necessary
 
     print("Numeric value summary statistics:")
     print(num_summary)
@@ -164,6 +164,7 @@ def select_generator(
 
         if decision == "approve":
             synthesis_request.generator.name = generation_plan.generator
+            synthesis_request.generator.parameters = output_default_parameters(synthesis_request.generator.name)
             choice_confirmed = True
             print(f"\n=> {generation_plan.generator} has been approved.")
 
@@ -175,11 +176,11 @@ def select_generator(
                 )
             print("\nWaiting for agent response...\n")
             continue
-        
+
         else: # discuss
             feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
             feedback_hist.append(feedback)
             print("\nWaiting for agent response...\n")
             continue
-        
+
     return synthesis_request
