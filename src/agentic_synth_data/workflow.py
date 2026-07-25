@@ -13,14 +13,14 @@ from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_r
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, prepare_for_syndat
-from agentic_synth_data.dataset_preparation.metadata_formatting import format_json
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report
 from agentic_synth_data.rerun_workflow import plan_update
 from agentic_synth_data.schemas.models import AgentEval
-from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator, generator_profile
+from agentic_synth_data.strategies.factory import get_generator_strategy
+from agentic_synth_data.synthetic_generation.generation import select_generator, generator_profile
 from agentic_synth_data.utils import format_response
 
 
@@ -43,8 +43,9 @@ class DataGen:
         self.prepared_df: pd.DataFrame | None = None # Generator prepared data
         self.synthetic_df: pd.DataFrame | None = None # Synthetic data
 
-        self.prepared_path: str | None = None # Data tool input (with/without missing handling)
-        self.synthetic_path: str | None = None
+        self.metadata_path: Path | None = None
+        self.prepared_path: Path | None = None # What is input into the tool (either with or without missing value handling)
+        self.synthetic_path: Path | None = None
 
         self.model: BaseChatModel = self.create_model()
         self.checkpointer: InMemorySaver = InMemorySaver()
@@ -153,7 +154,7 @@ class DataGen:
 
         mechanism = self.synthesis_request.generator.name
 
-        if mechanism in ["PATEGAN", "CTGAN",]:
+        if mechanism in ["PATEGAN", "CTGAN",]: # NOTE: for any mechanism that requires missing handling.
             print("\n\n")
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
@@ -212,33 +213,34 @@ class DataGen:
 
     def create_metadata(self):
         """Step 4: Setup tool data
-            i. Create metadata for tool use
+            ii. Create metadata for tool use
         """
-        format_json(self.prepared_path, self.semantic_types)
+        strategy = get_generator_strategy(self.synthesis_request.generator.name)
+
+        self.metadata_path = strategy.prepare_metadata(
+            prep_path=self.prepared_path,
+            semantic_types=self.semantic_types,
+        )
 
 
     def run_synthesis(self):
         """Step 5: Synthesize data"""
         print("\n\n")
         print("="*25+"[STEP: Synthesize synthetic data]"+"="*25)
+        strategy = get_generator_strategy(self.synthesis_request.generator.name)
 
-        self.synthetic_path = run_generator(
-            data_path=self.data_path,
-            clean_csv_path=self.prepared_path,
-            synthesis_request=self.synthesis_request,
+        # Set sample size
+        if self.synthesis_request.sample_size.mode == "fixed_value":
+            sample_size = self.synthesis_request.sample_size.fixed_value
+        else:
+            sample_size = len(self.source_df)
+
+        self.synthetic_path, self.synthetic_df = strategy._run(
+            n_samples=sample_size,
+            prep_path=self.prepared_path,
+            #parameters=self.synthesis_request.generator.parameters,
             version_id=self.version_id,
         )
-
-        # The generators add an "Unnamed: 0" column, so check that all cols match:
-        expected_columns = self.prepared_df.columns
-
-        synth_df = pd.read_csv(self.synthetic_path, index_col=False)
-        extra_columns = synth_df.columns.difference(expected_columns)
-
-        if not extra_columns.empty:
-            synth_df = synth_df.drop(columns=extra_columns)
-
-        self.synthetic_df = synth_df
 
         self.report.gen.synth_path = self.synthetic_path
         self.report.gen.synth_shape = self.synthetic_df.shape
@@ -413,9 +415,8 @@ class DataGen:
         self.missing_handled_df = None
         self.prepared_df = None
         self.prepared_path = None
-        self.metadata = None
+        self.metadata_path = None
         self.synthetic_df = None
-        self.metrics = None
         self.agent_decision = None
         
         # Covers "generator_selection"
