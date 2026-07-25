@@ -1,6 +1,4 @@
 from pathlib import Path
-import subprocess as sp
-from textwrap import dedent
 from typing import Literal, Any
 
 import pandas as pd
@@ -19,86 +17,6 @@ class SelectGenerator(BaseModel):
     cons: str
     rationale: str
     warning: list[str]
-
-
-# TODO: If run_generator fails, for example, plug the error message into the agent and try to
-# have the agent repair the issue.
-def run_generator(data_path:str, clean_csv_path:str, synthesis_request:SynthesisRequest, version_id:int) -> str:
-    """Run the selected data generator based on user preferences and agent recommendation.
-
-    Args:
-        data_path (str): Initial path of the data (used to obtain original sample size if 
-                        same_as_original is selected).
-        clean_csv_path (str): Path of the prepared data (ends with "_prepared.csv"). Used as
-                        a basis to generate the synthetic data. This dataset may include the 
-                        following changes:
-                        - Missing value marker replacement with null
-                        - dtype handling
-                        - Missing value handling
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences, with the 
-                        decided generator.
-
-    Returns:
-        str: Path of the synthetic dataset.                                  
-    """
-    mechanism = synthesis_request.generator.name
-    parameters =synthesis_request.generator.parameters
-    # Set sample size
-    if synthesis_request.sample_size.mode == "fixed_value":
-        sample_size = synthesis_request.sample_size.fixed_value
-    else:
-        sample_size = pd.read_csv(data_path).shape[0]
-
-    # Set cleaned data and output paths
-    data_name = Path(clean_csv_path).stem
-    output_filename = f"synthetic_{data_name}_{mechanism.lower()}_v{version_id}.csv"
-    host_output_path = Path("../output") / output_filename
-    container_output_path = f"/workspace/output/{output_filename}"
-
-    print()
-    print("-"*25+f"Running {mechanism}"+"-"*25)
-
-    if mechanism == "CTGAN": # NOTE: To not include parameter specifications.
-        command = dedent(f"""
-        podman run -it --rm \
-        --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
-        docker.io/springepfl/synthetic-data:latest \
-        -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
-        -D /workspace/data/{data_name} \
-        -M {mechanism} \
-        -O {container_output_path} \
-        -N {sample_size}"
-        """)
-    else:
-        command = f"""
-        podman run -it --rm \
-            --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
-            docker.io/springepfl/synthetic-data:latest \
-            -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
-            -D /workspace/data/{data_name} \
-            -M {mechanism} \
-            -P {parameters} \
-            -O {container_output_path} \
-            -N {sample_size}"
-            """
-    process = sp.Popen(
-        command,
-        shell=True,
-        stdout=sp.PIPE,
-        stderr=sp.STDOUT,
-        text=True
-        )
-
-    for line in process.stdout:
-        print(line, end="")
-
-    process.wait()
-
-    # If process fails for a specific generator
-    if process.returncode !=0:
-        raise RuntimeError(f"{mechanism} failed.")
-    print(f"\n=> {mechanism}: {sample_size} synthetic samples successfully generated.")
-    return str(host_output_path)
 
 
 def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
