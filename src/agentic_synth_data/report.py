@@ -23,6 +23,7 @@ class GenerationReport(BaseModel):
     prep_path: str | None = None
     synth_path: str | None = None
     synth_shape: tuple[int, int] | None = None
+    params: str | None = None
 
 
 class ReviewReport(BaseModel):
