@@ -216,9 +216,6 @@ class DataGen:
         if self.synthesis_request.missing_values.mode == "impute":
             self.synthesis_request.missing_values.impute = ImputationConfig()
 
-        elif self.synthesis_request.missing_values.impute == "threshold":
-            self.synthesis_request.missing_values.threshold = None
-
         self.synthesis_request.missing_values.mode = None
 
         return self.prepared_df, self.synthesis_request

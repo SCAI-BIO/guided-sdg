@@ -14,7 +14,6 @@ from agentic_synth_data.preference_setup import SynthesisRequest, ImputationConf
 
 class MissingHandling(BaseModel):
     mode: str
-    set_threshold: int | None = None
     imputation_method: str | None = None
     categorical_strategy: str | None = None
     numerical_strategy: str | None = None
@@ -23,8 +22,8 @@ class MissingHandling(BaseModel):
 
 
 def update_missing_value_choice(synthesis_request:SynthesisRequest) -> SynthesisRequest:
-    """Update missing value handling choice in the case that either the remove all or
-     threshold setting for null values is too harsh.
+    """Update missing value handling choice in the case that either the remove all 
+    setting for null values is too harsh.
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
@@ -32,17 +31,11 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
     Returns:
         SynthesisRequest: Updated synthesis request.
     """
-    choice = pyip.inputMenu(["auto", "impute", "threshold"], "\nPlease select another method to handle missing values:\n", numbered=True)
+    choice = pyip.inputMenu(["auto", "impute"], "\nPlease select another method to handle missing values:\n", numbered=True)
     synthesis_request.missing_values.mode = choice
 
-    if choice == "threshold":
-        value = pyip.inputInt("\nSet the maximum number of missing values allowed per row:\n", min=0,)
-        synthesis_request.missing_values.threshold = value
-        synthesis_request.missing_values.impute = ImputationConfig()
-
-    elif choice == "impute":
+    if choice == "impute":
         synthesis_request.missing_values.impute.method = "SimpleImputer"
-        synthesis_request.missing_values.threshold = None
 
         cat_choice = pyip.inputMenu(
             ["auto", "most frequent", "constant"], 
@@ -67,7 +60,6 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
         synthesis_request.missing_values.impute.numerical_strategy = num_choice
 
     elif choice == "auto":
-        synthesis_request.missing_values.threshold = None
         synthesis_request.missing_values.impute = ImputationConfig()
 
     return synthesis_request
@@ -91,7 +83,6 @@ def auto_update_missing_plan(synthesis_request:SynthesisRequest, missing_plan:di
     miss.impute.method = missing_plan["imputation_method"]
     miss.impute.categorical_strategy = missing_plan["categorical_strategy"]
     miss.impute.numerical_strategy = missing_plan["numerical_strategy"]
-    miss.threshold = missing_plan["set_threshold"]
     return synthesis_request
 
 
@@ -106,9 +97,8 @@ def handle_missing_values(
 
     Missing value strategies include:
     1. Remove all rows containing null values.
-    2. Remove rows exceeding a specified threshold for null values.
-    3. Imputation.
-    4. Receive a suggestion from an agent on how to handle null values.
+    2. Imputation.
+    3. Receive a suggestion from an agent on how to handle null values.
 
     Args:
         df (pd.DataFrame): The input dataframe.
@@ -146,32 +136,9 @@ def handle_missing_values(
                 # If this option is too harsh and the user wants to try another method.
                 synthesis_request = update_missing_value_choice(synthesis_request)
                 return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
-            
-        # 2. Remove all samples above a specified threshold of NA columns. 
-        elif mode == "threshold":
-            threshold_samples = df.isna().sum(axis=1) > synthesis_request.missing_values.threshold
-            count = threshold_samples.sum()
 
-            print(f"Warning: {count} out of {df.shape[0]} ({count/df.shape[0]*100}%) will be removed from the dataset.")
-            confirm = pyip.inputYesNo("\nConfirm whether this should be done.\n")
-            if confirm == "yes":
-                df = df[~threshold_samples]
-                return df, synthesis_request
-            else:
-                confirm = pyip.inputYesNo("\nWould you like to select a new threshold value?\n")
-                if confirm == "yes":
-                    value = pyip.inputInt("\nEnter a new threshold value.\n", min=1) # TODO: Double check how I have it written
-                    synthesis_request.missing_values.threshold = value
 
-                    return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
-                else:  
-                    synthesis_request = update_missing_value_choice(synthesis_request)
-                # TODO add a limit to the threshold such that it doesn't add more
-                #  possible TODO allow for threshold changes (if found to be too harsh but want to stay with a threshold)
-
-                return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
-
-        # 3. Perform imputation given there are decided categorical and numerical strategies.
+        # 2. Perform imputation given there are decided categorical and numerical strategies.
         elif (
             mode == "impute" and 
             impute.categorical_strategy != "auto" and 
@@ -218,7 +185,7 @@ def handle_missing_values(
             print(f"\n=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
             return df, synthesis_request
 
-        # 4. Use the agent to suggest the missing value handling strategy.
+        # 3. Use the agent to suggest the missing value handling strategy.
         if (
             mode == "auto" or 
             impute.categorical_strategy == "auto" or 
@@ -256,7 +223,7 @@ def handle_missing_values(
                     },
                     config=config,
                 )
-                
+
                 plan = extract_output(raw_plan)
 
                 missing_plan = parse_json(plan=plan, model_cls=MissingHandling, agent=agent, config=config)
@@ -266,26 +233,23 @@ def handle_missing_values(
                     "imputation_method": missing_plan.imputation_method,
                     "categorical_strategy": missing_plan.categorical_strategy, 
                     "numerical_strategy": missing_plan.numerical_strategy,
-                    "set_threshold": missing_plan.set_threshold,
                     "warning": missing_plan.warning,
                     "rationale": missing_plan.rationale,
                 }
 
                 print("\nSuggested plan:")
                 print(f"- Mode: {updated_plan['mode']}")
-                if updated_plan["set_threshold"] is not None:
-                    print(f"- Threshold: {updated_plan['set_threshold']}")
                 if updated_plan["imputation_method"] is not None:
                     print(f"- Imputation method: {updated_plan['imputation_method']}")
                 if updated_plan["categorical_strategy"] is not None:
                     print(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
                 if updated_plan["numerical_strategy"]:
                     print(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
-                
+
                 if len(updated_plan["warning"]) > 0:
                     print("\nWarning:")
                     format_response(f"- Warning: {updated_plan['warning'][0]}")
-                
+
                 print(f"\nReasoning behind the suggestion:")
                 format_response(updated_plan["rationale"])
 
@@ -293,12 +257,14 @@ def handle_missing_values(
                 if confirm == "yes":
                     # Update synthesis request with new specifications
                     synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
-                    print(f"\n\nThe missing value handling plan has been updated to the following:")
+                    print("\n\nThe missing value handling plan has been updated to the following:")
                     display_synthesis_request(synthesis_request)
                     break
 
                 else:
-                    print("\n\nPlease describe how agent, config you would want missing values to be handled and what changes you would make to the suggested plan.")
+                    print(
+                        "\n\nPlease describe how agent, config you would want missing values to be" \
+                            " handled and what changes you would make to the suggested plan.")
                     feedback = input()
 
             # Update synthesis request with new specifications

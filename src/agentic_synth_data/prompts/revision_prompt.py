@@ -119,7 +119,6 @@ def parameter_revision_message(selected_mechanism:Literal["PATEGAN", "CTGAN", "P
     """)
 
 
-# NOTE: have not included threshold as an option here (not stable with the current setup)
 def missing_revision_message(synthesis_request:SynthesisRequest):
     return dedent(f"""
     The workflow should be revised. A generator was selected that does not allow for missing values.

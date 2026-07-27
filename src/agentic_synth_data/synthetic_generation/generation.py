@@ -12,7 +12,7 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 
 
 class SelectGenerator(BaseModel):
-    generator: Literal["PrivBayes", "CTGAN", "PATEGAN", "BayesianNet"]
+    generator: Literal["PrivBayes", "CTGAN", "PATEGAN", "BayesianNet", "TabSyn", "STaSY",]
     pros: str
     cons: str
     rationale: str
@@ -164,13 +164,15 @@ def select_generator(
 
         if decision == "approve":
             synthesis_request.generator.name = generation_plan.generator
-            synthesis_request.generator.parameters = output_default_parameters(synthesis_request.generator.name)
+            synthesis_request.generator.parameters = output_default_parameters(
+                synthesis_request.generator.name
+            )
             choice_confirmed = True
             print(f"\n=> {generation_plan.generator} has been approved.")
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",], 
+                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes", "TabSyn", "STaSY",],
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
                 )

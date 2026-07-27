@@ -29,13 +29,14 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
         print(f"- Categorical strategy: {synthesis_request.missing_values.impute.categorical_strategy}")
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
-    elif synthesis_request.missing_values.mode == "threshold":
-        print(f"- Threshold: {synthesis_request.missing_values.threshold}")
-
 
 def parse_json(
-        plan:str, model_cls:Type[BaseModel], agent:Optional[CompiledStateGraph], config:dict, root:bool=False
-        ) -> T:
+        plan:str, 
+        model_cls:Type[BaseModel], 
+        agent:Optional[CompiledStateGraph], 
+        config:dict, 
+        root:bool=False
+    ) -> T:
     """If agent fails to correctly format JSON response, prompts to 
     try again.
 
@@ -109,10 +110,10 @@ def extract_output(raw_message:dict) -> str:
         str: Agent message.
     """
     response = raw_message["messages"][-1].content
-    
+
     if "</think>" in response:
         return response.split("</think>")[1].strip()
-    
+
     return response.strip()
 
 
@@ -143,7 +144,8 @@ def output_default_parameters(
     and other instances where parameters are set to default.
 
     Args:
-        generator_name (Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]): _description_
+        generator_name (Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]): Name of the 
+        selected generator.
 
     Returns:
         str | None: 
@@ -151,13 +153,13 @@ def output_default_parameters(
         - None: If auto is selected, no parameters are returned.
     """
     if generator_name == "PATEGAN":
-       return "1,1e-5,False,10,100,128,1e-4,False"
+        return "1,1e-5,False,10,100,128,1e-4,False"
 
     elif generator_name == "BayesianNet":
         return "10,1,False,True,None"
 
     elif generator_name == "PrivBayes":
-        return "10,1,.1,False,True,None"
+        return "10,1,.1,False,True,Non_description_e"
 
     elif generator_name == "CTGAN":
         return "128,(256, 256),(256, 256),1e-6,500,300,False"

@@ -37,7 +37,7 @@ CONFIG_MAP = {
 
 class MissingRevisionOption(BaseModel):
     id: str
-    mode: Literal["remove", "impute",] # NOTE: Did not include threshold, it isn't safe (some nan might be present)
+    mode: Literal["remove", "impute",]
     imputation_method: Literal["SimpleImputer"] | None = None
     categorical_strategy: Literal["most_frequent", "constant"] | None = None
     numerical_strategy: Literal["mean", "median", "most_frequent"] | None = None
