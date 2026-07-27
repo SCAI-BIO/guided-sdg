@@ -1,5 +1,5 @@
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal
 
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
@@ -33,8 +33,8 @@ def revision_message(
         if report['prep']['missing_handling']['before'] == 0:
             missing_handling = "- Missing value handling was not applied, no missing values present."
         if synthesis_request.generator.name in ["PrivBayes", "BayesianNet"]:
-            missing_handling = "- Missing value handling was not applied, the generator used allows " \
-            "for missing values."
+            missing_handling = "- Missing value handling was not applied, the generator used" \
+            " allows for missing values."
     return dedent(f"""
         The workflow should be revised. For now, only start with generator selection.
         Input dataframe shape: {report['input']['original_shape']}

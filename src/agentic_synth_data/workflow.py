@@ -43,7 +43,7 @@ class DataGen:
         self.synthetic_df: pd.DataFrame | None = None # Synthetic data
 
         self.metadata_path: Path | None = None
-        self.prepared_path: Path | None = None # What is input into the tool (either with or without missing value handling)
+        self.prepared_path: Path | None = None # Input into tool with or without missing handling
         self.synthetic_path: Path | None = None
 
         self.model:BaseChatModel = self.create_model()
@@ -147,7 +147,11 @@ class DataGen:
 
         print("\n\n")
         print("="*25+"[STEP: Handle semantic types]"+"="*25)
-        self.semantic_types = handle_semantic_types(df=self.dtype_handled_df, agent=self.agent, config=self.config)
+        self.semantic_types = handle_semantic_types(
+            df=self.dtype_handled_df, 
+            agent=self.agent, 
+            config=self.config,
+        )
 
         self.report["prep"]["stypes"] = self.semantic_types
         return self.dtype_handled_df
@@ -181,7 +185,7 @@ class DataGen:
 
         mechanism = self.synthesis_request.generator.name
 
-        if mechanism in ["PATEGAN", "CTGAN",]: # NOTE: for any mechanism that requires missing handling.
+        if mechanism in ["PATEGAN", "CTGAN", "TabSyn"]: # NOTE: for any mechanism that requires missing handling.
             print("\n\n")
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
@@ -199,23 +203,25 @@ class DataGen:
 
             return self.prepared_df, self.synthesis_request
 
-        else:
-            self.prepared_df = self.dtype_handled_df.copy()
-            self.report["input"]["prepared_shape"] = self.prepared_df.shape
-            self.report["prep"]["missing_handling"]["after"] = self.prepared_df.isna().sum().sum()
+        self.prepared_df = self.dtype_handled_df.copy()
+        self.report["input"]["prepared_shape"] = self.prepared_df.shape
+        self.report["prep"]["missing_handling"]["after"] = self.prepared_df.isna().sum().sum()
 
-            print(f"\nThe selected data generator does not require missing value handling: {mechanism}")
+        print(
+            "\nThe selected data generator does not require missing value handling: " \
+            f"{mechanism}"
+        )
 
-            # Set back to default
-            if self.synthesis_request.missing_values.mode == "impute":
-                self.synthesis_request.missing_values.impute = ImputationConfig()
+        # Set back to default
+        if self.synthesis_request.missing_values.mode == "impute":
+            self.synthesis_request.missing_values.impute = ImputationConfig()
 
-            elif self.synthesis_request.missing_values.impute == "threshold":
-                self.synthesis_request.missing_values.threshold = None
+        elif self.synthesis_request.missing_values.impute == "threshold":
+            self.synthesis_request.missing_values.threshold = None
 
-            self.synthesis_request.missing_values.mode = None
+        self.synthesis_request.missing_values.mode = None
 
-            return self.prepared_df, self.synthesis_request
+        return self.prepared_df, self.synthesis_request
 
 
     def save_prepared_data(self):
@@ -320,9 +326,13 @@ class DataGen:
         """Revise: Check in with user and possibly change the plan"""
         print("\n\n")
         print("="*25+"[END: Evaluate workflow]"+"="*25)
-        
-        choice = evaluation_review(agent_decision=self.agent_decision, agent=self.agent, config=self.config)
-    
+
+        choice = evaluation_review(
+            agent_decision=self.agent_decision,
+            agent=self.agent, 
+            config=self.config,#
+        )
+
         if choice == "revise":
             selected_updates =  plan_update(
                 synthesis_request=self.synthesis_request,
@@ -431,7 +441,7 @@ class DataGen:
         self.evaluate()
         final_gen = self.post_evaluation_check()
         return final_gen.synthetic_df
-    
+
 
     def _reset_from_selection(self, selection:str) -> None:
         """Clears previous outputs which are expected to be updated after changing the generator,
@@ -527,22 +537,22 @@ class DataGen:
         if has_generator and has_parameter and has_missing:
             return "all"
 
-        elif has_generator and has_missing:
+        if has_generator and has_missing:
             return "generator_missing_selection"
 
-        elif has_generator and has_parameter:
+        if has_generator and has_parameter:
             return "generator_parameter_selection"
 
-        elif has_parameter and has_missing:
+        if has_parameter and has_missing:
             return "parameter_missing_selection"
 
-        elif has_generator:
+        if has_generator:
             return "generator_selection"
 
-        elif has_parameter:
+        if has_parameter:
             return "parameter_revision"
 
-        elif has_missing:
+        if has_missing:
             return "missing_value"
 
         raise ValueError("No updates were selected.")
@@ -566,4 +576,4 @@ class DataGen:
                 impute_setting = self.synthesis_request.missing_values.impute
                 impute_setting.method = option.imputation_method
                 impute_setting.categorical_strategy = option.categorical_strategy
-                impute_setting.numerical_strategy = option.numerical_strategy    
+                impute_setting.numerical_strategy = option.numerical_strategy

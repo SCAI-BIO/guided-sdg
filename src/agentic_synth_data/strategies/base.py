@@ -46,7 +46,6 @@ class GeneratorStrategy(ABC):
         Returns:
             Path: Metadata path.
         """
-        pass
 
 
     @abstractmethod
@@ -63,4 +62,3 @@ class GeneratorStrategy(ABC):
         Returns:
             tuple[Path, pd.DataFrame]: Synthetic path and dataframe.
         """
-        pass

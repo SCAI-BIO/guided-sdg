@@ -1,5 +1,5 @@
 import textwrap
-from typing import Optional, Type, TypeVar
+from typing import Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
@@ -19,9 +19,9 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
         print(f"Sample size: {synthesis_request.sample_size.fixed_value}")
 
     print(f"Privacy mode: {synthesis_request.privacy.mode}")
-    
+
     print(f"Generator: {synthesis_request.generator.name}") 
-    
+
     print(f"Missing value handling: {synthesis_request.missing_values.mode}")
 
     if synthesis_request.missing_values.mode == "impute":
@@ -97,7 +97,7 @@ def parse_json(
             repaired_plan = extract_output(repair_raw)
 
             return model_cls.model_validate_json(repaired_plan)
-    
+
 
 def extract_output(raw_message:dict) -> str:
     """Extract content from the agent's invocation output
@@ -152,15 +152,15 @@ def output_default_parameters(
     """
     if generator_name == "PATEGAN":
        return "1,1e-5,False,10,100,128,1e-4,False"
-    
+
     elif generator_name == "BayesianNet":
         return "10,1,False,True,None"
-    
+
     elif generator_name == "PrivBayes":
         return "10,1,.1,False,True,None"
-    
+
     elif generator_name == "CTGAN":
         return "128,(256, 256),(256, 256),1e-6,500,300,False"
-    
+
     else: # "auto"
         return None
