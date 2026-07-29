@@ -2,13 +2,19 @@ from typing import Hashable
 
 import pandas as pd
 import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
 import pyinputplus as pyip
 
 
-# TODO: Add when df is saved and updated (print statement)
-def missing_value_precheck(df:pd.DataFrame) -> tuple[
-    pd.DataFrame, bool, dict[Hashable, int], list[Hashable]
-    ]:
+class MissingPrecheckReport(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True) # Allow pd.DataFrame type
+    df: pd.DataFrame
+    has_missing_markers: bool
+    detected_markers: dict[Hashable, int] = Field(default_factory=dict)
+    replaced_markers: list[Hashable] = Field(default_factory=list)
+
+
+def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
     """Prior to assessing dtypes, convert any entries that are flagged as
     potential missing values to np.nan with user approval.
 
@@ -22,7 +28,7 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
                            missing values.
 
     Returns:
-        tuple[ pd.DataFrame, bool, dict[Hashable, int], list[Hashable] ]:
+        MissingPrecheckReport: Report indicating whether missing value markers were detected.
         - pd.DataFrame: The dataframe where missing value markers have been replaced
                         with np.nan or the unchanged dataframe if no markers were found.
         - bool: Indicator of whether missing value markers where detected.
@@ -35,16 +41,23 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
             "na", "n/a", "nan", "none", "null", 
             "-", "--", "", "`", "?", "??", ".", "...", 
             -999, None,
-            }
+    }
     df_norm = df.map(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
     norm_stack = df_norm.stack() # Flatten the df into a Series to vertically count values.
-    detected_markers = norm_stack[norm_stack.isin(possible_missing_values)].value_counts(dropna=False).to_dict()
+    detected_markers = norm_stack[
+        norm_stack.isin(possible_missing_values)
+    ].value_counts(dropna=False).to_dict()
     replaced_markers = []
 
     if len(detected_markers) == 0:
         print("\n=> No potential missing value markers have been detected in the dataset.")
-        return df, False, detected_markers, replaced_markers
+        return MissingPrecheckReport(
+            df=df, 
+            has_missing_markers=False, 
+            detected_markers=detected_markers, 
+            replaced_markers=replaced_markers
+        )
 
     markers = list(detected_markers)
     # If more than one potential missing value marker is found
@@ -61,7 +74,12 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
             
             if choice == "Continue without replacement":
                 print("\n=> None of the markers detected have been replaced with a null value. The dataset remains unchanged.")
-                return df, False, detected_markers, replaced_markers
+                return MissingPrecheckReport(
+                    df=df, 
+                    has_missing_markers=False, 
+                    detected_markers=detected_markers, 
+                    replaced_markers=replaced_markers,
+                )
 
             elif choice == "Replace all":
                 mask = df_norm.isin(markers)
@@ -69,7 +87,12 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
                 df = df.mask(mask, np.nan)
                 print(f"\n=> {replaced_count} of the following markers were replaced with null values: {markers}")
                 replaced_markers = markers
-                return df, True, detected_markers, replaced_markers
+                return MissingPrecheckReport(
+                    df=df, 
+                    has_missing_markers=True, 
+                    detected_markers=detected_markers, 
+                    replaced_markers=replaced_markers,
+                )
             
             elif choice == "Replace specific marker(s)":
                 # TODO: Add option for a specific marker or more to be selected and updated.
@@ -87,7 +110,12 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
 
             if choice == "Continue without replacement":
                 print("\n\tNo values were replaced.")
-                return df, False, detected_markers, replaced_markers
+                return MissingPrecheckReport(
+                    df=df, 
+                    has_missing_markers=False, 
+                    detected_markers=detected_markers, 
+                    replaced_markers=replaced_markers,
+                )
 
             elif choice == "Replace marker":
                 print("\nReplacing marker...")
@@ -96,8 +124,12 @@ def missing_value_precheck(df:pd.DataFrame) -> tuple[
                 df = df.mask(mask, np.nan)
                 print(f"\t{replaced_count} of the following marker were replaced with null values: {markers}")
                 replaced_markers = markers
-                return df, True, detected_markers, replaced_markers
-
+                return MissingPrecheckReport(
+                    df=df, 
+                    has_missing_markers=True, 
+                    detected_markers=detected_markers, 
+                    replaced_markers=replaced_markers
+                )
 
 ## Maybe could be improved so that multiple columns can be assigned to a specific dtype at once?
 def infer_dtype(series:pd.Series) -> str:
