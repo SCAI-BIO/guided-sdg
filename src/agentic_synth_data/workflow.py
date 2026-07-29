@@ -4,29 +4,30 @@ from typing import Any, Hashable
 import os
 
 import pandas as pd
+import syndat
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import evaluation, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
+from agentic_synth_data.dataset_evaluation.evaluation import evaluation, generate_plots, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, prepare_for_syndat
-from agentic_synth_data.dataset_preparation.metadata_formatting import format_json
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.rerun_workflow import plan_update
 from agentic_synth_data.schemas.models import AgentEval
-from agentic_synth_data.synthetic_generation.generation import run_generator, select_generator, generator_profile
+from agentic_synth_data.strategies.factory import get_generator_strategy
+from agentic_synth_data.synthetic_generation.generation import select_generator, generator_profile
 from agentic_synth_data.utils import format_response
 
 
 class DataGen:
     def __init__(self, data_path):
         self.data_path:str = data_path
-        
+
         self.version_id = 1
         self.parent_version = None
         self.agent_decision:AgentEval | None = None
@@ -36,14 +37,15 @@ class DataGen:
         self.semantic_types: dict[str, str] | None = None
 
         self.source_df: pd.DataFrame | None = None # Original data
-        self.norm_na_df: pd.DataFrame | None = None # Original data (optional based on marker replacement)
+        self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
         self.dtype_handled_df: pd.DataFrame | None = None # dtype prepared data
         self.missing_handled_df: pd.DataFrame | None = None # Missing value prepared data
         self.prepared_df: pd.DataFrame | None = None # Generator prepared data
         self.synthetic_df: pd.DataFrame | None = None # Synthetic data
 
-        self.prepared_path: str | None = None # What is input into the tool (either with or without missing value handling)
-        self.synthetic_path: str | None = None
+        self.metadata_path: Path | None = None
+        self.prepared_path: Path | None = None # What is input into the tool (either with or without missing value handling)
+        self.synthetic_path: Path | None = None
 
         self.model:BaseChatModel = self.create_model()
         self.checkpointer = InMemorySaver()
@@ -62,10 +64,15 @@ class DataGen:
                 "missing_markers": {"detected": {}, "replaced": {},},
                 "dtypes": {},
                 "stypes": {},
-                "profile": {},
                 "missing_handling": {"before": {}, "after": {},},
             },
-            "gen": {"prep_path": {}, "synth_path": {}, "synth_shape": {}},
+            "gen": {
+                "prep_path": {}, 
+                "synth_path": {}, 
+                "synth_shape": {}, 
+                "params": {},
+                "profile": {}
+            },
             "review": {
                 "jsd": {},
                 "norm_corr_diff": {},
@@ -73,31 +80,27 @@ class DataGen:
                 "problem_columns": {},
                 "recommendation": {},
                 "rationale": {},
+                "plots": {},
+                "selected_plan_updates": {},
             },
-            "revisions": []
         }
 
 
     def create_model(self) -> BaseChatModel:
-        #print("="*25+"[Setting up model...]"+"="*25)
         model = init_chat_model(
             "MiniMaxAI/MiniMax-M2.5",
             model_provider="openai",
             base_url=os.environ.get("BASE_URL"),
             )
-        #print("\n=> Model successfully created.")
         return model
 
 
     def create_agent(self):
-        #print("\n\n")
-        #print("="*25+"[Setting up agent...]"+"="*25)
         agent = create_agent(
             model=self.model,
             checkpointer=self.checkpointer,
             system_prompt=SYSTEM_PROMPT,
         )
-        #print("=> Agent successfully created.")
         return agent
 
 
@@ -162,7 +165,13 @@ class DataGen:
         df = self.dtype_handled_df.copy()
         profile = generator_profile(df)
         self.report["gen"]["profile"] = profile
-        self.synthesis_request = select_generator(synthesis_request=self.synthesis_request, semantic_types=self.semantic_types, profile=profile, agent=self.agent, config=self.config,)
+        self.synthesis_request = select_generator(
+            synthesis_request=self.synthesis_request, 
+            semantic_types=self.semantic_types, 
+            profile=profile, 
+            agent=self.agent, 
+            config=self.config,
+            )
         return self.synthesis_request
 
 
@@ -174,7 +183,7 @@ class DataGen:
 
         mechanism = self.synthesis_request.generator.name
 
-        if mechanism in ["PATEGAN", "CTGAN",]:
+        if mechanism in ["PATEGAN", "CTGAN",]: # NOTE: for any mechanism that requires missing handling.
             print("\n\n")
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
@@ -233,36 +242,38 @@ class DataGen:
 
     def create_metadata(self):
         """Step 4: Setup tool data
-            i. Create metadata for tool use
+            ii. Create metadata for tool use
         """
-        format_json(self.prepared_path, self.semantic_types)
+        strategy = get_generator_strategy(self.synthesis_request.generator.name)
+
+        self.metadata_path = strategy.prepare_metadata(
+            prep_path=self.prepared_path,
+            semantic_types=self.semantic_types,
+        )
 
 
     def run_synthesis(self):
         """Step 5: Synthesize data"""
         print("\n\n")
         print("="*25+"[STEP: Synthesize synthetic data]"+"="*25)
+        strategy = get_generator_strategy(self.synthesis_request.generator.name)
 
-        self.synthetic_path = run_generator(
-            data_path=self.data_path,
-            clean_csv_path=self.prepared_path,
-            synthesis_request=self.synthesis_request,
+        # Set sample size
+        if self.synthesis_request.sample_size.mode == "fixed_value":
+            sample_size = self.synthesis_request.sample_size.fixed_value
+        else:
+            sample_size = len(self.source_df)
+
+        self.synthetic_path, self.synthetic_df = strategy._run(
+            n_samples=sample_size,
+            prep_path=self.prepared_path,
+            #parameters=self.synthesis_request.generator.parameters,
             version_id=self.version_id,
-            )
-
-        # The generators add an "Unnamed: 0" column, so check that all cols match:
-        expected_columns = self.prepared_df.columns
-
-        synth_df = pd.read_csv(self.synthetic_path, index_col=False)
-        extra_columns = synth_df.columns.difference(expected_columns)
-
-        if not extra_columns.empty:
-            synth_df = synth_df.drop(columns=extra_columns)
-
-        self.synthetic_df = synth_df
+        )
 
         self.report["gen"]["synth_path"] = self.synthetic_path
         self.report["gen"]["synth_shape"] = self.synthetic_df.shape
+        self.report["gen"]["params"] = self.synthesis_request.generator.parameters
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
 
@@ -276,12 +287,19 @@ class DataGen:
         else:
             real_df = self.source_df.copy()
 
-        real_df, synth_df = prepare_for_syndat(real_df=real_df, synthetic_df=synth_df, semantic_types=self.semantic_types)
+        real_df, synth_df = prepare_for_syndat(
+            real_df=real_df, 
+            synthetic_df=synth_df, 
+            semantic_types=self.semantic_types
+        )
 
         metrics = calculate_metrics(real_df=real_df, synthetic_df=synth_df)
         self.report["review"]["jsd"] = metrics["jsd"]
         self.report["review"]["norm_corr_diff"] = metrics["norm_corr_diff"]
         self.report["review"]["discrim_auc"] = metrics["discrim_auc"]
+
+        plots = generate_plots(real_df, synth_df, self.version_id)
+        self.report["review"]["plots"] = plots
 
         attack_metrics = calculate_attack_metrics(
             real_df=real_df,
@@ -307,7 +325,12 @@ class DataGen:
         self.report["review"]["recommendation"] = self.agent_decision.recommendation
         self.report["review"]["rationale"] = self.agent_decision.rationale
 
-        write_report(report=self.report, synthesis_request=self.synthesis_request, data_path=self.data_path, version_id=self.version_id)
+        write_report(
+            report=self.report, 
+            synthesis_request=self.synthesis_request, 
+            data_path=self.data_path, 
+            version_id=self.version_id,
+        )
 
 
     def post_evaluation_check(self):
@@ -327,15 +350,18 @@ class DataGen:
             )
 
             if selected_updates is not None:
-                self.report["review"]["selected_plan_updates"] = {
-                    key: value.model_dump() for key, value in selected_updates.items()
-                }
+                for key, value in selected_updates.items():
+                    if key == "update_params": # NOTE: "update_params" is a string.
+                        self.report["review"]["selected_plan_updates"][key] = value
+                    else:
+                        self.report["review"]["selected_plan_updates"][key] = value.model_dump()
+
                 revised = self.create_revision(selected_updates)
                 return revised
-            
+
             else:
                 return self
-        
+
         else:
             return self
 
@@ -358,7 +384,7 @@ class DataGen:
         self.evaluate()
         final_gen = self.post_evaluation_check()
         return final_gen.synthetic_df
-    
+
 
     def create_revision(self, update_plan:dict) -> "DataGen":
         """Copy datagen with the approved revisions."""
@@ -395,23 +421,26 @@ class DataGen:
 
     def _rerun_selection(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps."""
-        print("\n" + "=" * 25 + f"[REVISION]" + "=" * 25)
-
         if "update_mech" in update_plan:
             print(f"\nNew generator: {update_plan['update_mech'].generator_name}")
-            print(f"\nReason: {update_plan['update_mech'].reason}")
+            print("\nReason:")
+            format_response(update_plan['update_mech'].reason)
+
+        if "update_params" in update_plan:
+            print(f"\nNew parameter configuration: {update_plan['update_params']}")
 
         if "update_missing" in update_plan:
             print(f"\nNew missing handling strategy: {update_plan['update_missing'].mode}")
             print(f"\nReason: {update_plan['update_missing'].reason}")
 
-        self.report["revisions"].append(
-            {
-                "version_id": self.version_id,
-                "parent_version": self.parent_version,
-                "updates": {key: value.model_dump() for key, value in update_plan.items()}
-            }
-        )
+        self.report["review"]["selected_plan_updates"] = {}
+
+        for key, value in update_plan.items():
+            if key == "update_params": # NOTE: "update_params" is a string.
+                self.report["review"]["selected_plan_updates"][key] = value
+            else:
+                self.report["review"]["selected_plan_updates"][key] = value.model_dump()
+
         self.preprocess_missing_vals()
         self.save_prepared_data()
         self.create_metadata()
@@ -430,21 +459,69 @@ class DataGen:
         self.missing_handled_df = None
         self.prepared_df = None
         self.prepared_path = None
-        self.metadata = None
+        self.metadata_path = None
         self.synthetic_df = None
-        self.metrics = None
         self.agent_decision = None
 
         if selection == "generator_selection":
-            self.report["gen"] = {"prep_path": {}, "synth_path": {}, "synth_shape": {}}
+            self.report["gen"] = {
+                "prep_path": {}, 
+                "synth_path": {}, 
+                "synth_shape": {}, 
+                "params": self.report["gen"].get("params"), 
+                "profile": self.report["gen"].get("profile"),
+            }
 
-        # TODO: Add parameter seleciton option.
-        
+        elif selection == "parameter_revision":
+            self.report["gen"] = {
+                "prep_path": {}, 
+                "synth_path": {}, 
+                "synth_shape": {}, 
+                "params": {}, 
+                "profile": self.report["gen"].get("profile"),
+            }
+
         elif selection == "missing_value":
+            self.report["gen"] = {
+                "prep_path": {},
+                "synth_path": {},
+                "synth_shape": {},
+                "params": self.report["gen"].get("params"),
+                "profile": self.report["gen"].get("profile"),
+            }
             self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
 
-        elif selection == "both":
-            self.report["gen"] = {"prep_path": {}, "synth_path": {}, "synth_shape": {}}
+        elif selection == "generator_parameter_selection":
+            self.report["gen"] = {"prep_path": {}, "synth_path": {}, "synth_shape": {}, "params": {}, "profile": self.report["gen"].get("profile"),}
+
+        elif selection == "parameter_missing_selection":
+            self.report["gen"] = {
+                "prep_path": {}, 
+                "synth_path": {}, 
+                "synth_shape": {}, 
+                "params": {}, 
+                "profile": self.report["gen"].get("profile"),
+            }
+            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
+
+        elif selection == "generator_missing_selection": # Generator and missing handling selection.
+            self.report["gen"] = {
+                "prep_path": {}, 
+                "synth_path": {}, 
+                "synth_shape": {}, 
+                "params": self.report["gen"].get("params"), 
+                "profile": self.report["gen"].get("profile"),
+            }
+            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
+
+        elif selection == "all": # Generator, parameter, and missing value handling selection.
+            self.report["gen"] = {
+                "prep_path": {}, 
+                "synth_path": {}, 
+                "synth_shape": {}, 
+                "params": {}, 
+                "profile": self.report["gen"].get("profile"),
+            }
             self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
 
         self.report["review"] = {
@@ -454,38 +531,56 @@ class DataGen:
                 "problem_columns": {},
                 "recommendation": {},
                 "rationale": {},
+                "selected_plan_updates": {},
             }
 
 
     def _revision_scope(self, update_plan: dict) -> str:
         """Indicates what has been selected for revision in _reset_from_selection"""
         has_generator = "update_mech" in update_plan
+        has_parameter = "update_params" in update_plan
         has_missing = "update_missing" in update_plan
 
-        if has_generator and has_missing:
-            return "both"
-        
-        if has_generator:
+        if has_generator and has_parameter and has_missing:
+            return "all"
+
+        elif has_generator and has_missing:
+            return "generator_missing_selection"
+
+        elif has_generator and has_parameter:
+            return "generator_parameter_selection"
+
+        elif has_parameter and has_missing:
+            return "parameter_missing_selection"
+
+        elif has_generator:
             return "generator_selection"
-        
-        if has_missing:
+
+        elif has_parameter:
+            return "parameter_revision"
+
+        elif has_missing:
             return "missing_value"
-        
+
         raise ValueError("No updates were selected.")
 
 
     def _apply_revision_plan(self, update_plan:dict) -> None:
-        """Uses the update_plan to update the synthesis request according to the specified revision information."""
+        """Uses the update_plan to update the synthesis request according to the specified revision
+        information."""
         if "update_mech" in update_plan:
             option = update_plan["update_mech"]
             self.synthesis_request.generator.name = option.generator_name
-            self.synthesis_request.generator.parameters = option.parameters
+
+        if "update_params" in update_plan:
+            self.synthesis_request.generator.parameters = update_plan["update_params"]
 
         if "update_missing" in update_plan:
             option = update_plan["update_missing"]
             self.synthesis_request.missing_values.mode = option.mode
 
             if option.mode == "impute":
-                self.synthesis_request.missing_values.impute.method = option.imputation_method
-                self.synthesis_request.missing_values.impute.categorical_strategy = option.categorical_strategy
-                self.synthesis_request.missing_values.impute.numerical_strategy = option.numerical_strategy    
+                impute_setting = self.synthesis_request.missing_values.impute
+                impute_setting.method = option.imputation_method
+                impute_setting.categorical_strategy = option.categorical_strategy
+                impute_setting.numerical_strategy = option.numerical_strategy    
