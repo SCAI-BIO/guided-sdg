@@ -17,6 +17,7 @@ from agentic_synth_data.dataset_preparation.semantic_type_handling import handle
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
+from agentic_synth_data.report import Report
 from agentic_synth_data.rerun_workflow import plan_update
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.strategies.factory import get_generator_strategy
@@ -26,13 +27,13 @@ from agentic_synth_data.utils import format_response
 
 class DataGen:
     def __init__(self, data_path):
-        self.data_path:str = data_path
-
+        self.data_path: str = data_path
+        
         self.version_id = 1
         self.parent_version = None
-        self.agent_decision:AgentEval | None = None
+        self.agent_decision: AgentEval | None = None
 
-        self.synthesis_request:SynthesisRequest | None = None
+        self.synthesis_request: SynthesisRequest | None = None
         self.python_dtypes: dict[Hashable, str] | None = None
         self.semantic_types: dict[str, str] | None = None
 
@@ -47,43 +48,12 @@ class DataGen:
         self.prepared_path: Path | None = None # What is input into the tool (either with or without missing value handling)
         self.synthetic_path: Path | None = None
 
-        self.model:BaseChatModel = self.create_model()
-        self.checkpointer = InMemorySaver()
-        self.config:dict[str, dict[str, Any]] = {"configurable": {"thread_id": 1}}
-        self.agent:CompiledStateGraph = self.create_agent()
+        self.model: BaseChatModel = self.create_model()
+        self.checkpointer: InMemorySaver = InMemorySaver()
+        self.config: dict[str, dict[str, Any]] = {"configurable": {"thread_id": 1}}
+        self.agent: CompiledStateGraph = self.create_agent()
 
-        self.report: dict = { # TODO: wrap in object
-            "input": {
-                "path": self.data_path,
-                "original_shape": {},
-                "prepared_shape": {},
-                "version_id": {},
-                "parent_version": {},
-            },
-            "prep": {
-                "missing_markers": {"detected": {}, "replaced": {},},
-                "dtypes": {},
-                "stypes": {},
-                "missing_handling": {"before": {}, "after": {},},
-            },
-            "gen": {
-                "prep_path": {}, 
-                "synth_path": {}, 
-                "synth_shape": {}, 
-                "params": {},
-                "profile": {}
-            },
-            "review": {
-                "jsd": {},
-                "norm_corr_diff": {},
-                "discrim_auc": {},
-                "problem_columns": {},
-                "recommendation": {},
-                "rationale": {},
-                "plots": {},
-                "selected_plan_updates": {},
-            },
-        }
+        self.report: Report = Report()
 
 
     def create_model(self) -> BaseChatModel:
@@ -91,7 +61,8 @@ class DataGen:
             "MiniMaxAI/MiniMax-M2.5",
             model_provider="openai",
             base_url=os.environ.get("BASE_URL"),
-            )
+        )
+        #print("\n=> Model successfully created.")
         return model
 
 
@@ -109,9 +80,10 @@ class DataGen:
         #print("\n\n")
         #print("="*25+"[STEP: Create the dataframe]"+"="*25)
         self.source_df = load_df(self.data_path)
-        self.report["input"]["original_shape"] = self.source_df.shape
-        self.report["input"]["version_id"] = self.version_id
-        self.report["input"]["parent_version"] = self.parent_version
+        self.report.input.path = self.data_path
+        self.report.input.original_shape = self.source_df.shape
+        self.report.input.version_id = self.version_id
+        self.report.input.parent_version = self.parent_version
         return self.source_df
 
 
@@ -134,8 +106,8 @@ class DataGen:
         source_df = self.source_df.copy()
         norm_df, is_replaced, detected_markers, replaced_markers = missing_value_precheck(source_df)
 
-        self.report["prep"]["missing_markers"]["detected"] = detected_markers
-        self.report["prep"]["missing_markers"]["replaced"] = replaced_markers
+        self.report.prep.missing_markers_detected = detected_markers
+        self.report.prep.missing_markers_replaced = replaced_markers
 
         if is_replaced:
             self.norm_na_df = norm_df.copy()
@@ -145,13 +117,13 @@ class DataGen:
         print("="*25+"[STEP: Handle data types]"+"="*25)
         self.dtype_handled_df, self.python_dtypes = handle_dtypes(norm_df)
 
-        self.report["prep"]["dtypes"] = self.python_dtypes
+        self.report.prep.dtypes = self.python_dtypes
 
         print("\n\n")
         print("="*25+"[STEP: Handle semantic types]"+"="*25)
         self.semantic_types = handle_semantic_types(df=self.dtype_handled_df, agent=self.agent, config=self.config)
 
-        self.report["prep"]["stypes"] = self.semantic_types
+        self.report.prep.stypes = self.semantic_types
         return self.dtype_handled_df
 
 
@@ -164,14 +136,14 @@ class DataGen:
         print()
         df = self.dtype_handled_df.copy()
         profile = generator_profile(df)
-        self.report["gen"]["profile"] = profile
+        self.report.prep.profile = profile
         self.synthesis_request = select_generator(
             synthesis_request=self.synthesis_request, 
             semantic_types=self.semantic_types, 
             profile=profile, 
             agent=self.agent, 
             config=self.config,
-            )
+        )
         return self.synthesis_request
 
 
@@ -179,7 +151,7 @@ class DataGen:
         """Step 3: Preprocess
             iv. Handle missing values (if needed for the generator)
         """
-        self.report["prep"]["missing_handling"]["before"] = self.dtype_handled_df.isna().sum().sum()
+        self.report.prep.missing_before = self.dtype_handled_df.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -193,18 +165,18 @@ class DataGen:
                 semantic_types=self.semantic_types,
                 agent=self.agent,
                 config=self.config,
-                )
+            )
 
             self.prepared_df = self.missing_handled_df.copy()
-            self.report["input"]["prepared_shape"] = self.prepared_df.shape
-            self.report["prep"]["missing_handling"]["after"] = self.missing_handled_df.isna().sum().sum()
+            self.report.input.prepared_shape = self.prepared_df.shape
+            self.report.prep.missing_after = self.missing_handled_df.isna().sum().sum()
 
             return self.prepared_df, self.synthesis_request
 
         else:
             self.prepared_df = self.dtype_handled_df.copy()
-            self.report["input"]["prepared_shape"] = self.prepared_df.shape
-            self.report["prep"]["missing_handling"]["after"] = self.prepared_df.isna().sum().sum()
+            self.report.input.prepared_shape = self.prepared_df.shape
+            self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
 
             print(f"\nThe selected data generator does not require missing value handling: {mechanism}")
 
@@ -236,7 +208,7 @@ class DataGen:
         self.prepared_path = output_dir / output_filename
         self.prepared_df.to_csv(self.prepared_path, index=False)
         format_response(f"- Created csv for generator input: {self.prepared_path}")
-        self.report["gen"]["prep_path"] = self.prepared_path
+        self.report.gen.prep_path = self.prepared_path
         return self.prepared_path
 
 
@@ -271,9 +243,9 @@ class DataGen:
             version_id=self.version_id,
         )
 
-        self.report["gen"]["synth_path"] = self.synthetic_path
-        self.report["gen"]["synth_shape"] = self.synthetic_df.shape
-        self.report["gen"]["params"] = self.synthesis_request.generator.parameters
+        self.report.gen.synth_path = self.synthetic_path
+        self.report.gen.synth_shape = self.synthetic_df.shape
+        # self.report["gen"]["params"] = self.synthesis_request.generator.parameters # TODO: change to correct format (in dev but not in wrap-report)
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
 
@@ -294,9 +266,9 @@ class DataGen:
         )
 
         metrics = calculate_metrics(real_df=real_df, synthetic_df=synth_df)
-        self.report["review"]["jsd"] = metrics["jsd"]
-        self.report["review"]["norm_corr_diff"] = metrics["norm_corr_diff"]
-        self.report["review"]["discrim_auc"] = metrics["discrim_auc"]
+        self.report.review.jsd = metrics["jsd"]
+        self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
+        self.report.review.discrim_auc = metrics["discrim_auc"]
 
         plots = generate_plots(real_df, synth_df, self.version_id)
         self.report["review"]["plots"] = plots
@@ -307,10 +279,10 @@ class DataGen:
             config=self.config,
         )
 
-        self.report["review"]["problem_columns"] = self.agent_decision.status
-        self.report["review"]["problem_columns"] = self.agent_decision.problem_columns
-        self.report["review"]["recommendation"] = self.agent_decision.recommendation
-        self.report["review"]["rationale"] = self.agent_decision.rationale
+        self.report.review.status = self.agent_decision.status
+        self.report.review.problem_columns = self.agent_decision.problem_columns
+        self.report.review.recommendation = self.agent_decision.recommendation
+        self.report.review.rationale = self.agent_decision.rationale
 
         write_report(
             report=self.report, 
@@ -339,9 +311,9 @@ class DataGen:
             if selected_updates is not None:
                 for key, value in selected_updates.items():
                     if key == "update_params": # NOTE: "update_params" is a string.
-                        self.report["review"]["selected_plan_updates"][key] = value
+                        self.report.review.selected_plan_updates[key] = value
                     else:
-                        self.report["review"]["selected_plan_updates"][key] = value.model_dump()
+                        self.report.review.selected_plan_updates[key] = value.model_dump()
 
                 revised = self.create_revision(selected_updates)
                 return revised
@@ -395,8 +367,8 @@ class DataGen:
         revised.semantic_types = copy.deepcopy(self.semantic_types)
 
         revised.report = copy.deepcopy(self.report)
-        revised.report["input"]["version_id"] = revised.version_id
-        revised.report["input"]["parent_version"] = revised.parent_version
+        revised.report.input.version_id = revised.version_id
+        revised.report.input.parent_version = revised.parent_version
 
         selection = revised._revision_scope(update_plan)
 
@@ -420,13 +392,13 @@ class DataGen:
             print(f"\nNew missing handling strategy: {update_plan['update_missing'].mode}")
             print(f"\nReason: {update_plan['update_missing'].reason}")
 
-        self.report["review"]["selected_plan_updates"] = {}
+        self.report.review.selected_plan_updates = {}
 
         for key, value in update_plan.items():
             if key == "update_params": # NOTE: "update_params" is a string.
-                self.report["review"]["selected_plan_updates"][key] = value
+                self.report.review.selected_plan_updates[key] = value
             else:
-                self.report["review"]["selected_plan_updates"][key] = value.model_dump()
+                self.report.review.selected_plan_updates[key] = value.model_dump()
 
         self.preprocess_missing_vals()
         self.save_prepared_data()
@@ -449,77 +421,30 @@ class DataGen:
         self.metadata_path = None
         self.synthetic_df = None
         self.agent_decision = None
+        
+        # Covers "generator_selection"
+        self.report.gen.prep_path = None
+        self.report.gen.synth_path = None
+        self.report.gen.synth_shape = None
 
-        if selection == "generator_selection":
-            self.report["gen"] = {
-                "prep_path": {}, 
-                "synth_path": {}, 
-                "synth_shape": {}, 
-                "params": self.report["gen"].get("params"), 
-                "profile": self.report["gen"].get("profile"),
-            }
+        if selection in {
+            "parameter_revision", 
+            "generator_parameter_selection",
+            "parameter_missing_selection",
+            "all", # Generator, parameter, and missing value handling selection.
+        }:
+            self.report.gen.params = None
 
-        elif selection == "parameter_revision":
-            self.report["gen"] = {
-                "prep_path": {}, 
-                "synth_path": {}, 
-                "synth_shape": {}, 
-                "params": {}, 
-                "profile": self.report["gen"].get("profile"),
-            }
+        if selection in {
+            "missing_value",
+            "generator_missing_selection", # Generator and missing handling selection.
+            "parameter_missing_selection",
+            "all",
+        }:
+            self.report.prep.missing_before = {}
+            self.report.prep.missing_after = {}
 
-        elif selection == "missing_value":
-            self.report["gen"] = {
-                "prep_path": {},
-                "synth_path": {},
-                "synth_shape": {},
-                "params": self.report["gen"].get("params"),
-                "profile": self.report["gen"].get("profile"),
-            }
-            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
-
-        elif selection == "generator_parameter_selection":
-            self.report["gen"] = {"prep_path": {}, "synth_path": {}, "synth_shape": {}, "params": {}, "profile": self.report["gen"].get("profile"),}
-
-        elif selection == "parameter_missing_selection":
-            self.report["gen"] = {
-                "prep_path": {}, 
-                "synth_path": {}, 
-                "synth_shape": {}, 
-                "params": {}, 
-                "profile": self.report["gen"].get("profile"),
-            }
-            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
-
-        elif selection == "generator_missing_selection": # Generator and missing handling selection.
-            self.report["gen"] = {
-                "prep_path": {}, 
-                "synth_path": {}, 
-                "synth_shape": {}, 
-                "params": self.report["gen"].get("params"), 
-                "profile": self.report["gen"].get("profile"),
-            }
-            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
-
-        elif selection == "all": # Generator, parameter, and missing value handling selection.
-            self.report["gen"] = {
-                "prep_path": {}, 
-                "synth_path": {}, 
-                "synth_shape": {}, 
-                "params": {}, 
-                "profile": self.report["gen"].get("profile"),
-            }
-            self.report["prep"]["missing_handling"] = {"before": {}, "after": {},}
-
-        self.report["review"] = {
-                "jsd": {},
-                "norm_corr_diff": {},
-                "discrim_auc": {},
-                "problem_columns": {},
-                "recommendation": {},
-                "rationale": {},
-                "selected_plan_updates": {},
-            }
+        self.report.review = ReviewReport()
 
 
     def _revision_scope(self, update_plan: dict) -> str:

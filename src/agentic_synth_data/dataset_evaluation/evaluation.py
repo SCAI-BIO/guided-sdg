@@ -16,6 +16,7 @@ from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.utils import format_response, extract_output, parse_json
 from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.report import Report
 
 
 def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
@@ -150,7 +151,7 @@ def evaluation_review(
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
         print("\nAgent is preparing its response...")
-        prompt = eval_review_message(eval_decision, response)
+        prompt = eval_review_message(agent_decision, response)
         raw_response = agent.invoke(
             {
                 "messages": [
@@ -177,12 +178,11 @@ def evaluation_review(
     return choice
 
 
-def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisRequest, data_path: str, version_id:int) -> None:
+def write_report(report: Report, synthesis_request:SynthesisRequest, data_path: str, version_id:int) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
-        report (dict[str, dict[str, Any]]): Dictionary containing information gathered throughout
-                                            the workflow steps.
+        report (Report): Dictionary containing information gathered throughout the workflow steps.
         synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
         data_path (str): Initial path of the data (used for naming the report).
         version_id (int): Denotes the version of the workflow attempt.
@@ -195,48 +195,49 @@ def write_report(report: dict[str, dict[str, Any]], synthesis_request:SynthesisR
         f.write("# SYNTHETIC DATA GENERATION REPORT\n")
 
         f.write("## Input Dataset:\n")
-        f.write(f"- Path: {report['input']['path']}\n")
-        f.write(f"- Original shape: {report['input']['original_shape']}\n")
-        f.write(f"- Prepared shape: {report['input']['prepared_shape']}\n\n")
+        f.write(f"- Path: {report.input.path}\n")
+        f.write(f"- Original shape: {report.input.original_shape}\n")
+        f.write(f"- Prepared shape: {report.input.prepared_shape}\n\n")
 
         f.write("## Preprocessing:\n")
         f.write("Missing Value Detection\n")
         f.write("Detected markers:\n")
         f.write("```python\n")
-        pprint.pprint(report["prep"]["missing_markers"]["detected"], stream=f, sort_dicts=False,)
+        pprint.pprint(report.prep.missing_markers_detected, stream=f, sort_dicts=False,)
 
         f.write("\n Replaced markers:\n")
         f.write("```python\n")
-        pprint.pprint(report["prep"]["missing_markers"]["replaced"], stream=f, sort_dicts=False,)
+        pprint.pprint(report.prep.missing_markers_replaced, stream=f, sort_dicts=False,)
         f.write("```\n")
 
         f.write("\n\n### Python data types\n")
         f.write("```python\n")
-        pprint.pprint(report["prep"]["dtypes"], stream=f, sort_dicts=False)
+        pprint.pprint(report.prep.dtypes, stream=f, sort_dicts=False)
         f.write("```\n")
 
         f.write("\n\n### Semantic data types\n")
         f.write("```python\n")
-        pprint.pprint(report["prep"]["stypes"], stream=f, sort_dicts=False)
+        pprint.pprint(report.prep.stypes, stream=f, sort_dicts=False)
         f.write("```\n")
 
         f.write("\n\n### Missing Value Handling\n")
         f.write("```python\n")
-        pprint.pprint(report["prep"]["missing_handling"], stream=f, sort_dicts=False,)
+        pprint.pprint(report.prep.missing_before, stream=f, sort_dicts=False,)
+        pprint.pprint(report.prep.missing_after, stream=f, sort_dicts=False,)
         f.write("```\n")
 
         f.write("\n\n### Generation:\n")
         f.write(f"Chosen generator: {request_dict['generator']}\n")
-        f.write(f"Prepared dataset: {report['gen']['prep_path']}\n")
-        f.write(f"Synthetic dataset: {report['gen']['synth_path']}\n")
-        f.write(f"Synthetic shape: {report['gen']['synth_shape']}\n")
+        f.write(f"Prepared dataset: {report.gen.prep_path}\n")
+        f.write(f"Synthetic dataset: {report.gen.synth_path}\n")
+        f.write(f"Synthetic shape: {report.gen.synth_shape}\n")
 
         f.write("\n\n### Evaluation\n")
         f.write("```python\n")
-        pprint.pprint(report["review"]["jsd"], stream=f, sort_dicts=False)
+        pprint.pprint(report.review.jsd, stream=f, sort_dicts=False)
         f.write("```\n")
 
         f.write("\nConclusion\n")
         f.write("```python\n")
-        pprint.pprint(report["review"]["recommendation"], stream=f, sort_dicts=False,)
+        pprint.pprint(report.review.recommendation, stream=f, sort_dicts=False,)
         f.write("```\n")
