@@ -50,6 +50,11 @@ General selection rules:
   - mostly categorical data: BayesianNet
   - mostly numerical data: CTGAN
   - mixed data: CTGAN
+- NOTE: These mappings are general guidelines.
+- These mappings are general guidelines, not strict rules.
+- The selected privacy mode alone does not determine whether a generator is appropriate.
+- Generators without differential privacy may still be appropriate when differential privacy is not a requirement.
+- Consider the data types, dataset size, missing values, and generator limitations when selecting a generator.
 
 Warning rules:
 - If the selected generator does not fit the dataset well, include a warning.

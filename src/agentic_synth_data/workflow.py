@@ -290,6 +290,9 @@ class DataGen:
             agent=self.agent,
             config=self.config
             )
+        self.report["review"]["singling_out"] = attack_metrics.singling_out
+        self.report["review"]["inference"] = attack_metrics.inference
+        self.report["review"]["linkability"] = attack_metrics.linkability
 
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,

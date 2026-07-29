@@ -59,9 +59,9 @@ Discriminator AUC:
 Privacy metrics:
 - Values are privacy-risk estimates between 0 and 1.
 - Lower is better.
-- value <= 0.05: low measurable risk.
-- 0.05 < value <= 0.15: moderate risk; needs review.
-- value > 0.15: high risk; not satisfactory unless utility is exceptional and privacy was not prioritized.
+- value < 0.10: negligible risk.
+- 0.10 <= value < 0.20: moderate risk; needs review.
+- value >= 0.20: high risk; not satisfactory unless utility is exceptional and privacy was not prioritized.
 - ci[0] and ci[1] are the confidence interval bounds.
 - If the confidence interval is wide, mention uncertainty.
 - Privacy warnings or unreliable estimates should be treated cautiously and mentioned in the rationale.
