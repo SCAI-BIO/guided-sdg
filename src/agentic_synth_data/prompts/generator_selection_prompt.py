@@ -37,7 +37,8 @@ Correlation for numeric columns:
 
 Allowed generators:
 - PATEGAN
-- CTGAN
+- CTGAN_r4r
+- CTGAN_sdr
 - BayesianNet
 - PrivBayes
 

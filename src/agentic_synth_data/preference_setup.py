@@ -19,7 +19,8 @@ class PrivacyConfig(BaseModel):
 class GeneratorConfig(BaseModel):
     name: Literal[
         "auto", 
-        "CTGAN", 
+        "CTGAN_sdr",
+        "CTGAN_r4r",
         "PATEGAN", 
         "BayesianNet", 
         "PrivBayes", 
@@ -84,7 +85,7 @@ def select_preferences() -> SynthesisRequest:
     )
 
     choice = pyip.inputMenu(
-        ["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes", "TabSyn", "STaSY"],
+        ["auto", "CTGAN_r4r", "CTGAN_sdr", "PATEGAN", "BayesianNet", "PrivBayes", "TabSyn", "STaSY"],
         numbered=True
     )
 

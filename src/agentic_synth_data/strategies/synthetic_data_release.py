@@ -101,6 +101,8 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
             self, n_samples:int, prep_path:Path, synth_path:Path, #parameters:str # NOTE: params are not yet merged to dev
         ) -> Path:
         mechanism = self.generator_name
+        if mechanism == "CTGAN_sdr":
+            mechanism = mechanism.split("_")[0]
         container_path = f"/workspace/output/{synth_path.name}"
 
         print()

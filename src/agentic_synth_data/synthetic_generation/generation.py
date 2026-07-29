@@ -12,7 +12,7 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 
 
 class SelectGenerator(BaseModel):
-    generator: Literal["PrivBayes", "CTGAN", "PATEGAN", "BayesianNet", "TabSyn", "STaSY",]
+    generator: Literal["PrivBayes", "CTGAN_r4r", "CTGAN_sdr", "PATEGAN", "BayesianNet", "TabSyn", "STaSY",]
     pros: str
     cons: str
     rationale: str
@@ -172,7 +172,7 @@ def select_generator(
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes", "TabSyn", "STaSY",],
+                ["PATEGAN", "CTGAN_r4r", "CTGAN_sdr", "BayesianNet", "PrivBayes", "TabSyn", "STaSY",],
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
                 )

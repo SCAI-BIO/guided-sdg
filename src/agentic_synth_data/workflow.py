@@ -185,7 +185,7 @@ class DataGen:
 
         mechanism = self.synthesis_request.generator.name
 
-        if mechanism in ["PATEGAN", "CTGAN", "TabSyn"]: # NOTE: for any mechanism that requires missing handling.
+        if mechanism in ["PATEGAN", "CTGAN_r4r", "CTGAN_sdr", "TabSyn"]: # NOTE: for any mechanism that requires missing handling.
             print("\n\n")
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
@@ -265,12 +265,21 @@ class DataGen:
         else:
             sample_size = len(self.source_df)
 
+        import time
+        start = time.time()
+        print(f"\nStarting time: {time.time()}")
+
         self.synthetic_path, self.synthetic_df = strategy._run(
             n_samples=sample_size,
             prep_path=self.prepared_path,
             #parameters=self.synthesis_request.generator.parameters,
             version_id=self.version_id,
         )
+
+        end = time.time()
+        print(f"\nEnding time: {time.time()}")
+        total = end - start
+        print(f"\nTotal time: {total/60}")
 
         self.report["gen"]["synth_path"] = self.synthetic_path
         self.report["gen"]["synth_shape"] = self.synthetic_df.shape
