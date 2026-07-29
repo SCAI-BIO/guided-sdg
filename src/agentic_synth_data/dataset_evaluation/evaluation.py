@@ -7,7 +7,10 @@ import numpy as np
 
 from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
-from syndat.metrics import jensen_shannon_distance, normalized_correlation_difference, discriminator_auc
+import syndat
+from IPython.display import Image, display
+from langgraph.graph.state import CompiledStateGraph
+from pydantic import BaseModel, Field
 
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.utils import format_response, extract_output, parse_json
@@ -33,17 +36,19 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     Returns:
         dict: The decision plan based on the agent's assessment.
     """
-    jsd_results = jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+    jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
-    
+
     print("\nJenson-Shannon Distances:")
     for col, jsd_score in jsd_results.items():
         print(col, round(jsd_score, 4))
-    
-    norm_corr_diff = normalized_correlation_difference(real=real_df, synthetic=synthetic_df, ignore_cat=True)
+
+    norm_corr_diff = syndat.metrics.normalized_correlation_difference(
+        real=real_df, synthetic=synthetic_df, ignore_cat=True
+        )
     print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
 
-    discrim_auc = discriminator_auc(real=real_df, synthetic=synthetic_df)
+    discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
     print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
 
     return {
@@ -51,6 +56,23 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
         "norm_corr_diff": norm_corr_diff,
         "discrim_auc": discrim_auc,
     }
+
+
+def generate_plots(real_df, synth_df, version_id):
+    """Plot feature distributions and store files."""
+    output_dir = Path("../output") / "plots" / f"version_{version_id}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    syndat.visualization.plot_distributions(real_df, synth_df, store_destination=str(output_dir))
+
+    png_files = sorted(output_dir.glob("*.png"))
+
+    print(f"\nDistribution plot for: {png_files[0].name}")
+    display(Image(filename=str(png_files[0])))
+
+    print(f"\n=> Distribution plots for all features saved to: {output_dir}")
+
+    return png_files
 
 
 def evaluation(
@@ -65,21 +87,21 @@ def evaluation(
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
                                 missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as a
-                                record of the processing done to generate the synthetic data.
+        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
+                                a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
                                 synthetic data based on SYNDAT metrics. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation. 
+                                Defaults to None.
 
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
     """
     request_dict = synthesis_request.model_dump()
     prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics,)
-    
-    
+
     print("\nAgent is evaluating the results...")
-    
+
     raw_response = agent.invoke(
         {
             "messages": [
@@ -95,7 +117,7 @@ def evaluation(
     plan = extract_output(raw_response)
 
     eval_plan = parse_json(plan, AgentEval, agent, config)
-    
+
     print("\nEvaluation:")
     print(f"- Status: {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
@@ -116,14 +138,16 @@ def evaluation_review(
 
     Args:
         agent_decision (AgentEval): Agent's evaluation decision.
-        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the evaluation. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation.. Defaults to None.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
+                                                               evaluation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation.
+                                        Defaults to None.
 
     Returns:
         str: Whether the workflow should finish or be revised.
     """
     confirm = pyip.inputYesNo("\nDo you have questions about the evaluation results?\n")
-    
+
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
         print("\nAgent is preparing its response...")
@@ -144,9 +168,13 @@ def evaluation_review(
 
         confirm = pyip.inputYesNo("\nDo you have another question?\n")
 
-    print(f"\nWorkflow result status: {agent_decision.status}")
-    choice = pyip.inputMenu(["finish", "revise"], "\nWould you like to finish or revise the workflow?\n", numbered=True)
-    
+    print(f"\nWorkflow result status: {eval_decision['status']}")
+    choice = pyip.inputMenu(
+        ["finish", "revise"], 
+        "\nWould you like to finish or revise the workflow?\n", 
+        numbered=True
+        )
+
     return choice
 
 
