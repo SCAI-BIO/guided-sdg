@@ -7,7 +7,6 @@ import yaml
 
 from agentic_synth_data.strategies.base import GeneratorStrategy
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -87,11 +86,6 @@ class Real4RegDatasynth(GeneratorStrategy):
         print("-" * 25 + f"Running {self.generator_name}" + "-" * 25)
         command = dedent(f"""
             "{PROJECT_ROOT / ".generator-envs" / "datasynth" / "bin" / "python"}" -c "
-            from pathlib import Path
-
-            import pandas as pd
-            import yaml
-
             from datasynth.core.data_model import DataDesign
             from datasynth.generators.tabular.ctgan import CTGANGenerator
             from datasynth.generators.tabular.stasy import STaSyGenerator
@@ -165,9 +159,5 @@ class Real4RegDatasynth(GeneratorStrategy):
         if process.returncode !=0:
             raise RuntimeError(f"{mechanism} failed. {command}")
 
-        print(
-            f"\n=> {self.generator_name}: "
-            f"{n_samples} synthetic samples successfully generated."
-        )
-
+        print(f"\n=> {self.generator_name}: {n_samples} synthetic samples successfully generated.")
         return synth_path
