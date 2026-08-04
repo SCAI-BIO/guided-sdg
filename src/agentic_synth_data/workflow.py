@@ -4,7 +4,7 @@ from typing import Any, Hashable
 import os
 
 import pandas as pd
-import syndat
+from sklearn.model_selection import train_test_split
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
@@ -38,6 +38,8 @@ class DataGen:
 
         self.source_df: pd.DataFrame | None = None # Original data
         self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
+        self.train_df: pd.DataFrame | None = None # Training
+        self.test_df: pd.DataFrame | None = None # Evaluation (mainly anonymeter)
         self.dtype_handled_df: pd.DataFrame | None = None # dtype prepared data
         self.missing_handled_df: pd.DataFrame | None = None # Missing value prepared data
         self.prepared_df: pd.DataFrame | None = None # Generator prepared data
@@ -150,9 +152,11 @@ class DataGen:
         print("\n\n")
         print("="*25+"[STEP: Handle semantic types]"+"="*25)
         self.semantic_types = handle_semantic_types(df=self.dtype_handled_df, agent=self.agent, config=self.config)
-
         self.report["prep"]["stypes"] = self.semantic_types
-        return self.dtype_handled_df
+
+        self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
+        print("\n=> Created train/test split")
+        return self.train_df
 
 
     def generator_selection(self):
@@ -162,7 +166,7 @@ class DataGen:
         print("\n\n")
         print("="*25+"[STEP: Select data generator]"+"="*25)
         print()
-        df = self.dtype_handled_df.copy()
+        df = self.train_df.copy()
         profile = generator_profile(df)
         self.report["gen"]["profile"] = profile
         self.synthesis_request = select_generator(
@@ -179,7 +183,7 @@ class DataGen:
         """Step 3: Preprocess
             iv. Handle missing values (if needed for the generator)
         """
-        self.report["prep"]["missing_handling"]["before"] = self.dtype_handled_df.isna().sum().sum()
+        self.report["prep"]["missing_handling"]["before"] = self.train_df.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -188,7 +192,7 @@ class DataGen:
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
             self.missing_handled_df, self.synthesis_request = handle_missing_values(
-                df=self.dtype_handled_df.copy(),
+                df=self.train_df.copy(),
                 synthesis_request=self.synthesis_request,
                 semantic_types=self.semantic_types,
                 agent=self.agent,
@@ -206,18 +210,18 @@ class DataGen:
             self.report["input"]["prepared_shape"] = self.prepared_df.shape
             self.report["prep"]["missing_handling"]["after"] = self.prepared_df.isna().sum().sum()
 
-            print(f"\nThe selected data generator does not require missing value handling: {mechanism}")
+        print(f"\nThe selected data generator does not require missing value handling: {mechanism}")
 
-            # Set back to default
-            if self.synthesis_request.missing_values.mode == "impute":
-                self.synthesis_request.missing_values.impute = ImputationConfig()
+        # Set back to default
+        if self.synthesis_request.missing_values.mode == "impute":
+            self.synthesis_request.missing_values.impute = ImputationConfig()
 
-            elif self.synthesis_request.missing_values.impute == "threshold":
-                self.synthesis_request.missing_values.threshold = None
+        elif self.synthesis_request.missing_values.impute == "threshold":
+            self.synthesis_request.missing_values.threshold = None
 
-            self.synthesis_request.missing_values.mode = None
+        self.synthesis_request.missing_values.mode = None
 
-            return self.prepared_df, self.synthesis_request
+        return self.prepared_df, self.synthesis_request
 
 
     def save_prepared_data(self):
@@ -302,12 +306,15 @@ class DataGen:
         self.report["review"]["plots"] = plots
 
         attack_metrics = calculate_attack_metrics(
-            real_df=real_df,
+            train_df=self.train_df,
+            test_df=self.test_df,
             synthetic_df=synth_df,
             semantic_types=self.semantic_types,
+            dtypes=self.python_dtypes,
             agent=self.agent,
             config=self.config
-            )
+        )
+
         self.report["review"]["singling_out"] = attack_metrics.singling_out
         self.report["review"]["inference"] = attack_metrics.inference
         self.report["review"]["linkability"] = attack_metrics.linkability
@@ -404,6 +411,9 @@ class DataGen:
         revised.source_df = self.source_df.copy()
         revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
         revised.dtype_handled_df = self.dtype_handled_df.copy()
+        revised.train_df = self.train_df.copy()
+        revised.test_df = self.test_df.copy()
+
         revised.python_dtypes = copy.deepcopy(self.python_dtypes)
         revised.semantic_types = copy.deepcopy(self.semantic_types)
 

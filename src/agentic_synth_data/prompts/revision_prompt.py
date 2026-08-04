@@ -1,5 +1,5 @@
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal
 
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
