@@ -10,7 +10,6 @@ import pyinputplus as pyip
 import syndat
 from IPython.display import Image, display
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, Field
 
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.utils import format_response, extract_output, parse_json
@@ -20,8 +19,8 @@ from agentic_synth_data.report import Report
 
 
 def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
-    """Calculate metrics comparing the original dataframe (optionally, with missing value markers removed)
-    with the synthetic dataframe.
+    """Calculate metrics comparing the original dataframe (optionally, with missing value markers
+     removed) with the synthetic dataframe.
 
     Calculates SYNDAT metrics:
     - Jenson-Shannon Distance
@@ -37,7 +36,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
         dict: The decision plan based on the agent's assessment.
     """
     jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
-    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # nanmean just in case jsd converts a column to nan
+    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
     print("\nJenson-Shannon Distances:")
     for col, jsd_score in jsd_results.items():
@@ -103,14 +102,7 @@ def evaluation(
     print("\nAgent is evaluating the results...")
 
     raw_response = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ]
-        },
+        {"messages": [{"role": "user", "content": prompt,}]},
         config=config,
     )
 
@@ -122,7 +114,7 @@ def evaluation(
     print(f"- Status: {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
         print(f"- Problem columns: {eval_plan.problem_columns}")
-    print(f"- Recommendation:")
+    print("- Recommendation:")
     format_response(eval_plan.recommendation)
     print("- Rationale:")
     format_response(eval_plan.rationale)
@@ -153,14 +145,7 @@ def evaluation_review(
         print("\nAgent is preparing its response...")
         prompt = eval_review_message(agent_decision, response)
         raw_response = agent.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ]
-            },
+            {"messages": [{"role": "user", "content": prompt,}]},
             config=config,
         )
 

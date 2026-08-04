@@ -1,3 +1,6 @@
+from textwrap import dedent
+
+
 SYSTEM_PROMPT = """
 You are an assistant for a tabular synthetic data generation workflow.
 
@@ -15,20 +18,20 @@ considering whether these decisions make sense for the dataset's characteristics
 
 
 def json_repair_prompt(error, plan, model_cls):
-    return f"""
-The previous response could not be parsed as valid JSON.
+    return dedent(f"""
+    The previous response could not be parsed as valid JSON.
 
-Error:
-{error}
+    Error:
+    {error}
 
-Invalid response:
-{plan}
+    Invalid response:
+    {plan}
 
-Return exactly one valid JSON object matching this schema:
-{model_cls.model_json_schema()}
+    Return exactly one valid JSON object matching this schema:
+    {model_cls.model_json_schema()}
 
-Do not include ```json.
-Do not include trailing commas.
-No markdown.
-No explanation outside JSON.
-"""
+    Do not include ```json.
+    Do not include trailing commas.
+    No markdown.
+    No explanation outside JSON.
+    """)

@@ -109,9 +109,9 @@ def generator_selection_message(
 
 def generator_review_message(selected_mechanism):
     return dedent(f"""
-      The following generator is being considered:
-      {selected_mechanism}
+    The following generator is being considered:
+    {selected_mechanism}
 
-      Give pros, cons, rationale, and warnings for this selected generator.
-      Do not automatically change the generator unless there is a strong reason.
-      """)
+    Give pros, cons, rationale, and warnings for this selected generator.
+    Do not automatically change the generator unless there is a strong reason.
+    """)

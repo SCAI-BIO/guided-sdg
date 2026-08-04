@@ -49,16 +49,19 @@ def select_preferences() -> SynthesisRequest:
     request = SynthesisRequest()
 
     # Fill sample size
-    format_response("Would you like to generate the same amount of samples as the dataset or a fixed number of samples?")
+    format_response(
+        "Would you like to generate the same amount of samples as the dataset or a fixed number" \
+        " of samples?"
+    )
     choice = pyip.inputMenu(["fixed value", "same as original"], numbered=True)
-    
+
     if choice == "fixed value":
         request.sample_size.mode = "fixed_value"
         print()
         format_response("How many synthetic samples would you like to generate?")
         value = pyip.inputInt(min=1)
         request.sample_size.fixed_value = value
-    
+
     else:
         request.sample_size.mode = "same_as_original"
 
@@ -68,20 +71,26 @@ def select_preferences() -> SynthesisRequest:
 
     # Fill data generator preferences
     print("\n")
-    format_response("Is there a specific data generator that you want to use on your data? Select 'auto' if you would like a suggestion.")
+    format_response(
+        "Is there a specific data generator that you want to use on your data? Select " \
+        "'auto' if you would like a suggestion."
+    )
     choice = pyip.inputMenu(["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"], numbered=True)
     if choice == "auto":
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
         request.generator.name = choice
-    
+
     else:
         print(f"\t=> Your data will be generated using {choice}.")
     request.generator.name = choice
     request.generator.parameters = output_default_parameters(choice) # default parameters
-        
+
     # Missing value handling preferences
     print()
-    format_response("How would you like missing values to be handled? Select 'auto' if you would like a suggestion.")
+    format_response(
+        "How would you like missing values to be handled? Select 'auto' if you would like a" \
+        " suggestion."
+    )
     choice = pyip.inputMenu(["auto", "impute", "threshold", "remove"], numbered=True)
     if choice == "auto":
         request.missing_values.mode = choice
@@ -90,7 +99,9 @@ def select_preferences() -> SynthesisRequest:
     elif choice == "threshold":
         # TODO: Add threshold limit
         request.missing_values.mode = choice
-        value = pyip.inputInt("\nWhat is the minimum number of missing columns in a sample remove from the data?")
+        value = pyip.inputInt(
+            "\nWhat is the minimum number of missing columns in a sample remove from the data?"
+        )
         request.missing_values.threshold = value
 
     elif choice == "remove":
@@ -99,21 +110,26 @@ def select_preferences() -> SynthesisRequest:
     elif choice == "impute":
         request.missing_values.mode = choice
         print()
-        format_response("Currently, only the SimpleImputer imputation method is currently supported.")
+        format_response(
+            "Currently, only the SimpleImputer imputation method is currently supported."
+        )
         request.missing_values.impute.method = "SimpleImputer"
         print("\t=> Your missing data will be imputed by SimpleImputer.")
-        
+
         # Specify categorical handling.
         print()
-        format_response("How would you like to handle missing categorical values? Select 'auto' if you would like a suggestion.")
+        format_response(
+            "How would you like to handle missing categorical values? Select 'auto' if you " \
+            "would like a suggestion."
+        )
         choice = pyip.inputMenu(["auto", "most frequent", "constant",], numbered=True)
-        
+
         if choice == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
-        
+
         if choice == "most frequent":
             choice = "most_frequent"
-        
+
         else:
             print(f"\t=> Your missing categorical data will be imputed using {choice}.")
 
@@ -121,19 +137,22 @@ def select_preferences() -> SynthesisRequest:
 
         # Specify numerical handling.
         print()
-        format_response("How would you like to handle missing numerical values? Select 'auto' if you would like a suggestion.")
+        format_response(
+            "How would you like to handle missing numerical values? Select 'auto' if you " \
+            "would like a suggestion."
+        )
         choice = pyip.inputMenu(["auto", "mean", "median", "most frequent"], numbered=True)
-        
+
         if choice == "most frequent":
             choice = "most_frequent"
-        
+
         if choice == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
-        
+
         else:
             print(f"\t=> Your missing numerical data will be imputed using {choice}.")
         request.missing_values.impute.numerical_strategy = choice
- 
+
     print()
     print("-"*25+"Your preferences have been recorded"+"-"*25)
     display_synthesis_request(request)
