@@ -60,22 +60,24 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     prompt = semantic_type_message(profiles)
 
     # 2. Agent infers the semantic type of columns based on their profile.
-    print("\nAgent is analyzing column data types, unique values, and value distributions to infer semantic types...")
+    print(
+        "\nAgent is analyzing column data types, unique values, and value distributions to " \
+        "infer semantic types..."
+    )
     raw_inference = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ]
-        },
+        {"messages": [{"role": "user","content": prompt,}]},
         config=config,
     )
-    
+
     plan = extract_output(raw_inference)
 
-    semantic_types = parse_json(plan=plan, model_cls=STypeInference, agent=agent, config=config, root=True) # TODO: check more extensively
+    semantic_types = parse_json(
+        plan=plan, 
+        model_cls=STypeInference,
+        agent=agent,
+        config=config,
+        root=True
+    ) # TODO: check more extensively
 
     # TODO:Include more formal checks that each column is accounted for:
     # - Output must match existing column names
@@ -90,19 +92,29 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     # 3. User confirmation.
     confirm = pyip.inputYesNo("\nAre all column data types correct?")
     # possible TODO: Add a way to select multiple columns as a group and to change their stype (semantic type).
-    
+
     # 4. If corrections are needed, the user can manually update column types.
     if confirm == "no":
         while True:
-            print(f"\nInput column name/number to modify (enter 'exit' (not case-sensitive) or 1 to finish)")
+            print(
+                "\nInput column name/number to modify (enter 'exit' (not case-sensitive) or 1 to" \
+                " finish)"
+            )
             col = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
 
             if col == "Exit":
                 break
 
             print(f"\nSelected the following column: {col}")
-            print(f"Current semantic type is '{semantic_types[col]}'. What should this be modified to?")
-            choice = pyip.inputMenu(["Integer", "Float", "Boolean", "Categorical", "Ordinal"], numbered=True)
+            print(
+                f"Current semantic type is '{semantic_types[col]}'. What should this be modified" \
+                " to?"
+            )
+
+            choice = pyip.inputMenu(
+                ["Integer", "Float", "Boolean", "Categorical", "Ordinal"],
+                numbered=True
+            )
 
             semantic_types[col] = choice
 

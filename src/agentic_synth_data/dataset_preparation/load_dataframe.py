@@ -23,8 +23,11 @@ def load_df(data_path:str) -> pd.DataFrame:
             if df.shape[0] > 1 and df.shape[1] > 1:
                 #print("=> The dataframe was successfully made.")
                 return df
-            
+
         except Exception:
             continue
 
-    raise ValueError("Invalid entry; File type may not be supported. Verify file is in a tidy format (example: https://aeturrell.github.io/python4DS/data-tidy.html).")
+    raise ValueError(
+        "Invalid entry; File type may not be supported. Verify file is in a tidy format " \
+        "(example: https://aeturrell.github.io/python4DS/data-tidy.html)."
+    )

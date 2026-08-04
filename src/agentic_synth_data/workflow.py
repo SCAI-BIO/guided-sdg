@@ -17,7 +17,7 @@ from agentic_synth_data.dataset_preparation.semantic_type_handling import handle
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
-from agentic_synth_data.report import Report
+from agentic_synth_data.report import Report, ReviewReport
 from agentic_synth_data.rerun_workflow import plan_update
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.strategies.factory import get_generator_strategy
@@ -103,12 +103,17 @@ class DataGen:
         print("\n\n")
         print("="*25+"[STEP: Normalize missing values]"+"="*25)
         source_df = self.source_df.copy()
-        norm_df, is_replaced, detected_markers, replaced_markers = missing_value_precheck(source_df)
+        missing_report = missing_value_precheck(source_df)
+        self.report.prep.missing_markers_detected = missing_report.detected_markers
+        self.report.prep.missing_markers_replaced = missing_report.replaced_markers
 
-        self.report.prep.missing_markers_detected = detected_markers
-        self.report.prep.missing_markers_replaced = replaced_markers
+        if missing_report.has_missing_markers:
+            self.norm_na_df = missing_report.df.copy()
+            print("\n=> Dataframe has been saved for use during evaluation.")
 
-        if is_replaced:
+        norm_df = missing_report.df
+
+        if missing_report.replaced_markers:
             self.norm_na_df = norm_df.copy()
             print("\n=> Dataframe has been saved for use during evaluation.")
 
@@ -141,10 +146,10 @@ class DataGen:
         profile = generator_profile(df)
         self.report.prep.profile = profile
         self.synthesis_request = select_generator(
-            synthesis_request=self.synthesis_request, 
-            semantic_types=self.semantic_types, 
-            profile=profile, 
-            agent=self.agent, 
+            synthesis_request=self.synthesis_request,
+            semantic_types=self.semantic_types,
+            profile=profile,
+            agent=self.agent,
             config=self.config,
         )
         return self.synthesis_request
@@ -274,9 +279,6 @@ class DataGen:
         self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
         self.report.review.discrim_auc = metrics["discrim_auc"]
 
-        plots = generate_plots(real_df, synth_df, self.version_id)
-        self.report["review"]["plots"] = plots
-
         attack_metrics = calculate_attack_metrics(
             train_df=self.train_df,
             test_df=self.test_df,
@@ -291,6 +293,7 @@ class DataGen:
         self.report["review"]["inference"] = attack_metrics.inference
         self.report["review"]["linkability"] = attack_metrics.linkability
 
+        self.report.review.plots = generate_plots(real_df, synth_df, self.version_id)
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
             metrics=metrics,
@@ -332,7 +335,7 @@ class DataGen:
 
             if selected_updates is not None:
                 for key, value in selected_updates.items():
-                    if key == "update_params": # NOTE: "update_params" is a string.
+                    if key == "update_params":
                         self.report.review.selected_plan_updates[key] = value
                     else:
                         self.report.review.selected_plan_updates[key] = value.model_dump()
@@ -342,8 +345,7 @@ class DataGen:
 
             return self
 
-        else:
-            return self
+        return self
 
 
     def run(self):

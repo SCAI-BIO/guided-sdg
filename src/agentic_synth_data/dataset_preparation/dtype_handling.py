@@ -36,6 +36,7 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                                dataframe and their counts.
         - list[Hashable]: Missing value markers that were replaced.
     """
+    df = df.copy()
     # TODO: Add more possible missing values that could be detected.
     possible_missing_values = {
             "na", "n/a", "nan", "none", "null", 
@@ -55,7 +56,7 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
         return MissingPrecheckReport(
             df=df, 
             has_missing_markers=False, 
-            detected_markers=detected_markers, 
+            detected_markers=detected_markers,
             replaced_markers=replaced_markers
         )
 
@@ -67,34 +68,44 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
 
         while True:
             print("\nSelect what you would like to do, given the markers detected:")
-            options = ["Continue without replacement", "Replace all"]#, "Replace specific marker(s)"]
+            options = [
+                "Continue without replacement", 
+                "Replace all",
+                #"Replace specific marker(s)",
+            ]
             # TODO: Add an option to replace only specific markers out of the detected list.
             # TODO: Add an option to view the column distribution for each marker (for this multiple case)
             choice = pyip.inputMenu(options, numbered=True)
-            
+
             if choice == "Continue without replacement":
-                print("\n=> None of the markers detected have been replaced with a null value. The dataset remains unchanged.")
+                print(
+                    "\n=> None of the markers detected have been replaced with a null value. The" \
+                    " dataset remains unchanged."
+                )
                 return MissingPrecheckReport(
-                    df=df, 
+                    df=df,
                     has_missing_markers=False, 
-                    detected_markers=detected_markers, 
+                    detected_markers=detected_markers,
                     replaced_markers=replaced_markers,
                 )
 
-            elif choice == "Replace all":
+            if choice == "Replace all":
                 mask = df_norm.isin(markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
-                print(f"\n=> {replaced_count} of the following markers were replaced with null values: {markers}")
+                print(
+                    f"\n=> {replaced_count} of the following markers were replaced with null" \
+                    " values: {markers}"
+                )
                 replaced_markers = markers
                 return MissingPrecheckReport(
-                    df=df, 
+                    df=df,
                     has_missing_markers=True, 
-                    detected_markers=detected_markers, 
+                    detected_markers=detected_markers,
                     replaced_markers=replaced_markers,
                 )
-            
-            elif choice == "Replace specific marker(s)":
+
+            if choice == "Replace specific marker(s)":
                 # TODO: Add option for a specific marker or more to be selected and updated.
                 pass
 
@@ -104,7 +115,11 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
         print(detected_markers)
 
         while True:
-            options = ["Continue without replacement", "Replace marker"]#, "View column distribution"]
+            options = [
+                "Continue without replacement",
+                "Replace marker",
+                #"View column distribution",
+            ]
                 # TODO: Add an option to view the column distribution for the marker.
             choice = pyip.inputMenu(options, numbered=True)
 
@@ -112,8 +127,8 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                 print("\n\tNo values were replaced.")
                 return MissingPrecheckReport(
                     df=df, 
-                    has_missing_markers=False, 
-                    detected_markers=detected_markers, 
+                    has_missing_markers=False,
+                    detected_markers=detected_markers,
                     replaced_markers=replaced_markers,
                 )
 
@@ -122,12 +137,15 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                 mask = df_norm.isin(markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
-                print(f"\t{replaced_count} of the following marker were replaced with null values: {markers}")
+                print(
+                    f"\t{replaced_count} of the following marker were replaced with null" \
+                    " values: {markers}"
+                )
                 replaced_markers = markers
                 return MissingPrecheckReport(
-                    df=df, 
+                    df=df,
                     has_missing_markers=True, 
-                    detected_markers=detected_markers, 
+                    detected_markers=detected_markers,
                     replaced_markers=replaced_markers
                 )
 
@@ -145,37 +163,37 @@ def infer_dtype(series:pd.Series) -> str:
 
     if len(non_missing) == 0:
         return "string"
-    
+
     type_counts = series.dropna().apply(lambda x: type(x).__name__).value_counts(normalize=True)
     majority_type = type_counts.idxmax()
 
     if majority_type == "str":
         return "string"
 
-    elif majority_type == "int":
+    if majority_type == "int":
         return "int64"
-    
-    elif majority_type == "float":
+
+    if majority_type == "float":
         numeric_values = pd.to_numeric(non_missing, errors="coerce").dropna()
-        
+
         if len(numeric_values) == 0:
             return "string"
-        
+
         whole_numbers = ((numeric_values % 1) == 0).all()
         if whole_numbers:
             return "int64"
         return "float64"
-    
+
     # TODO: add additional data types datetime
     return "string"
 
 
 def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
     """Handles the dtypes for the input dataframe in three main stages:
-    1. missing_value_precheck: Initial check for missing value markers, which are intended as (and should be converted 
-                               to) null values.
-    2. infer_dtype: Convert columns to their inferred dtypes by converting them to their majority dtype (excluding null
-                    values).
+    1. missing_value_precheck: Initial check for missing value markers, which are intended
+                               as (and should be converted to) null values.
+    2. infer_dtype: Convert columns to their inferred dtypes by converting them to their 
+                    majority dtype (excluding null values).
     3. Dtype correction: If necessary, the user can correct the assumed dtypes manually.
 
     Args:
@@ -186,6 +204,7 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
         - pd.DataFrame: The updated dataframe after dtype verification
         - dict[Hashable, str]: Dictionary with the dtype of each column in the dataframe.
     """
+    df = df.copy()
     # General check for majority int string or float and convert all in the column main dtype
     for col in df.columns:
         found_dtype = infer_dtype(df[col])
@@ -193,20 +212,24 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
             df[col] = df[col].astype("string")
         # Possibly could set errors to default (raise), but would have to try to handle this.
         elif found_dtype == "int64":
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64") # NOTE: Will likely have to change dtype prior to eval
+            # NOTE: Will likely have to change dtype prior to eval
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
         elif found_dtype == "float64":
             df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
-    
+
     print(f"\nCurrent (Python) data types present in each column:\n{df.dtypes}")
     print("\nSupported data types are as follows: Integer, Float, and String.")
     print("Examples:\n- Integer: -23, 0, 34, 120")
     print("- Float: -23.2, 0.6, 34.9, 120.14")
     print("- String: 'red 53', 'S', '12.6%', 'third'")
     confirm = pyip.inputYesNo("\nAre all column data types (Python) correct?\n")
-    # TODO: Add a way to select multiple columns and convert them to a specific datatype all together.
+
     if confirm == "no":
         while True:
-            print(f"\nInput column name/number to modify (enter exit (not case-sensitive) or 1 to finish)\n")
+            print(
+                "\nInput column name/number to modify (enter exit (not case-sensitive) or 1" \
+                " to finish)\n"
+            )
             var = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
 
             if var == "Exit":
@@ -217,11 +240,11 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
                 continue
 
             print(f"Selected the following column: {var}")
-            choice = pyip.inputMenu(["Integer", "Float", "String",], numbered=True) 
-            
+            choice = pyip.inputMenu(["Integer", "Float", "String",], numbered=True)
+
             if choice == "Integer":
                 df[var] = pd.to_numeric(df[var], errors="coerce").astype("int64")
-            
+
             elif choice == "Float":
                 df[var] = pd.to_numeric(df[var], errors="coerce").astype("float64")
 

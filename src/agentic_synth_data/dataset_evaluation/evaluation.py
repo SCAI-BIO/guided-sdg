@@ -406,10 +406,10 @@ def evaluation_review(
 
     print(f"\nWorkflow result status: {agent_decision.status}")
     choice = pyip.inputMenu(
-        ["finish", "revise"], 
+        ["finish", "revise"],
         "\nWould you like to finish or revise the workflow?\n", 
         numbered=True
-        )
+    )
 
     return choice
 
