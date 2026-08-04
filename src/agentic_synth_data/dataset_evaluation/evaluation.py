@@ -77,7 +77,7 @@ def generate_plots(real_df, synth_df, version_id):
 def evaluation(
         synthesis_request:SynthesisRequest,
         metrics:dict[str, Any],
-        agent:Optional[CompiledStateGraph] | None = None, 
+        agent:Optional[CompiledStateGraph] | None = None,
         config:dict | None = None
     ) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics.
@@ -153,12 +153,12 @@ def evaluation_review(
 
         confirm = pyip.inputYesNo("\nDo you have another question?\n")
 
-    print(f"\nWorkflow result status: {eval_decision['status']}")
+    print(f"\nWorkflow result status: {agent_decision.status}")
     choice = pyip.inputMenu(
-        ["finish", "revise"], 
+        ["finish", "revise"],
         "\nWould you like to finish or revise the workflow?\n", 
         numbered=True
-        )
+    )
 
     return choice
 

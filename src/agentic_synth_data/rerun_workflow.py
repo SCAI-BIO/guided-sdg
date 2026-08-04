@@ -50,10 +50,10 @@ class MissingRevisionPlan(BaseModel):
 
 
 def plan_update(
-        synthesis_request:SynthesisRequest, 
-        agent_decision:AgentEval, 
+        synthesis_request:SynthesisRequest,
+        agent_decision:AgentEval,
         report:Report,
-        agent:Optional[CompiledStateGraph], 
+        agent:Optional[CompiledStateGraph],
         config:dict,
     ) -> dict | None:
     """Agent suggests possible retroactive changes, which the user can select from.
@@ -92,7 +92,7 @@ def plan_update(
             "\n=> The data generator selected allows for missing values. Missing value handling" \
             " will not be applied."
         )
-    else: 
+    else:
         update_missing = missing_update(synthesis_request, agent, config)
 
     update_plan = {}
@@ -178,21 +178,14 @@ def parameter_update(
     if selected_mechanism in ["BayesianNet", "CTGAN"]:
         print(
             f"=> {selected_mechanism} can only be set to default." \
-              "Default parameters retained."
+              " Default parameters retained."
         )
         return None
 
     print("\nAgent is coming up with a parameter revision...")
     prompt = parameter_revision_message(selected_mechanism)
     raw_response = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user", 
-                    "content": prompt,
-                }
-            ]
-        },
+        {"messages": [{"role": "user", "content": prompt,}]},
         config=config,
     )
 
