@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Literal, Any
 
 import pandas as pd
@@ -48,7 +47,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
 
     num_df = df.select_dtypes(include="number")
 
-    if num_df.empty:  
+    if num_df.empty:
         return {
             "shape": shape,
             "col_nunique": col_profiles,
@@ -88,10 +87,10 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
 
 # TODO: Expand to parameter selection.
 def select_generator(
-        synthesis_request:SynthesisRequest, 
+        synthesis_request:SynthesisRequest,
         semantic_types:dict[str, str],
         profile:dict[str, Any],
-        agent:CompiledStateGraph, 
+        agent:CompiledStateGraph,
         config:dict[str, dict[str, Any]],
     ) -> SynthesisRequest:
     """Based on the user's preferences and information about the dataset, the agent 
@@ -119,7 +118,7 @@ def select_generator(
 
     while not choice_confirmed:
         message = generator_selection_message(
-            synthesis_request=synthesis_request, 
+            synthesis_request=synthesis_request,
             semantic_types=semantic_types,
             profile=profile
         )
@@ -131,14 +130,7 @@ def select_generator(
             message += "\n\nUser feedback so far:\n" + "\n".join(feedback_hist)
 
         raw_response = agent.invoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": message,
-                    }
-                ]
-            },
+            {"messages": [{"role": "user", "content": message,}]},
             config=config,
         )
 
@@ -169,13 +161,15 @@ def select_generator(
 
         if decision == "approve":
             synthesis_request.generator.name = generation_plan.generator
-            synthesis_request.generator.parameters = output_default_parameters(synthesis_request.generator.name)
+            synthesis_request.generator.parameters = output_default_parameters(
+                synthesis_request.generator.name
+            )
             choice_confirmed = True
             print(f"\n=> {generation_plan.generator} has been approved.")
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",], 
+                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",],
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
                 )
