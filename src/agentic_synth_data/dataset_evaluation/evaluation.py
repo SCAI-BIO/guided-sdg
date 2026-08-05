@@ -1,7 +1,9 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Any
 import pprint
 
+from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
 import pandas as pd
 import numpy as np
 
@@ -9,13 +11,21 @@ from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
 import syndat
 from IPython.display import Image, display
-from langgraph.graph.state import CompiledStateGraph
 
+from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.utils import format_response, extract_output, parse_json
-from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
+from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.report import Report
+
+
+@dataclass
+class AnonymeterInput:
+    train_df:pd.DataFrame
+    test_df:pd.DataFrame
+    synthetic_df:pd.DataFrame
+    missing_markers:dict[str, str | int | float]
 
 
 def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
@@ -57,6 +67,246 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     }
 
 
+def calculate_attack_metrics(
+        train_df:pd.DataFrame,
+        test_df:pd.DataFrame,
+        synthetic_df:pd.DataFrame,
+        semantic_types:dict[str, str],
+        dtypes:dict[str, str],
+        agent:Optional[CompiledStateGraph] | None = None, 
+        config:dict | None = None
+    ) -> AttackMetrics:
+    has_missing = train_df.isna().any().any() or test_df.isna().any().any()
+
+    if has_missing: # Temporarily encode missing values as a unique marker.
+        anonymeter_input = prepare_anonymeter_input(
+            train_df=train_df,
+            test_df=test_df,
+            synthetic_df=synthetic_df,
+            semantic_types=semantic_types,
+            dtypes=dtypes,
+        )
+
+        train_df = anonymeter_input.train_df
+        test_df = anonymeter_input.test_df
+        synthetic_df = anonymeter_input.synthetic_df
+
+    print("\nEvaluating singling out risk...")
+    singling_out = SinglingOutEvaluator(
+        ori=train_df,
+        syn=synthetic_df,
+        max_attempts=1_000,
+        control=test_df,
+    )
+    singling_out.evaluate()
+    singling_out_risk = singling_out.risk()
+    print(f"\n=> Singling out risk:\n  - Value: {round(singling_out_risk.value*100, 3)}%" \
+        f"\n  - Confidence interval between: {round(singling_out_risk.ci[0]*100,3)}%" \
+        f" and {round(singling_out_risk.ci[1]*100,3)}%")
+
+    prompt = attack_column_selection_message(semantic_types=semantic_types)
+    print("\nAgent is selecting columns for the following privacy metrics to be assessed:" \
+        "\n- Inference risk\n- Linkability risk")
+
+    raw_response = agent.invoke(
+        {"messages": [{"role": "user", "content": prompt,}]}, config=config,
+    )
+
+    plan = extract_output(raw_response)
+
+    selected_cols = parse_json(plan, AttackColumns, agent, config)
+
+    print(f"\nSelected columns:\n- Linkability:\n  - Auxiliary columns: " \
+        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary" \
+        f" columns: {selected_cols.inference_aux_cols}\n  - Secret " \
+        f"column: {selected_cols.secret}\n\nRationale:")
+    format_response(selected_cols.rationale)
+
+    print("\nEvaluating inference risk...")
+    inference = InferenceEvaluator(
+        ori=train_df,
+        syn=synthetic_df,
+        aux_cols=selected_cols.inference_aux_cols,
+        secret=selected_cols.secret,
+        n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+        control=test_df,
+    )
+
+    inference.evaluate()
+    inference_risk = inference.risk()
+    print(f"\n=> Inference out risk:\n  - Value: {round(inference_risk.value*100, 3)}%" \
+        f"\n  - Confidence interval: between {round(inference_risk.ci[0]*100,3)}%" \
+        f" and {round(inference_risk.ci[1]*100,3)}%")
+
+    print("\nEvaluating linkability risk...")
+    linkability = LinkabilityEvaluator(
+        ori=train_df,
+        syn=synthetic_df,
+        aux_cols=selected_cols.linkability_aux_cols,
+        n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+        control=test_df,
+    )
+
+    linkability.evaluate()
+    linkability_risk = linkability.risk()
+    print(f"\n=> Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%" \
+        f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
+        f" and {round(linkability_risk.ci[1]*100,3)}%")
+
+    return AttackMetrics(
+        singling_out= singling_out_risk,
+        inference=inference_risk,
+        linkability=linkability_risk
+    )
+
+
+def value_exists(candidate: object, *dfs: pd.DataFrame) -> bool:
+    """Return whether a value occurs anywhere in any supplied dataframe."""
+    return any(
+        df.eq(candidate).any().any()
+        for df in dfs
+    )
+
+
+def find_unique_string(*dfs: pd.DataFrame) -> str:
+    """" Find a unique string that can be used a fill in for missing values
+    such that anonymeter may be applied.
+
+    Returns:
+        str: Missing value marker applied.
+    """
+    base = "__missing__"
+    candidate = base
+    counter = 1
+
+    while value_exists(candidate, *dfs):
+        candidate = f"{base}_{counter}"
+        counter += 1
+
+    return candidate
+
+
+def find_unique_integer(*dfs: pd.DataFrame) -> int:
+    """" Find a unique integer that can be used a fill in for missing values
+    such that anonymeter may be applied.
+    
+    Returns:
+        str: Missing value marker applied.
+    """
+    candidate = -999
+
+    while value_exists(candidate, *dfs):
+        candidate -= 1
+
+    return candidate
+
+
+def find_unique_float(*dfs: pd.DataFrame) -> float:
+    """" Find a unique float that can be used a fill in for missing values
+    such that anonymeter may be applied.
+    
+    Returns:
+        str: Missing value marker applied.
+    """
+    candidate = -999.5
+
+    while value_exists(candidate, *dfs):
+        candidate -= 1
+
+    return candidate
+
+
+def select_missing_marker(
+    semantic_type:str,
+    dtype:str,
+    *dfs:pd.DataFrame,
+) -> str | int | float:
+    """Select a unique missing value marker that is compatible with
+    the column's semantic type and Python storage dtype.
+
+    Args:
+        semantic_type (str): Integer, float, categorical, etc.
+        dtype (str): Python storage dtype (default is majority).
+
+    Returns:
+        str | int | float: A unique value that is not present in the
+        dataframes provided.
+    """
+    if semantic_type == "Integer":
+        return find_unique_integer(*dfs)
+
+    if semantic_type == "Float":
+        return find_unique_float(*dfs)
+
+    if semantic_type in {"Categorical", "Ordinal"}:
+        if dtype == "Int64":
+            return find_unique_integer(*dfs)
+        if dtype == "string":
+            return find_unique_string(*dfs)
+
+    if semantic_type == "Boolean":
+        return find_unique_string(*dfs)
+
+
+def prepare_anonymeter_input(
+    train_df:pd.DataFrame,
+    test_df:pd.DataFrame,
+    synthetic_df:pd.DataFrame,
+    semantic_types:dict[str, str],
+    dtypes:dict[str, str],
+) -> AnonymeterInput:
+    """Prepare copies of train, test, and synthetic dataframes for Anonymeter evaluation
+    in the event that there are missing values. Missing values are temporarily replaced
+    with unique markers that are compatible with each column's data type.
+
+    Args:
+        train_df (pd.DataFrame): Training portion of the real dataset.
+        test_df (pd.DataFrame): Test portion of the real dataset.
+        synthetic_df (pd.DataFrame): Synthetically generated dataset.
+        semantic_types (dict[str, str]): Semantic types assigned to each column.
+        dtypes (dict[str, str]): Python storage dtypes for each column.
+
+    Returns:
+        AnonymeterInput: Prepared dataframe copies and the missing value markers applied to
+        each column.
+    """
+    train = train_df.copy()
+    test = test_df.copy()
+    synthetic = synthetic_df.copy()
+
+    frames = (train, test, synthetic)
+    markers:dict[str, str | int | float] = {}
+
+    for col, semantic_type in semantic_types.items():
+        if any(df[col].isna().any() for df in frames):
+            marker = select_missing_marker(semantic_type, dtypes[col], *frames,)
+            markers[col] = marker
+
+            for df in frames:
+                df[col] = df[col].fillna(marker)
+
+    for col, dtype in dtypes.items():
+        for df in frames:
+            if semantic_types[col] == "Boolean":
+                df[col] = df[col].astype(str)
+
+            elif dtype in {"Int64", "int64"}:
+                df[col] = pd.to_numeric(df[col]).astype("int64")
+
+            elif dtype == "float64":
+                df[col] = df[col].astype("float64")
+
+            elif dtype in {"string", "object"}:
+                df[col] = df[col].astype(str)
+
+    return AnonymeterInput(
+        train_df=train,
+        test_df=test,
+        synthetic_df=synthetic,
+        missing_markers=markers
+    )
+
+
 def generate_plots(real_df, synth_df, version_id):
     """Plot feature distributions and store files."""
     output_dir = Path("../output") / "plots" / f"version_{version_id}"
@@ -77,7 +327,8 @@ def generate_plots(real_df, synth_df, version_id):
 def evaluation(
         synthesis_request:SynthesisRequest,
         metrics:dict[str, Any],
-        agent:Optional[CompiledStateGraph] | None = None,
+        attack_metrics:dict[str, Any],
+        agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
     ) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics.
@@ -97,7 +348,7 @@ def evaluation(
         AgentEval: The decision plan based on the agent's assessment.
     """
     request_dict = synthesis_request.model_dump()
-    prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics,)
+    prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics, attack_metrics=attack_metrics)
 
     print("\nAgent is evaluating the results...")
 

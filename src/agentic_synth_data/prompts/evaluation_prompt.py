@@ -3,10 +3,13 @@ from typing import Any
 
 from agentic_synth_data.schemas.models import AgentEval
 
+from agentic_synth_data.schemas.attack_model import AttackMetrics
+
 
 def evaluation_prompt(
         synthesis_request:dict[str, Any], 
         metrics:dict[str, Any],
+        attack_metrics:AttackMetrics
     ) -> str:
     return dedent(f"""
     Evaluate whether synthetic data quality is satisfactory.
@@ -50,7 +53,20 @@ def evaluation_prompt(
     - An AUC near 0.5 is desirable.
     - An AUC closer to 1.0 indicate real and synthetic data are easily distinguishable.
 
-    ### Workflow steps that can be revisited
+    Privacy metrics:
+    - Values are privacy-risk estimates between 0 and 1.
+    - Lower is better.
+    - value < 0.10: negligible risk.
+    - 0.10 <= value < 0.20: moderate risk; needs review.
+    - value >= 0.20: high risk; not satisfactory unless utility is exceptional and privacy was not prioritized.
+    - ci[0] and ci[1] are the confidence interval bounds.
+    - If the confidence interval is wide, mention uncertainty.
+    - Privacy warnings or unreliable estimates should be treated cautiously and mentioned in the rationale.
+
+    Privacy metrics:
+    {attack_metrics.model_dump()}
+
+    Workflow steps that can be revisited:
     | Step | Substep | Description | Agent |
     |------|---------|-------------|-------|
     | 3 | a) | Detect and standardize missing value markers. | |
@@ -75,6 +91,8 @@ def evaluation_prompt(
     - Small datasets may naturally lead to weaker fidelity metrics.
     - Mixed categorical/numerical datasets may affect metric interpretation.
     - BayesianNet and PrivBayes may perform differently from GAN-based generators on small datasets and datasets with many categorical variables.
+    - Whether privacy risk is low enough based on singling-out, inference, and linkability metrics.
+    - Whether privacy was mentioned as an explicit concern.
 
     Problem columns:
     - Problem columns should generally be identified from JSD, while also considering any evidence from correlation preservation or generator behavior.
@@ -126,4 +144,34 @@ def eval_review_message(agent_decision:AgentEval, response:str):
     Answer in plain text only.
 
     Answer the user's question using the evaluation results.
+    """)
+
+
+def attack_column_selection_message(semantic_types:dict[str, str]) -> str:
+    return dedent(f"""
+    You need to come up with appropriate auxiliary columns and secret arguments for 
+    both linkability and inference risks. The columns selected will be used for 
+    their calculation.
+
+    The dataset has the following column names and semantic types:
+    {semantic_types}
+
+    Rules:
+    - Only use columns that are present in the dataset.
+    - Linkability aux_cols and inference aux_cols may be different.
+    - Linkability aux_cols must be a list containing exactly two non-empty column groups.
+    - Inference aux_cols must be a flat list of columns.
+    - Inference secret must be one column.
+    - Do not include the inference secret inside inference aux_cols.
+    - Prefer quasi-identifiers for aux_cols.
+    - Prefer either sensitive, target-like, or outcome-like columns for the inference secret.
+    - Return valid JSON only. No markdown. No explanation.
+
+    JSON format:
+    {{
+        "linkability_aux_cols": [["col_a", "col_b"],["col_c", "col_d"]],
+        "inference_aux_cols": ["col_e", "col_f", "col_g"],
+        "secret": "col_h",
+        "rationale": "short explanation of why you chose certain assignments."
+    }}
     """)

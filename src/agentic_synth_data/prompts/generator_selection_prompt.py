@@ -6,7 +6,7 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 
 # NOTE: missingness per column could also be input here
 def generator_selection_message(
-    synthesis_request: SynthesisRequest, 
+    synthesis_request: SynthesisRequest,
     semantic_types: dict[str, str],
     profile:dict[str, Any],
     ) -> str:
@@ -39,6 +39,21 @@ def generator_selection_message(
     Correlation method: {profile['corr_method']}
     Correlation for numeric columns:
     {profile['num_corr']}
+
+    General selection rules:
+    - If synthesis_request["generator"]["name"] is not "auto", use that generator:
+    - If privacy mode is differentially_private:
+      - mostly categorical data: PrivBayes
+      - mostly numerical or mixed data: PATEGAN
+    - If privacy mode is standard:
+      - mostly categorical data: BayesianNet
+      - mostly numerical data: CTGAN
+      - mixed data: CTGAN
+    - NOTE: These mappings are general guidelines.
+    - These mappings are general guidelines, not strict rules.
+    - The selected privacy mode alone does not determine whether a generator is appropriate.
+    - Generators without differential privacy may still be appropriate when differential privacy is not a requirement.
+    - Consider the data types, dataset size, missing values, and generator limitations when selecting a generator.
 
     Allowed generators:
     - PATEGAN
@@ -89,7 +104,7 @@ def generator_selection_message(
     - Do not justify a choice solely based on privacy mode.
     - Avoid generic statements such as "handles mixed data well" or "good for tabular data".
     - Focus on expected fidelity, utility, privacy requirements, and dataset characteristics.
-      
+
     Description rules:
     - Do not be repetitive.
     - Do not refer to selection rules.

@@ -4,12 +4,13 @@ from typing import Any, Hashable
 import os
 
 import pandas as pd
+from sklearn.model_selection import train_test_split
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import evaluation, generate_plots, write_report, calculate_metrics, evaluation_review
+from agentic_synth_data.dataset_evaluation.evaluation import evaluation, generate_plots, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, missing_value_precheck
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, prepare_for_syndat
@@ -38,6 +39,8 @@ class DataGen:
 
         self.source_df: pd.DataFrame | None = None # Original data
         self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
+        self.train_df: pd.DataFrame | None = None # Training
+        self.test_df: pd.DataFrame | None = None # Evaluation (mainly anonymeter)
         self.dtype_handled_df: pd.DataFrame | None = None # dtype prepared data
         self.missing_handled_df: pd.DataFrame | None = None # Missing value prepared data
         self.prepared_df: pd.DataFrame | None = None # Generator prepared data
@@ -125,9 +128,11 @@ class DataGen:
         self.semantic_types = handle_semantic_types(
             df=self.dtype_handled_df, agent=self.agent, config=self.config
         )
-
         self.report.prep.stypes = self.semantic_types
-        return self.dtype_handled_df
+
+        self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
+        print("\n=> Created train/test split")
+        return self.train_df
 
 
     def generator_selection(self):
@@ -137,7 +142,7 @@ class DataGen:
         print("\n\n")
         print("="*25+"[STEP: Select data generator]"+"="*25)
         print()
-        df = self.dtype_handled_df.copy()
+        df = self.train_df.copy()
         profile = generator_profile(df)
         self.report.prep.profile = profile
         self.synthesis_request = select_generator(
@@ -163,7 +168,7 @@ class DataGen:
             print("="*25+"[STEP: Handle missing values]"+"="*25)
 
             self.missing_handled_df, self.synthesis_request = handle_missing_values(
-                df=self.dtype_handled_df.copy(),
+                df=self.train_df.copy(),
                 synthesis_request=self.synthesis_request,
                 semantic_types=self.semantic_types,
                 agent=self.agent,
@@ -274,10 +279,25 @@ class DataGen:
         self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
         self.report.review.discrim_auc = metrics["discrim_auc"]
 
+        attack_metrics = calculate_attack_metrics(
+            train_df=self.train_df,
+            test_df=self.test_df,
+            synthetic_df=synth_df,
+            semantic_types=self.semantic_types,
+            dtypes=self.python_dtypes,
+            agent=self.agent,
+            config=self.config
+        )
+
+        self.report["review"]["singling_out"] = attack_metrics.singling_out
+        self.report["review"]["inference"] = attack_metrics.inference
+        self.report["review"]["linkability"] = attack_metrics.linkability
+
         self.report.review.plots = generate_plots(real_df, synth_df, self.version_id)
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
             metrics=metrics,
+            attack_metrics=attack_metrics,
             agent=self.agent,
             config=self.config,
         )
@@ -366,6 +386,9 @@ class DataGen:
         revised.source_df = self.source_df.copy()
         revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
         revised.dtype_handled_df = self.dtype_handled_df.copy()
+        revised.train_df = self.train_df.copy()
+        revised.test_df = self.test_df.copy()
+
         revised.python_dtypes = copy.deepcopy(self.python_dtypes)
         revised.semantic_types = copy.deepcopy(self.semantic_types)
 
