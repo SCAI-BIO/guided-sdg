@@ -12,7 +12,18 @@ from agentic_synth_data.utils import parse_json, extract_output, newline_every_n
 
 class GeneratorRevisionOption(BaseModel):
     id: str
-    generator_name: Literal["CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"]
+    generator_name: Literal[
+        "CTGAN_sdr",
+        "CTGAN_r4r",
+        "CTGAN_sdv",
+        "TVAE",
+        "GaussianCopula",
+        "PATEGAN", 
+        "BayesianNet", 
+        "PrivBayes", 
+        "TabSyn",
+        "STaSY",
+    ]
     parameters: dict[str, Any] = Field(default_factory=dict)
     reason: str
 
@@ -159,7 +170,18 @@ def generator_update(
 
 
 def parameter_update(
-        selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"],
+        selected_mechanism:Literal[
+            "CTGAN_sdr",
+            "CTGAN_r4r",
+            "CTGAN_sdv",
+            "TVAE",
+            "GaussianCopula",
+            "PATEGAN", 
+            "BayesianNet", 
+            "PrivBayes", 
+            "TabSyn",
+            "STaSY",
+        ],
         agent:Optional[CompiledStateGraph], 
         config:dict,
         ) -> str | None:

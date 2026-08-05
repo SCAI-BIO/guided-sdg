@@ -29,11 +29,12 @@ def revision_message(
             Type of missing value handling applied:
             {synthesis_request.missing_values.model_dump()}
         """)
-    else:
-        if report['prep']['missing_handling']['before'] == 0:
-            missing_handling = "- Missing value handling was not applied, no missing values present."
-        if synthesis_request.generator.name in ["PrivBayes", "BayesianNet"]:
-            missing_handling = "- Missing value handling was not applied, the generator used" \
+
+    elif report['prep']['missing_handling']['before'] == 0:
+        missing_handling = "- Missing value handling was not applied, no missing values present."
+
+    elif synthesis_request.generator.name in ["PrivBayes", "BayesianNet"]:
+        missing_handling = "- Missing value handling was not applied, the generator used" \
             " allows for missing values."
     return dedent(f"""
         The workflow should be revised. For now, only start with generator selection.
@@ -73,10 +74,14 @@ def revision_message(
         - Do not suggest privacy mode changes.
 
         Available generators:
-        - CTGAN
+        - CTGAN_r4r
+        - CTGAN_sdr
+        - CTGAN_sdv
         - PATEGAN
         - BayesianNet
         - PrivBayes
+        - TVAE
+        - GaussianCopula
 
         Return valid JSON only with this structure:
         {{

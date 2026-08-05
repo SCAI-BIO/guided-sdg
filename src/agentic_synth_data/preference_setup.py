@@ -21,6 +21,9 @@ class GeneratorConfig(BaseModel):
         "auto", 
         "CTGAN_sdr",
         "CTGAN_r4r",
+        "CTGAN_sdv",
+        "TVAE",
+        "GaussianCopula",
         "PATEGAN", 
         "BayesianNet", 
         "PrivBayes", 
@@ -85,7 +88,19 @@ def select_preferences() -> SynthesisRequest:
     )
 
     choice = pyip.inputMenu(
-        ["auto", "CTGAN_r4r", "CTGAN_sdr", "PATEGAN", "BayesianNet", "PrivBayes", "TabSyn", "STaSY"],
+        [
+            "auto",
+            "CTGAN_r4r",
+            "CTGAN_sdr",
+            "PATEGAN",
+            "BayesianNet",
+            "PrivBayes",
+            "CTGAN_sdv",
+            "TVAE",
+            "GaussianCopula",
+            "TabSyn", 
+            "STaSY"
+        ],
         numbered=True
     )
 

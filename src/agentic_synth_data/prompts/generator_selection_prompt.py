@@ -39,6 +39,9 @@ Allowed generators:
 - PATEGAN
 - CTGAN_r4r
 - CTGAN_sdr
+- CTGAN_sdv
+- TVAE
+- GaussianCopula
 - BayesianNet
 - PrivBayes
 
