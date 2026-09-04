@@ -1,10 +1,12 @@
 import textwrap
+import streamlit as st
 from typing import Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -27,20 +29,41 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
     if synthesis_request.missing_values.mode == "impute":
         print(f"- Imputer: {synthesis_request.missing_values.impute.method}")
         print(
-            "- Categorical strategy: "
+            "- Categorical strategy: " \
             f"{synthesis_request.missing_values.impute.categorical_strategy}"
         )
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
-    elif synthesis_request.missing_values.mode == "threshold":
-        print(f"- Threshold: {synthesis_request.missing_values.threshold}")
+
+def display_synthesis_request_st(synthesis_request:"SynthesisRequest") -> None:
+    st.write(f"\n**Sample size mode:** {synthesis_request.sample_size.mode}")
+
+    if synthesis_request.sample_size.fixed_value is not None:
+        st.write(f"**Sample size:** {synthesis_request.sample_size.fixed_value}")
+
+    st.write(f"**Privacy mode:** {synthesis_request.privacy.mode}")
+
+    st.write(f"**Generator:** {synthesis_request.generator.name}")
+
+    st.write(f"**Missing value handling:** {synthesis_request.missing_values.mode}")
+
+    if synthesis_request.missing_values.mode == "impute":
+        st.write(f"- **Imputer:** {synthesis_request.missing_values.impute.method}")
+        st.write(
+            "- **Categorical strategy:** " \
+            f"{synthesis_request.missing_values.impute.categorical_strategy}"
+        )
+        st.write(
+            "- **Numerical strategy:** " \
+            f"{synthesis_request.missing_values.impute.numerical_strategy}"
+        )
 
 
 def parse_json(
-        plan:str, 
-        model_cls:Type[BaseModel], 
-        agent:Optional[CompiledStateGraph], 
-        config:dict, 
+        plan:str,
+        model_cls:Type[BaseModel],
+        agent:Optional[CompiledStateGraph],
+        config:dict,
         root:bool=False
     ) -> T:
     """If agent fails to correctly format JSON response, prompts to 

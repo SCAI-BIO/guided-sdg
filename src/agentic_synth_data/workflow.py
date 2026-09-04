@@ -87,10 +87,17 @@ class DataGen:
         return self.source_df
 
 
-    def select_preferences(self):
+    def apply_preferences(self):
         """Step 2: Setup preferences"""
         print("="*25+"[STEP: Select preferences]"+"="*25)
         self.synthesis_request = select_preferences()
+        return self.synthesis_request
+
+
+    def apply_preferences_ui(self):
+        """Step 2: Setup preferences (UI)
+        """
+        # TODO: connect
         return self.synthesis_request
 
 
@@ -135,6 +142,11 @@ class DataGen:
         return self.train_df
 
 
+    def preprocess_dtypes_ui(self):
+        # TODO connect
+        return self.dtype_handled_df
+
+
     def generator_selection(self):
         """Step 3: Preprocess
             iii. Select/verify chosen generator
@@ -152,6 +164,11 @@ class DataGen:
             agent=self.agent,
             config=self.config,
         )
+        return self.synthesis_request
+
+
+    def generator_selection_ui(self):
+        # TODO:  connect
         return self.synthesis_request
 
 
@@ -201,6 +218,11 @@ class DataGen:
         return self.prepared_df, self.synthesis_request
 
 
+    def preprocess_missing_vals_ui(self):
+        #TODO connect
+        pass
+
+
     def save_prepared_data(self):
         """Step 4: Setup tool data
             i. Save the prepared data
@@ -221,6 +243,11 @@ class DataGen:
         return self.prepared_path
 
 
+    def save_prepared_data_ui(self):
+        # TODO  connect
+        pass
+
+
     def create_metadata(self):
         """Step 4: Setup tool data
             ii. Create metadata for tool use
@@ -231,6 +258,11 @@ class DataGen:
             prep_path=self.prepared_path,
             semantic_types=self.semantic_types,
         )
+
+
+    def create_metadata_ui(self):
+        # TODO:  connect
+        pass
 
 
     def run_synthesis(self):
@@ -257,6 +289,10 @@ class DataGen:
         # self.report["gen"]["params"] = self.synthesis_request.generator.parameters # TODO: change to correct format (in dev but not in wrap-report)
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
+
+    def run_synthesis_ui(self):
+        # TODO  connect
+        pass
 
     def evaluate(self):
         """Step 6: Evaluate results"""
@@ -313,6 +349,11 @@ class DataGen:
             data_path=self.data_path, 
             version_id=self.version_id,
         )
+
+
+    def evaluate_ui(self):
+        # TODO connect
+        pass
 
 
     def post_evaluation_check(self):
