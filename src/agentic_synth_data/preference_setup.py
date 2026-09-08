@@ -2,8 +2,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 import pyinputplus as pyip
+import streamlit as st
 
-from agentic_synth_data.utils import format_response, display_synthesis_request, output_default_parameters
+from agentic_synth_data.utils import display_synthesis_request, display_synthesis_request_st, format_response, output_default_parameters
 
 
 class SampleSizeConfig(BaseModel):
@@ -40,6 +41,50 @@ class SynthesisRequest(BaseModel):
     missing_values: MissingValueConfig = Field(default_factory=MissingValueConfig)
 
 
+def build_synthesis_request(
+    sample_size,
+    fixed_value,
+    privacy,
+    generator,
+    missing_values,
+    impute_method=None,
+    categorical_strategy=None,
+    numerical_strategy=None,
+) -> SynthesisRequest:
+    request = SynthesisRequest()
+
+    # Sample size
+    if sample_size == "fixed value":
+        request.sample_size.mode = "fixed_value"
+        request.sample_size.fixed_value = fixed_value
+    else:
+        request.sample_size.mode = "same_as_original"
+
+    # Privacy
+    if privacy == "yes":
+        request.privacy.mode = "differential_privacy"
+
+    # Generator
+    request.generator.name = generator
+    request.generator.parameters = output_default_parameters(generator)
+
+    # Missing values
+    request.missing_values.mode = missing_values
+
+    if missing_values == "impute":
+        request.missing_values.impute.method = impute_method
+
+        if categorical_strategy == "most frequent":
+            categorical_strategy = "most_frequent"
+
+        if numerical_strategy == "most frequent":
+            numerical_strategy = "most_frequent"
+
+        request.missing_values.impute.categorical_strategy = categorical_strategy
+        request.missing_values.impute.numerical_strategy = numerical_strategy
+    return request
+
+
 def select_preferences() -> SynthesisRequest:
     """Initial setup of user preferences.
 
@@ -48,112 +93,251 @@ def select_preferences() -> SynthesisRequest:
     """
     request = SynthesisRequest()
 
-    # Fill sample size
+    fixed_value = None
+    impute_method = None
+    categorical_strategy = None
+    numerical_strategy = None
+
+    # Sample size
     format_response(
         "Would you like to generate the same amount of samples as the dataset or a fixed number" \
         " of samples?"
     )
-    choice = pyip.inputMenu(["fixed value", "same as original"], numbered=True)
+    sample_size = pyip.inputMenu(["fixed value", "same as original"], numbered=True)
 
-    if choice == "fixed value":
-        request.sample_size.mode = "fixed_value"
+    if sample_size == "fixed value":
         print()
         format_response("How many synthetic samples would you like to generate?")
-        value = pyip.inputInt(min=1)
-        request.sample_size.fixed_value = value
+        fixed_value = pyip.inputInt(min=1)
 
-    else:
-        request.sample_size.mode = "same_as_original"
+    # Privacy
+    privacy = pyip.inputYesNo("\nAre you interested in differential privacy?\n")
 
-    response = pyip.inputYesNo("\nAre you interested in differential privacy?\n")
-    if response == "yes":
-        request.privacy.mode = "differential_privacy"
-
-    # Fill data generator preferences
-    print("\n")
+    # Generator
+    print()
     format_response(
         "Is there a specific data generator that you want to use on your data? Select " \
         "'auto' if you would like a suggestion."
     )
-    choice = pyip.inputMenu(["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"], numbered=True)
-    if choice == "auto":
+    generator = pyip.inputMenu(
+        ["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"], numbered=True
+    )
+    if generator == "auto":
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
-        request.generator.name = choice
+        request.generator.name = generator
 
     else:
-        print(f"\t=> Your data will be generated using {choice}.")
-    request.generator.name = choice
-    request.generator.parameters = output_default_parameters(choice) # default parameters
+        print(f"\t=> Your data will be generated using {generator}.")
 
-    # Missing value handling preferences
+    # Missing values
     print()
     format_response(
         "How would you like missing values to be handled? Select 'auto' if you would like a" \
         " suggestion."
     )
-    choice = pyip.inputMenu(["auto", "impute", "threshold", "remove"], numbered=True)
-    if choice == "auto":
-        request.missing_values.mode = choice
+    missing_values = pyip.inputMenu(["auto", "impute", "remove"], numbered=True)
+    if missing_values == "auto":
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
 
-    elif choice == "threshold":
-        # TODO: Add threshold limit
-        request.missing_values.mode = choice
-        value = pyip.inputInt(
-            "\nWhat is the minimum number of missing columns in a sample remove from the data?"
-        )
-        request.missing_values.threshold = value
-
-    elif choice == "remove":
-        request.missing_values.mode = choice
-
-    elif choice == "impute":
-        request.missing_values.mode = choice
+    elif missing_values == "impute":
         print()
         format_response(
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
-        request.missing_values.impute.method = "SimpleImputer"
+        impute_method = "SimpleImputer"
         print("\t=> Your missing data will be imputed by SimpleImputer.")
 
-        # Specify categorical handling.
+        # Categorical handling
         print()
         format_response(
             "How would you like to handle missing categorical values? Select 'auto' if you " \
             "would like a suggestion."
         )
-        choice = pyip.inputMenu(["auto", "most frequent", "constant",], numbered=True)
+        categorical_strategy = pyip.inputMenu(["auto", "most frequent", "constant",], numbered=True)
 
-        if choice == "auto":
+        if categorical_strategy == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
 
-        if choice == "most frequent":
-            choice = "most_frequent"
-
         else:
-            print(f"\t=> Your missing categorical data will be imputed using {choice}.")
+            print(
+                f"\t=> Your missing categorical data will be imputed using {categorical_strategy}."
+            )
 
-        request.missing_values.impute.categorical_strategy = choice
-
-        # Specify numerical handling.
+        # Numerical handling
         print()
         format_response(
             "How would you like to handle missing numerical values? Select 'auto' if you " \
             "would like a suggestion."
         )
-        choice = pyip.inputMenu(["auto", "mean", "median", "most frequent"], numbered=True)
+        numerical_strategy = pyip.inputMenu(
+            ["auto", "mean", "median", "most frequent"], numbered=True
+        )
 
-        if choice == "most frequent":
-            choice = "most_frequent"
-
-        if choice == "auto":
+        if numerical_strategy == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
 
         else:
-            print(f"\t=> Your missing numerical data will be imputed using {choice}.")
-        request.missing_values.impute.numerical_strategy = choice
+            print(f"\t=> Your missing numerical data will be imputed using {numerical_strategy}.")
 
+    request = build_synthesis_request(
+        sample_size=sample_size,
+        fixed_value=fixed_value,
+        privacy=privacy,
+        generator=generator,
+        missing_values=missing_values,
+        impute_method=impute_method,
+        categorical_strategy=categorical_strategy,
+        numerical_strategy=numerical_strategy,
+    )
     print()
     print("-"*25+"Your preferences have been recorded"+"-"*25)
     display_synthesis_request(request)
+    return request
+
+
+# TODO: consider whether to use st.form (if so, get rid of the messages "X will be used", etc.)
+def select_preferences_ui() -> SynthesisRequest:
+    fixed_value = None
+    impute_method = None
+    categorical_strategy = None
+    numerical_strategy = None
+
+    # Sample size
+    st.subheader(
+        "Would you like to generate the same amount of samples as the dataset or a fixed " \
+        "number of samples?"
+    )
+    sample_size = st.selectbox(
+        "sample size", 
+        ["fixed value", "same as original"],
+        label_visibility="hidden",
+        index=None,
+    )
+
+    if sample_size == "fixed value":
+        st.write("#### How many synthetic samples would you like to generate?")
+        fixed_value = st.number_input("", min_value=1)
+    st.write("---")
+
+    # Privacy
+    st.subheader("Are you interested in differential privacy?")
+    privacy = st.selectbox(
+        "privacy specification", ["yes", "no"], label_visibility="hidden", index=None,
+    )
+    st.write("---")
+
+    # Generator
+    st.subheader("Is there a specific data generator that you want to use on your data?")
+    st.write("Select 'auto' if you would like a suggestion.")
+
+    generator = st.selectbox(
+        "data generator",
+        [
+            "auto",
+            "CTGAN_r4r",
+            "CTGAN_sdr",
+            "PATEGAN",
+            "BayesianNet",
+            "PrivBayes",
+            "CTGAN_sdv",
+            "TVAE",
+            "GaussianCopula",
+            "TabSyn", 
+            "STaSY",
+        ],
+        label_visibility="hidden",
+        index=None,
+    )
+
+    if generator == "auto":
+        st.write(
+            "\t=> You will receive a recommendation based on the dataset's characteristics."
+        )
+
+    else:
+        if generator != "None":
+            st.write(f"\t=> Your data will be generated using {generator}.")
+    st.write("---")
+
+    # Missing values
+    st.subheader("How would you like missing values to be handled?")
+    st.write("Select 'auto' if you would like a suggestion.")
+
+    missing_values = st.selectbox(
+        "missing strategy", ["auto", "impute", "remove"], label_visibility="hidden", index=None,
+    )
+
+    if missing_values == "auto":
+        st.write(
+            "\t=> You will receive a recommendation based on the dataset's characteristics."
+        )
+
+    elif missing_values == "impute":
+        st.write(
+            "Currently, only the SimpleImputer imputation method is currently supported."
+        )
+        impute_method = "SimpleImputer"
+        st.write("\t=> Your missing data will be imputed by SimpleImputer.")
+
+        # Categorical handling
+        st.write(
+            "How would you like to handle missing categorical values? Select 'auto' if you " \
+            "would like a suggestion."
+        )
+
+        categorical_strategy = st.selectbox(
+            "categorical strategy",
+            ["auto", "most frequent", "constant",],
+            label_visibility="hidden",
+            index=None,
+        )
+
+        if categorical_strategy == "auto":
+            st.write(
+                "\t=> You will receive a recommendation based on the dataset's characteristics."
+            )
+
+        else:
+            st.write(
+                "\t=> Your missing categorical data will be imputed using" \
+                f" {categorical_strategy}."
+            )
+
+        # Numerical handling
+        st.write(
+            "How would you like to handle missing numerical values? Select 'auto' if you" \
+            " would like a suggestion."
+        )
+
+        numerical_strategy = st.selectbox(
+            "numerical strategy", 
+            ["auto", "mean", "median", "most frequent"],
+            label_visibility="hidden",
+            index=None,
+        )
+
+        if numerical_strategy == "auto":
+            st.write(
+                "\t=> You will receive a recommendation based on the dataset's characteristics."
+            )
+
+        else:
+            st.write(
+                f"\t=> Your missing numerical data will be imputed using {numerical_strategy}."
+            )
+
+    st.write("---")
+    request = build_synthesis_request(
+                sample_size=sample_size,
+                fixed_value=fixed_value,
+                privacy=privacy,
+                generator=generator,
+                missing_values=missing_values,
+                impute_method=impute_method,
+                categorical_strategy=categorical_strategy,
+                numerical_strategy=numerical_strategy,
+    )
+    # TODO: distinguish this section (highlighting/shading/etc.)
+    st.header("Your preferences have been recorded")
+    display_synthesis_request_st(request)
     return request

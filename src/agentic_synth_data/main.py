@@ -1,4 +1,7 @@
+from dotenv import load_dotenv
 import streamlit as st
+
+load_dotenv()
 
 reports = st.Page("./pages/report.py", title="Reports") # Hidden (for now)
 setup = st.Page("./pages/setup.py", title="0. Setup")
@@ -10,7 +13,16 @@ generation = st.Page("./pages/synthetic_generation.py", title="5. Synthetic gene
 evaluation = st.Page("./pages/evaluation.py", title="6. Evaluation")
 
 st.navigation(
-    [setup, select_preferences, handle_dtypes, generator_selection, missing_handling, generation, evaluation]
+    [
+        setup,
+        select_preferences,
+        handle_dtypes,
+        generator_selection,
+        missing_handling,
+        generation,
+        evaluation,
+    ]
 ).run()
 
-# TODO add some sort of home button?
+# TODO add some sort of home button? Explains the project on a base level (and features?)
+# Add a workflow button (allows user to return to workflow)
