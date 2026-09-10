@@ -8,8 +8,6 @@ st.write(
     "○ Missing values ─ ○ Generate ─ ○ Evaluate"
 )
 st.write("---")
-st.header("Select preferences")
-st.space("small")
 
 # Render preference settings
 gen = st.session_state.gen

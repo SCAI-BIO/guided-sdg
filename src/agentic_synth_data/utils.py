@@ -2,6 +2,7 @@ import textwrap
 import streamlit as st
 from typing import Literal, Optional, Type, TypeVar
 
+import pandas as pd
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
 
@@ -57,6 +58,18 @@ def display_synthesis_request_st(synthesis_request:"SynthesisRequest") -> None:
             "- **Numerical strategy:** " \
             f"{synthesis_request.missing_values.impute.numerical_strategy}"
         )
+
+
+def df_formatter_st(df:pd.DataFrame) -> None:
+    """Format dataframes with consistent sizing when over 10 rows are present.
+
+    Args:
+        df (pd.DataFrame): _description_
+    """
+    if len(df) > 10:
+        st.dataframe(df, hide_index=True, width="stretch", height=400,)
+    else:
+        st.dataframe(df, hide_index=True, width="stretch",)
 
 
 def parse_json(
