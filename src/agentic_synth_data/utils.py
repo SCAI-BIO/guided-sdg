@@ -64,13 +64,35 @@ def df_formatter_st(df:pd.DataFrame) -> None:
     """Format dataframes with consistent sizing when over 10 rows are present.
 
     Args:
-        df (pd.DataFrame): _description_
+        df (pd.DataFrame): The input dataframe.
     """
     if len(df) > 10:
         st.dataframe(df, hide_index=True, width="stretch", height=400,)
     else:
         st.dataframe(df, hide_index=True, width="stretch",)
 
+
+def info_helper_message(message:str, context:str, key:str):
+    """Display an information message with a hover help icon.
+
+    Args:
+        message (str): Content of the information message.
+        context (str): Additional information (e.g., what context was given).
+        key (str): Unique key for the widget.
+    """
+    col1, col2 = st.columns([.95, .05])
+
+    with col1:
+        st.info(message)
+
+    with col2:
+        st.button(
+            "",
+            icon=":material/help:",
+            help=context,
+            type="tertiary",
+            key=key,
+        )
 
 def parse_json(
         plan:str,

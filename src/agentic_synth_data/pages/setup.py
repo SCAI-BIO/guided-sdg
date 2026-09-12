@@ -37,6 +37,15 @@ if clicked:
     with open(data_path, "wb") as f:
         f.write(file.getbuffer())
 
+    # Reset state from previous workflow
+    for key in [
+        "semantic_types_complete",
+        "semantic_types",
+        "semantic_types_inference",
+        "semantic_type_confirmation",
+    ]:
+        st.session_state.pop(key, None)
+
     gen = DataGen(data_path)
     gen.load_dataframe()
 

@@ -195,7 +195,6 @@ def select_preferences() -> SynthesisRequest:
     return request
 
 
-# TODO: consider whether to use st.form (if so, get rid of the messages "X will be used", etc.)
 def select_preferences_ui() -> SynthesisRequest:
     fixed_value = None
     impute_method = None
@@ -204,26 +203,34 @@ def select_preferences_ui() -> SynthesisRequest:
 
     # Sample size
     st.subheader(
-        "Would you like to generate the same amount of samples as the dataset or a fixed " \
+        "Would you like to generate the same amount of samples as the dataset or a fixed "
         "number of samples?"
     )
+
     sample_size = st.selectbox(
         "sample size", 
         ["fixed value", "same as original"],
         label_visibility="hidden",
         index=None,
+        key="preferences_sample_size",
     )
 
     if sample_size == "fixed value":
         st.write("#### How many synthetic samples would you like to generate?")
         fixed_value = st.number_input("", min_value=1)
+
     st.write("---")
 
     # Privacy
     st.subheader("Are you interested in differential privacy?")
     privacy = st.selectbox(
-        "privacy specification", ["yes", "no"], label_visibility="hidden", index=None,
+        "privacy specification", 
+        ["yes", "no"],
+        label_visibility="hidden",
+        index=None,
+        key="preferences_privacy",
     )
+
     st.write("---")
 
     # Generator
@@ -234,29 +241,25 @@ def select_preferences_ui() -> SynthesisRequest:
         "data generator",
         [
             "auto",
-            "CTGAN_r4r",
-            "CTGAN_sdr",
             "PATEGAN",
             "BayesianNet",
             "PrivBayes",
-            "CTGAN_sdv",
-            "TVAE",
-            "GaussianCopula",
-            "TabSyn", 
-            "STaSY",
+            "CTGAN",
         ],
         label_visibility="hidden",
         index=None,
+        key="preferences_generator_choice",
     )
 
     if generator == "auto":
-        st.write(
-            "\t=> You will receive a recommendation based on the dataset's characteristics."
+        st.info(
+            "=> You will receive a recommendation based on the dataset's characteristics."
         )
 
     else:
-        if generator != "None":
-            st.write(f"\t=> Your data will be generated using {generator}.")
+        if generator is not None:
+            st.info(f"=> Your data will be generated using {generator}.")
+
     st.write("---")
 
     # Missing values
@@ -264,12 +267,16 @@ def select_preferences_ui() -> SynthesisRequest:
     st.write("Select 'auto' if you would like a suggestion.")
 
     missing_values = st.selectbox(
-        "missing strategy", ["auto", "impute", "remove"], label_visibility="hidden", index=None,
+        "missing strategy", 
+        ["auto", "impute", "remove"],
+        label_visibility="hidden",
+        index=None,
+        key="preferences_missing_value_handling",
     )
 
     if missing_values == "auto":
-        st.write(
-            "\t=> You will receive a recommendation based on the dataset's characteristics."
+        st.info(
+            "=> You will receive a recommendation based on the dataset's characteristics."
         )
 
     elif missing_values == "impute":
@@ -277,11 +284,11 @@ def select_preferences_ui() -> SynthesisRequest:
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
         impute_method = "SimpleImputer"
-        st.write("\t=> Your missing data will be imputed by SimpleImputer.")
+        st.info("\t=> Your missing data will be imputed by SimpleImputer.")
 
         # Categorical handling
         st.write(
-            "How would you like to handle missing categorical values? Select 'auto' if you " \
+            "#### How would you like to handle missing categorical values? Select 'auto' if you "
             "would like a suggestion."
         )
 
@@ -290,22 +297,26 @@ def select_preferences_ui() -> SynthesisRequest:
             ["auto", "most frequent", "constant",],
             label_visibility="hidden",
             index=None,
+            key="preferences_categorical_strategy",
         )
 
+        if categorical_strategy is None:
+            st.stop()
+
         if categorical_strategy == "auto":
-            st.write(
-                "\t=> You will receive a recommendation based on the dataset's characteristics."
+            st.info(
+                "=> You will receive a recommendation based on the dataset's characteristics."
             )
 
-        else:
-            st.write(
-                "\t=> Your missing categorical data will be imputed using" \
+        elif categorical_strategy is not None:
+            st.info(
+                "=> Your missing categorical data will be imputed using"
                 f" {categorical_strategy}."
             )
 
         # Numerical handling
-        st.write(
-            "How would you like to handle missing numerical values? Select 'auto' if you" \
+        st.write("#### How would you like to handle missing numerical values?")
+        st.write("Select 'auto' if you"
             " would like a suggestion."
         )
 
@@ -314,19 +325,42 @@ def select_preferences_ui() -> SynthesisRequest:
             ["auto", "mean", "median", "most frequent"],
             label_visibility="hidden",
             index=None,
+            key="preferences_numerical_strategy",
         )
 
+        if numerical_strategy is None:
+            st.stop()
+
         if numerical_strategy == "auto":
-            st.write(
-                "\t=> You will receive a recommendation based on the dataset's characteristics."
+            st.info(
+                "=> You will receive a recommendation based on the dataset's characteristics."
             )
 
-        else:
-            st.write(
-                f"\t=> Your missing numerical data will be imputed using {numerical_strategy}."
+        elif numerical_strategy is not None:
+            st.info(
+                f"=> Your missing numerical data will be imputed using {numerical_strategy}."
             )
 
     st.write("---")
+
+    complete = (
+        sample_size is not None
+        and privacy is not None
+        and generator is not None
+        and missing_values is not None
+    )
+
+    if missing_values == "impute":
+        complete = (
+            complete
+            and categorical_strategy is not None
+            and numerical_strategy is not None
+        )
+
+    if not complete:
+        st.info("Please complete all preference selections.")
+        st.stop()
+
     request = build_synthesis_request(
                 sample_size=sample_size,
                 fixed_value=fixed_value,
@@ -337,7 +371,7 @@ def select_preferences_ui() -> SynthesisRequest:
                 categorical_strategy=categorical_strategy,
                 numerical_strategy=numerical_strategy,
     )
-    # TODO: distinguish this section (highlighting/shading/etc.)
+
     st.header("Your preferences have been recorded")
     display_synthesis_request_st(request)
     return request
