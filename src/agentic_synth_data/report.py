@@ -32,6 +32,9 @@ class ReviewReport(BaseModel):
     jsd: dict = Field(default_factory=dict)
     norm_corr_diff: float | None = None
     discrim_auc: float | None = None
+    singling_out: float | None = None
+    inference: float | None = None
+    linkability: float | None = None
     plots: list[Path] = Field(default_factory=list)
     problem_columns: list[str] = Field(default_factory=list)
     status: str | None = None

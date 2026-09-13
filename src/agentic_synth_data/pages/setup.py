@@ -43,6 +43,11 @@ if clicked:
         "semantic_types",
         "semantic_types_inference",
         "semantic_type_confirmation",
+        "generator_feedback_hist",
+        "generator_plan",
+        "pending_generator_review",
+        "generator_selection_complete",
+        "generation_complete",
     ]:
         st.session_state.pop(key, None)
 
