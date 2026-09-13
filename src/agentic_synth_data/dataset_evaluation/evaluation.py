@@ -4,17 +4,17 @@ from typing import Optional, Any
 import pprint
 
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
-import pandas as pd
-import numpy as np
-
-from langgraph.graph.state import CompiledStateGraph
-import pyinputplus as pyip
-import syndat
 from IPython.display import Image, display
+from langgraph.graph.state import CompiledStateGraph
+import numpy as np
+import pandas as pd
+import pyinputplus as pyip
+import streamlit as st
+import syndat
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
 from agentic_synth_data.schemas.models import AgentEval
-from agentic_synth_data.utils import format_response, extract_output, parse_json
+from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, parse_json
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.report import Report
@@ -67,6 +67,58 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     }
 
 
+def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
+    """Calculate metrics comparing the original dataframe (optionally, with missing value markers
+     removed) with the synthetic dataframe (UI).
+
+    Calculates SYNDAT metrics:
+    - Jenson-Shannon Distance
+    - Normalized Correlation Difference
+    - Discriminator AUC
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+
+    Returns:
+        dict: The decision plan based on the agent's assessment.
+    """
+    st.subheader("Calculate fidelity (syndat) metrics")
+    jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
+
+    st.write("#### Jenson-Shannon Distances:")
+    jsd_table = pd.DataFrame({
+        "Column": jsd_results.keys(),
+        "Jenson-Shannon Distance (JSD)": jsd_results.values(),
+    })
+
+    df_formatter_st(jsd_table)
+
+    norm_corr_diff = syndat.metrics.normalized_correlation_difference(
+        real=real_df, synthetic=synthetic_df, ignore_cat=True,
+    )
+
+    st.write("#### Normalized correlation difference:")
+    st.write(f"{round(norm_corr_diff, 4)}")
+
+    if len(synthetic_df) < 2:
+        st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
+        discrim_auc = None
+
+    else:
+        discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
+        st.write("#### Discriminator AUC:")
+        st.write(f"{round(discrim_auc, 4)}")
+
+    return {
+        "jsd": jsd_results,
+        "norm_corr_diff": norm_corr_diff,
+        "discrim_auc": discrim_auc,
+    }
+
+
 def calculate_attack_metrics(
         train_df:pd.DataFrame,
         test_df:pd.DataFrame,
@@ -109,7 +161,8 @@ def calculate_attack_metrics(
         "\n- Inference risk\n- Linkability risk")
 
     raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]}, config=config,
+        {"messages": [{"role": "user", "content": prompt,}]},
+        config=config,
     )
 
     plan = extract_output(raw_response)
@@ -152,6 +205,110 @@ def calculate_attack_metrics(
     print(f"\n=> Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%" \
         f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
         f" and {round(linkability_risk.ci[1]*100,3)}%")
+
+    return AttackMetrics(
+        singling_out= singling_out_risk,
+        inference=inference_risk,
+        linkability=linkability_risk
+    )
+
+
+def calculate_attack_metrics_ui(
+        train_df:pd.DataFrame,
+        test_df:pd.DataFrame,
+        synthetic_df:pd.DataFrame,
+        semantic_types:dict[str, str],
+        dtypes:dict[str, str],
+        agent:Optional[CompiledStateGraph] | None = None,
+        config:dict | None = None,
+    ) -> AttackMetrics:
+    st.subheader("Calculate attack metrics")
+    anonymeter_input = prepare_anonymeter_input(
+        train_df=train_df,
+        test_df=test_df,
+        synthetic_df=synthetic_df,
+        semantic_types=semantic_types,
+        dtypes=dtypes,
+    )
+
+    train_df = anonymeter_input.train_df
+    test_df = anonymeter_input.test_df
+    synthetic_df = anonymeter_input.synthetic_df
+
+    with st.spinner("Evaluating singling out risk..."):
+        singling_out = SinglingOutEvaluator(
+            ori=train_df,
+            syn=synthetic_df,
+            max_attempts=1_000,
+            control=test_df,
+        )
+        singling_out.evaluate()
+        singling_out_risk = singling_out.risk()
+
+    st.write(
+        f"#### Singling out risk:\n  - Value: {round(singling_out_risk.value*100, 3)}%"
+        f"\n  - Confidence interval between: {round(singling_out_risk.ci[0]*100,3)}%"
+        f" and {round(singling_out_risk.ci[1]*100,3)}%"
+    )
+
+    prompt = attack_column_selection_message(semantic_types=semantic_types)
+    st.success(
+        "\nAgent is selecting columns for the following privacy metrics to be assessed:"
+        "\n- Inference risk\n- Linkability risk"
+    )
+
+    raw_response = agent.invoke(
+        {"messages": [{"role": "user", "content": prompt,}]}, config=config,
+    )
+
+    plan = extract_output(raw_response)
+
+    selected_cols = parse_json(plan, AttackColumns, agent, config,)
+
+    st.write(
+        "\nSelected columns:\n- Linkability:\n  - Auxiliary columns: "
+        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary"
+        f" columns: {selected_cols.inference_aux_cols}\n  - Secret "
+        f"column: {selected_cols.secret}\n\nRationale:"
+    )
+    st.write(selected_cols.rationale)
+
+    with st.spinner("Evaluating inference risk..."):
+        inference = InferenceEvaluator(
+            ori=train_df,
+            syn=synthetic_df,
+            aux_cols=selected_cols.inference_aux_cols,
+            secret=selected_cols.secret,
+            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+            control=test_df,
+        )
+
+        inference.evaluate()
+        inference_risk = inference.risk()
+
+    st.write(
+        f"#### Inference out risk:\n  - Value: {round(inference_risk.value*100, 3)}%"
+        f"\n  - Confidence interval: between {round(inference_risk.ci[0]*100,3)}%"
+        f" and {round(inference_risk.ci[1]*100,3)}%"
+    )
+
+    with st.spinner("Evaluating linkability risk..."):
+        linkability = LinkabilityEvaluator(
+            ori=train_df,
+            syn=synthetic_df,
+            aux_cols=selected_cols.linkability_aux_cols,
+            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+            control=test_df,
+        )
+
+        linkability.evaluate()
+        linkability_risk = linkability.risk()
+
+    st.write(
+        f"#### Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%"
+        f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%"
+        f" and {round(linkability_risk.ci[1]*100,3)}%"
+    )
 
     return AttackMetrics(
         singling_out= singling_out_risk,
@@ -369,6 +526,57 @@ def evaluation(
     format_response(eval_plan.recommendation)
     print("- Rationale:")
     format_response(eval_plan.rationale)
+    return eval_plan
+
+
+def evaluation_ui(
+        synthesis_request:SynthesisRequest,
+        metrics:dict[str, Any],
+        attack_metrics:dict[str, Any],
+        agent:Optional[CompiledStateGraph] | None = None,
+        config:dict | None = None,
+    ) -> AgentEval:
+    """The agent evaluates the synthetic dataset using calculated metrics (UI).
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
+                                a record of the processing done to generate the synthetic data.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
+                                synthetic data based on SYNDAT metrics. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation. 
+                                Defaults to None.
+
+    Returns:
+        AgentEval: The decision plan based on the agent's assessment.
+    """
+    request_dict = synthesis_request.model_dump()
+    prompt = evaluation_prompt(
+        synthesis_request=request_dict,
+        metrics=metrics,
+        attack_metrics=attack_metrics,
+    )
+
+    with st.spinner("Agent is evaluating the results..."):
+        raw_response = agent.invoke(
+            {"messages": [{"role": "user", "content": prompt,}]},
+            config=config,
+        )
+
+        plan = extract_output(raw_response)
+
+        eval_plan = parse_json(plan, AgentEval, agent, config,)
+
+    st.subheader("Evaluation:")
+    st.write(f"- Status: {eval_plan.status}")
+    if len(eval_plan.problem_columns) > 0:
+        st.write(f"- Problem columns: {eval_plan.problem_columns}")
+    st.write("- Recommendation:")
+    st.write(eval_plan.recommendation)
+    st.write("- Rationale:")
+    st.write(eval_plan.rationale)
     return eval_plan
 
 

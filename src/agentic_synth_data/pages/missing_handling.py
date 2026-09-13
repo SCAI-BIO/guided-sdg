@@ -12,7 +12,6 @@ st.write("---")
 gen = st.session_state.gen
 request = gen.preprocess_missing_vals_ui()
 
-# Will need to write the print statements...
 col1, col2 = st.columns(2)
 with col1:
     back = st.button("back")
@@ -23,8 +22,8 @@ with col2:
     cont = st.button("continue")
 
 if cont:
-    st.switch_page("./pages/synthetic_generation.py")
+    st.switch_page("pages/generate.py")
 
 if back:
     # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("./pages/select.py")
+    st.switch_page("pages/select.py")
