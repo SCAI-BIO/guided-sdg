@@ -27,8 +27,8 @@ if cont:
         st.warning("Please complete all preference selections before continuing.")
     else:
         st.session_state.gen.synthesis_request = request
-        st.switch_page("./pages/handle_dtypes.py")
+        st.switch_page("pages/handle_dtypes.py")
 
 if back:
     # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("./pages/setup.py")
+    st.switch_page("pages/setup.py")

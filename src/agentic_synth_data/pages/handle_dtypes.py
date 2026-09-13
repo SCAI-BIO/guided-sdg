@@ -26,8 +26,8 @@ with col2:
     cont = st.button("continue",) # disabled=x is None)
 
 if cont:
-    st.switch_page("./pages/select.py")
+    st.switch_page("pages/select.py")
 
 if back:
     # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("./pages/preferences.py")
+    st.switch_page("pages/preferences.py")

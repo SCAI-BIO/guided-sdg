@@ -48,6 +48,7 @@ if clicked:
         "pending_generator_review",
         "generator_selection_complete",
         "generation_complete",
+        "evaluation_review_history",
     ]:
         st.session_state.pop(key, None)
 
@@ -57,4 +58,4 @@ if clicked:
     st.session_state.gen = gen
     st.session_state.file_name = file.name
 
-    st.switch_page("./pages/preferences.py")
+    st.switch_page("pages/preferences.py")

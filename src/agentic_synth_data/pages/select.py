@@ -24,11 +24,11 @@ with col2:
     cont = st.button("continue")
 
 if cont:
-    st.switch_page("./pages/missing_handling.py")
+    st.switch_page("pages/missing_handling.py")
 
 if back:
     # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("./pages/handle_dtypes.py")
+    st.switch_page("pages/handle_dtypes.py")
 
 # TODO: improve visibility
 # Generator selection (preparation setup)

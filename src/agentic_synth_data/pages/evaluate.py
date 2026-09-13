@@ -26,9 +26,8 @@ with col2:
     cont = st.button("continue")
 
 if cont:
-    #st.switch_page("./pages/evaluation.py")
-    st.write("Check to rerun the workflow")
+    st.switch_page("pages/rerun.py")
 
 if back:
     # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("./pages/synthetic_generation.py")
+    st.switch_page("pages/synthetic_generation.py")
