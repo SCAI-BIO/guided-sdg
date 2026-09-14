@@ -104,7 +104,7 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     st.write(f"{round(norm_corr_diff, 4)}")
 
     if len(synthetic_df) < 2:
-        st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
+        st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.") # TODO: also move to CLI
         discrim_auc = None
 
     else:
@@ -214,15 +214,15 @@ def calculate_attack_metrics(
 
 
 def calculate_attack_metrics_ui(
-        train_df:pd.DataFrame,
-        test_df:pd.DataFrame,
-        synthetic_df:pd.DataFrame,
-        semantic_types:dict[str, str],
-        dtypes:dict[str, str],
-        agent:Optional[CompiledStateGraph] | None = None,
-        config:dict | None = None,
-    ) -> AttackMetrics:
-    st.subheader("Calculate attack metrics")
+    train_df:pd.DataFrame,
+    test_df:pd.DataFrame,
+    synthetic_df:pd.DataFrame,
+    semantic_types:dict[str, str],
+    dtypes:dict[str, str],
+    agent:Optional[CompiledStateGraph] | None = None,
+    config:dict | None = None,
+) -> AttackMetrics:
+    st.subheader("Calculate attack (anonymeter) metrics")
     anonymeter_input = prepare_anonymeter_input(
         train_df=train_df,
         test_df=test_df,
@@ -481,6 +481,23 @@ def generate_plots(real_df, synth_df, version_id):
     return png_files
 
 
+def generate_plots_ui(real_df, synth_df, version_id):
+    """Plot feature distributions and store files (UI)."""
+    output_dir = Path("../output") / "plots" / f"version_{version_id}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    syndat.visualization.plot_distributions(real_df, synth_df, store_destination=str(output_dir))
+
+    png_files = sorted(output_dir.glob("*.png"))
+
+    st.write(f"Distribution plot for: {png_files[0].name}")
+    st.image(str(png_files[0]))
+
+    st.info(f"=> Distribution plots for all features saved to: {output_dir}")
+
+    return png_files
+
+
 def evaluation(
         synthesis_request:SynthesisRequest,
         metrics:dict[str, Any],
@@ -530,12 +547,12 @@ def evaluation(
 
 
 def evaluation_ui(
-        synthesis_request:SynthesisRequest,
-        metrics:dict[str, Any],
-        attack_metrics:dict[str, Any],
-        agent:Optional[CompiledStateGraph] | None = None,
-        config:dict | None = None,
-    ) -> AgentEval:
+    synthesis_request:SynthesisRequest,
+    metrics:dict[str, Any],
+    attack_metrics:dict[str, Any],
+    agent:Optional[CompiledStateGraph] | None = None,
+    config:dict | None = None,
+) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics (UI).
 
     Args:
@@ -559,15 +576,21 @@ def evaluation_ui(
         attack_metrics=attack_metrics,
     )
 
-    with st.spinner("Agent is evaluating the results..."):
-        raw_response = agent.invoke(
-            {"messages": [{"role": "user", "content": prompt,}]},
-            config=config,
-        )
+    if "agent_evaluation" not in st.session_state:
+        with st.spinner("Agent is evaluating the results..."):
+            raw_response = agent.invoke(
+                {"messages": [{"role": "user", "content": prompt,}]},
+                config=config,
+            )
 
-        plan = extract_output(raw_response)
+            plan = extract_output(raw_response)
 
-        eval_plan = parse_json(plan, AgentEval, agent, config,)
+            eval_plan = parse_json(plan, AgentEval, agent, config,)
+
+        st.session_state.agent_evaluation = eval_plan
+
+    else:
+        eval_plan = st.session_state.agent_evaluation
 
     st.subheader("Evaluation:")
     st.write(f"- Status: {eval_plan.status}")
@@ -618,6 +641,93 @@ def evaluation_review(
         "\nWould you like to finish or revise the workflow?\n", 
         numbered=True
     )
+
+    return choice
+
+
+def evaluation_review_ui(
+    agent_decision:AgentEval,
+    agent:Optional[CompiledStateGraph] | None = None,
+    config:dict | None = None
+) -> str:
+    """User asks questions about agent's assessment/discusses details to focus on (UI).
+
+    Args:
+        agent_decision (AgentEval): Agent's evaluation decision.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
+                                                               evaluation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation.
+                                        Defaults to None.
+
+    Returns:
+        str: Whether the workflow should finish or be revised.
+    """
+    if "evaluation_review_history" not in st.session_state:
+        st.session_state.evaluation_review_history = []
+
+    confirm = st.selectbox(
+        "Do you have questions about the evaluation results?",
+        ["yes", "no"],
+        index=None,
+        key="evaluation_review_confirm",
+    )
+
+    if confirm is None:
+        st.stop()
+
+    if confirm == "yes":
+        for item in st.session_state.evaluation_review_history:
+            with st.chat_message("user"):
+                st.write(item["question"])
+
+            with st.chat_message("assistant"):
+                st.write(item["answer"])
+
+        new_question = st.chat_input(
+            "Enter your question/concern.",
+            key="evaluation_review_input",
+        )
+
+        answer = ""
+
+        if new_question:
+            with st.spinner("\nAgent is preparing its response..."):
+                prompt = eval_review_message(agent_decision, new_question)
+                raw_response = agent.invoke(
+                    {"messages": [{"role": "user", "content": prompt,}]},
+                    config=config,
+                )
+
+            answer = st.write(extract_output(raw_response))
+
+        st.session_state.evaluation_review_history.append({
+            "question": new_question,
+            "answer": answer,
+        })
+
+        st.rerun()
+
+
+        finished = st.button(
+            "Done asking questions",
+            key="evaluation_review_done",
+        )
+
+        if not finished:
+            st.stop()
+
+    # If no is selected:
+    st.write(f"Workflow result status: {agent_decision.status}")
+
+    choice = st.selectbox(
+        "Would you like to finish or revise the workflow?",
+        ["finish", "revise"],
+        index=None,
+        key="evaluation_workflow_choice",
+    )
+
+    if choice is None:
+        st.stop()
 
     return choice
 

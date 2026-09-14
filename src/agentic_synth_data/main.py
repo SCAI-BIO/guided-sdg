@@ -11,6 +11,7 @@ generator_selection = st.Page("pages/select.py", title="3. Generator selection")
 missing_handling = st.Page("pages/missing_handling.py", title="4. Missing value handling")
 generation = st.Page("pages/generate.py", title="5. Synthetic generation")
 evaluation = st.Page("pages/evaluate.py", title="6. Evaluation")
+rerun = st.Page("pages/rerun.py", title="Rerun workflow")
 
 st.navigation(
     [
@@ -21,6 +22,7 @@ st.navigation(
         missing_handling,
         generation,
         evaluation,
+        rerun,
     ]
 ).run()
 

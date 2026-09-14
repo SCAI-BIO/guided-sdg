@@ -154,31 +154,23 @@ def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:d
         prompt = semantic_type_message(profiles)
 
         # Agent infers the semantic type of columns based on their profile.
-        status_message = st.empty()
+        with st.spinner("Agent is analyzing dataset characteristics to infer semantic types..."):
+            raw_inference = agent.invoke(
+                {"messages": [{"role": "user","content": prompt,}]},
+                config=config,
+            )
 
-        status_message.success(
-            "Agent is analyzing column data types, unique values, and value distributions to "
-            "infer semantic types..."
-        )
+            plan = extract_output(raw_inference)
 
-        raw_inference = agent.invoke(
-            {"messages": [{"role": "user","content": prompt,}]},
-            config=config,
-        )
-
-        plan = extract_output(raw_inference)
-
-        inferred_semantic_types = parse_json(
-            plan=plan,
-            model_cls=STypeInference,
-            agent=agent,
-            config=config,
-            root=True,
-        )
+            inferred_semantic_types = parse_json(
+                plan=plan,
+                model_cls=STypeInference,
+                agent=agent,
+                config=config,
+                root=True,
+            )
 
         st.session_state.semantic_types_inference = inferred_semantic_types.copy()
-
-        status_message.empty() # Remove the analyzing message.
 
     # 2. Reuse and display saved agent inference.
     else:
