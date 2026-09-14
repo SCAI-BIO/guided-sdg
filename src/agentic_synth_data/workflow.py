@@ -11,7 +11,7 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, calculate_metrics_ui, evaluation, evaluation_ui, generate_plots, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
+from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, calculate_metrics_ui, evaluation, evaluation_review_ui, evaluation_ui, generate_plots, generate_plots_ui, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
 from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, handle_semantic_types_ui, prepare_for_syndat
@@ -19,7 +19,7 @@ from agentic_synth_data.dataset_preparation.missing_value_handling import handle
 from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig, select_preferences_ui
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
-from agentic_synth_data.rerun_workflow import plan_update
+from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, select_generator_ui, generator_profile, generator_profile_ui
@@ -340,7 +340,7 @@ class DataGen:
         self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
 
         st.info(
-            f"The selected data generator does not require missing value handling: {mechanism}"
+            f"The selected data generator does not require missing value handling: {mechanism}."
         )
 
         # Set back to default
@@ -355,12 +355,12 @@ class DataGen:
         return self.prepared_df, self.synthesis_request
 
 
-    def save_prepared_data(self):
-        """Step 4: Setup tool data
+    # TODO combine CLI and UI functions with minimal changes (only print statements have been changed)
+    # Example of how this could be done...
+    def save_prepared_data(self) -> Path:
+        """ Step 4: Setup tool data
             i. Save the prepared data
         """
-        print("\n\n")
-        print("="*25+"[STEP: Create metadata for tool use]"+"="*25)
         input_path = Path(self.data_path)
 
         # The prepared data for generator tool input
@@ -370,28 +370,33 @@ class DataGen:
 
         self.prepared_path = output_dir / output_filename
         self.prepared_df.to_csv(self.prepared_path, index=False)
-        format_response(f"- Created csv for generator input: {self.prepared_path}")
+
         self.report.gen.prep_path = self.prepared_path
         return self.prepared_path
 
 
-    def save_prepared_data_ui(self):
+    def save_prepared_data_cli(self) -> Path:
+        print("\n\n")
+        print("=" * 25 + "[STEP: Create metadata for tool use]" + "=" * 25)
+
+        prepared_path = self.save_prepared_data()
+
+        format_response(
+            f"- Created csv for generator input: {prepared_path}"
+        )
+        return prepared_path
+
+
+    def save_prepared_data_ui(self) -> Path:
         """Step 4: Setup tool data
             i. Save the prepared data (UI)
         """
-        st.subheader("Create metadata for tool use")
-        input_path = Path(self.data_path)
+        st.subheader("Create metadata for tool use") # TODO changed
 
-        # The prepared data for generator tool input
-        output_filename = f"{input_path.stem}_prepared.csv"
-        output_dir = Path("../data")
-        output_dir.mkdir(parents=True, exist_ok=True)
+        prepared_path = self.save_prepared_data()
 
-        self.prepared_path = output_dir / output_filename
-        self.prepared_df.to_csv(self.prepared_path, index=False)
         st.write(f"- Created csv for generator input: {self.prepared_path}")
-        self.report.gen.prep_path = self.prepared_path
-        return self.prepared_path
+        return prepared_path
 
 
     def create_metadata(self):
@@ -548,21 +553,27 @@ class DataGen:
 
         st.write("---")
 
-        attack_metrics = calculate_attack_metrics_ui(
-            train_df=self.train_df,
-            test_df=self.test_df,
-            synthetic_df=synth_df,
-            semantic_types=self.semantic_types,
-            dtypes=self.python_dtypes,
-            agent=self.agent,
-            config=self.config,
-        )
+        if "attack_metrics" not in st.session_state:
+            attack_metrics = calculate_attack_metrics_ui(
+                train_df=self.train_df,
+                test_df=self.test_df,
+                synthetic_df=synth_df,
+                semantic_types=self.semantic_types,
+                dtypes=self.python_dtypes,
+                agent=self.agent,
+                config=self.config,
+            )
+
+            st.session_state.attack_metrics = attack_metrics
+
+        else:
+            attack_metrics = st.session_state.attack_metrics
 
         self.report.review.singling_out = attack_metrics.singling_out
         self.report.review.inference = attack_metrics.inference
         self.report.review.linkability = attack_metrics.linkability
 
-        self.report.review.plots = generate_plots(real_df, synth_df, self.version_id)
+        self.report.review.plots = generate_plots_ui(real_df, synth_df, self.version_id)
 
         st.write("---")
 
@@ -621,15 +632,15 @@ class DataGen:
 
 
     def post_evaluation_check_ui(self):
-        """Revise: Check in with user and possibly change the plan"""
+        """Revise: Check in with user and possibly change the plan (UI)"""
         st.header("Evaluate workflow")
 
-        choice = evaluation_review(
+        choice = evaluation_review_ui(
             agent_decision=self.agent_decision, agent=self.agent, config=self.config,
         )
 
         if choice == "revise":
-            selected_updates = plan_update(
+            selected_updates = plan_update_ui(
                 synthesis_request=self.synthesis_request,
                 agent_decision=self.agent_decision,
                 report=self.report,
@@ -637,17 +648,19 @@ class DataGen:
                 config=self.config,
             )
 
-            if selected_updates is not None:
-                for key, value in selected_updates.items():
-                    if key == "update_params":
-                        self.report.review.selected_plan_updates[key] = value
-                    else:
-                        self.report.review.selected_plan_updates[key] = value.model_dump()
+            if selected_updates is None:
+                st.stop()
 
-                revised = self.create_revision(selected_updates)
-                return revised
+            for key, value in selected_updates.items():
+                if key == "update_params":
+                    self.report.review.selected_plan_updates[key] = value
+                else:
+                    self.report.review.selected_plan_updates[key] = value.model_dump()
 
-            return self
+            revised = self.create_revision_ui(selected_updates)
+            return revised
+
+            #return self
 
         return self
 
@@ -662,7 +675,7 @@ class DataGen:
         self.preprocess_missing_vals()
 
         # Prepare for and run data synthesis tool
-        self.save_prepared_data()
+        self.save_prepared_data_cli()
         self.create_metadata()
         self.run_synthesis()
 
@@ -688,7 +701,7 @@ class DataGen:
 
         # Evaluate results and make report
         self.evaluate_ui()
-        final_gen = self.post_evaluation_check()
+        final_gen = self.post_evaluation_check_ui()
         return final_gen.synthetic_df
 
 
@@ -728,6 +741,42 @@ class DataGen:
         return revised
 
 
+    def create_revision_ui(self, update_plan:dict) -> "DataGen":
+        """Copy datagen with the approved revisions (UI)."""
+        print("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
+        revised = DataGen(self.data_path)
+
+        revised.version_id = self.version_id + 1
+        revised.parent_version = self.version_id
+
+        revised.model = self.model
+        revised.agent = self.agent
+        revised.checkpointer = self.checkpointer
+        revised.config = copy.deepcopy(self.config)
+
+        revised.synthesis_request = self.synthesis_request.model_copy(deep=True)
+
+        revised.source_df = self.source_df.copy()
+        revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
+        revised.dtype_handled_df = self.dtype_handled_df.copy()
+        revised.train_df = self.train_df.copy()
+        revised.test_df = self.test_df.copy()
+
+        revised.python_dtypes = copy.deepcopy(self.python_dtypes)
+        revised.semantic_types = copy.deepcopy(self.semantic_types)
+
+        revised.report = copy.deepcopy(self.report)
+        revised.report.input.version_id = revised.version_id
+        revised.report.input.parent_version = revised.parent_version
+
+        selection = revised._revision_scope(update_plan)
+
+        revised._apply_revision_plan(update_plan)
+        revised._reset_from_selection(selection)
+        revised._rerun_selection_ui(update_plan)
+        return revised
+
+
     def _rerun_selection(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps."""
         if "update_mech" in update_plan:
@@ -741,6 +790,37 @@ class DataGen:
         if "update_missing" in update_plan:
             print(f"\nNew missing handling strategy: {update_plan['update_missing'].mode}")
             print(f"\nReason: {update_plan['update_missing'].reason}")
+
+        self.report.review.selected_plan_updates = {}
+
+        for key, value in update_plan.items():
+            if key == "update_params": # NOTE: "update_params" is a string.
+                self.report.review.selected_plan_updates[key] = value
+            else:
+                self.report.review.selected_plan_updates[key] = value.model_dump()
+
+        self.preprocess_missing_vals()
+        self.save_prepared_data()
+        self.create_metadata()
+        self.run_synthesis()
+        self.evaluate()
+        final_gen = self.post_evaluation_check()
+        return final_gen.synthetic_df
+
+
+    def _rerun_selection_ui(self, update_plan: dict) -> pd.DataFrame:
+        """Apply approved generator revision and rerun dependent workflow steps (UI)."""
+        if "update_mech" in update_plan:
+            st.write(f"New generator: {update_plan['update_mech'].generator_name}")
+            st.write("Reason:")
+            st.write(update_plan['update_mech'].reason)
+
+        if "update_params" in update_plan:
+            st.write(f"New parameter configuration: {update_plan['update_params']}")
+
+        if "update_missing" in update_plan:
+            st.write(f"New missing handling strategy: {update_plan['update_missing'].mode}")
+            st.write(f"Reason: {update_plan['update_missing'].reason}")
 
         self.report.review.selected_plan_updates = {}
 
