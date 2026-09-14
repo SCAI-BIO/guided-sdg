@@ -49,6 +49,8 @@ if clicked:
         "generator_selection_complete",
         "generation_complete",
         "evaluation_review_history",
+        "attack_metrics"
+        "agent_evaluation",
     ]:
         st.session_state.pop(key, None)
 

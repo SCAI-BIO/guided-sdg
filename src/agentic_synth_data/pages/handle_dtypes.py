@@ -16,18 +16,18 @@ st.space("small")
 gen = st.session_state.gen
 request = gen.preprocess_dtypes_ui()
 
+def go_next():
+    st.switch_page("pages/select.py")
+
+def go_back():
+    # TODO: Add a warning (are you sure you want to go back to x step?)
+    st.switch_page("pages/preferences.py")
+
 col1, col2 = st.columns(2)
 with col1:
-    back = st.button("back")
+    back = st.button("back", on_click=go_back, key="dtype_back",)
     # add an " are you sure you want to go back button"
 
 with col2:
     # make continue pop up once everything is done
-    cont = st.button("continue",) # disabled=x is None)
-
-if cont:
-    st.switch_page("pages/select.py")
-
-if back:
-    # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("pages/preferences.py")
+    cont = st.button("continue", on_click=go_next, key="dtype_cont",)
