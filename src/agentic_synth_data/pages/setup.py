@@ -51,6 +51,8 @@ if clicked:
         "evaluation_review_history",
         "attack_metrics"
         "agent_evaluation",
+        "generator_revision_plan",
+        "missing_revision_plan",
     ]:
         st.session_state.pop(key, None)
 

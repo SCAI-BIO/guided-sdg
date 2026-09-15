@@ -439,7 +439,7 @@ class DataGen:
     def run_synthesis_ui(self):
         """Step 5: Synthesize data"""
         st.subheader("Synthesize synthetic data")
-        if st.session_state.get("generation_complete", False):
+        if st.session_state.get(f"generation_complete_{self.version_id}", False):
             self.synthetic_path = st.session_state.synthetic_path
             self.synthetic_df = st.session_state.synthetic_df
 
@@ -553,7 +553,8 @@ class DataGen:
 
         st.write("---")
 
-        if "attack_metrics" not in st.session_state:
+        attack_key = f"attack_metrics_{self.version_id}"
+        if attack_key not in st.session_state:
             attack_metrics = calculate_attack_metrics_ui(
                 train_df=self.train_df,
                 test_df=self.test_df,
@@ -564,10 +565,10 @@ class DataGen:
                 config=self.config,
             )
 
-            st.session_state.attack_metrics = attack_metrics
+            st.session_state[attack_key] = attack_metrics
 
         else:
-            attack_metrics = st.session_state.attack_metrics
+            attack_metrics = st.session_state[attack_key]
 
         self.report.review.singling_out = attack_metrics.singling_out
         self.report.review.inference = attack_metrics.inference
@@ -636,7 +637,10 @@ class DataGen:
         st.header("Evaluate workflow")
 
         choice = evaluation_review_ui(
-            agent_decision=self.agent_decision, agent=self.agent, config=self.config,
+            agent_decision=self.agent_decision,
+            agent=self.agent,
+            config=self.config,
+            version_id=self.version_id,
         )
 
         if choice == "revise":
@@ -646,21 +650,20 @@ class DataGen:
                 report=self.report,
                 agent=self.agent,
                 config=self.config,
+                version_id=self.version_id,
             )
 
-            if selected_updates is None:
-                st.stop()
+            if selected_updates is not None:
+                for key, value in selected_updates.items():
+                    if key == "update_params":
+                        self.report.review.selected_plan_updates[key] = value
+                    else:
+                        self.report.review.selected_plan_updates[key] = value.model_dump()
 
-            for key, value in selected_updates.items():
-                if key == "update_params":
-                    self.report.review.selected_plan_updates[key] = value
-                else:
-                    self.report.review.selected_plan_updates[key] = value.model_dump()
+                revised = self.create_revision_ui(selected_updates)
+                return revised
 
-            revised = self.create_revision_ui(selected_updates)
-            return revised
-
-            #return self
+            return self
 
         return self
 
@@ -743,7 +746,7 @@ class DataGen:
 
     def create_revision_ui(self, update_plan:dict) -> "DataGen":
         """Copy datagen with the approved revisions (UI)."""
-        print("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
+        st.write("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
         revised = DataGen(self.data_path)
 
         revised.version_id = self.version_id + 1
@@ -830,12 +833,12 @@ class DataGen:
             else:
                 self.report.review.selected_plan_updates[key] = value.model_dump()
 
-        self.preprocess_missing_vals()
-        self.save_prepared_data()
+        self.preprocess_missing_vals_ui()
+        self.save_prepared_data_ui()
         self.create_metadata()
-        self.run_synthesis()
-        self.evaluate()
-        final_gen = self.post_evaluation_check()
+        self.run_synthesis_ui()
+        self.evaluate_ui()
+        final_gen = self.post_evaluation_check_ui()
         return final_gen.synthetic_df
 
 

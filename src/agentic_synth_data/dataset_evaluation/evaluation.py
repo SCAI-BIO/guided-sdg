@@ -648,7 +648,8 @@ def evaluation_review(
 def evaluation_review_ui(
     agent_decision:AgentEval,
     agent:Optional[CompiledStateGraph] | None = None,
-    config:dict | None = None
+    config:dict | None = None,
+    version_id:int | None = None,
 ) -> str:
     """User asks questions about agent's assessment/discusses details to focus on (UI).
 
@@ -669,7 +670,7 @@ def evaluation_review_ui(
         "Do you have questions about the evaluation results?",
         ["yes", "no"],
         index=None,
-        key="evaluation_review_confirm",
+        key=f"evaluation_review_confirm_{version_id}",
     )
 
     if confirm is None:
@@ -685,7 +686,7 @@ def evaluation_review_ui(
 
         new_question = st.chat_input(
             "Enter your question/concern.",
-            key="evaluation_review_input",
+            key=f"evaluation_review_input_{version_id}",
         )
 
         answer = ""
@@ -710,7 +711,7 @@ def evaluation_review_ui(
 
         finished = st.button(
             "Done asking questions",
-            key="evaluation_review_done",
+            key=f"evaluation_review_done_{version_id}",
         )
 
         if not finished:
@@ -723,7 +724,7 @@ def evaluation_review_ui(
         "Would you like to finish or revise the workflow?",
         ["finish", "revise"],
         index=None,
-        key="evaluation_workflow_choice",
+        key=f"evaluation_workflow_choice_{version_id}",
     )
 
     if choice is None:

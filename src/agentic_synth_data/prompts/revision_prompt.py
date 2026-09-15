@@ -40,7 +40,9 @@ def revision_message(
     return dedent(f"""
     The workflow should be revised. For now, only start with generator selection.
     Input dataframe shape: {report.input.original_shape}
-    Prepared dataframe shape (used as an input for generating synthetic data): {report.input.prepared_shape}
+    Prepared dataframe shape (used as an input for generating synthetic data): {
+        report.input.prepared_shape
+    }
     - Note: shape will only be lower than input if missing values are not handled.
     Synthetic dataframe shape: {report.gen.synth_shape}
 
@@ -60,7 +62,11 @@ def revision_message(
     Syndat metrics:
     Average jsd: {round(report.review.jsd['jsd_AVERAGE'], 4)}
     Normalized correlation difference: {round(report.review.norm_corr_diff, 4)}
-    Discriminator AUC: {round(report.review.discrim_auc, 4)}
+    Discriminator AUC: {
+        round(report.review.discrim_auc, 4)
+        if report.review.discrim_auc is not None
+        else "Not calculated"
+    }
 
     Your recent evaluation after generation:
     - Status: {agent_decision.status}
