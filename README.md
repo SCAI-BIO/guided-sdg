@@ -2,6 +2,26 @@
 # agentic-synth-data
 Agentic workflow for synthetic data generation &amp; evaluation.
 
+## Instructions to access the user interface:
+### 1. Install the project dependencies
+Verify that [UV](https://docs.astral.sh/uv/getting-started/installation/) is installed. 
+Enter the following into the terminal:
+```bash
+uv sync
+```
+
+### 2. Configure environment variables
+Create the needed `.env` file with the necessary API credentials for the configured language model.
+- Note: OpenAI compatible APIs are currently permitted.
+
+### 3. Start the Streamlit user interface
+Enter the following into the terminal:
+```bash
+streamlit run ./src/agentic_synth_data/main.py
+```
+
+---
+
 ## Workflow:
 
 | Step | | Description | Agent |
