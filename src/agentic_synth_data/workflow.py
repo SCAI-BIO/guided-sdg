@@ -11,18 +11,25 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, calculate_metrics_ui, evaluation, evaluation_review_ui, evaluation_ui, generate_plots, generate_plots_ui, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
-from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, missing_value_precheck, missing_value_precheck_ui
+from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, \
+    calculate_metrics_ui, evaluation, evaluation_review_ui, evaluation_ui, generate_plots, \
+    generate_plots_ui, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
+from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
+    missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
-from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, handle_semantic_types_ui, prepare_for_syndat
-from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values, handle_missing_values_ui
-from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, ImputationConfig, select_preferences_ui
+from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, \
+    handle_semantic_types_ui, prepare_for_syndat
+from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values, \
+    handle_missing_values_ui
+from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, \
+    ImputationConfig, select_preferences_ui
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
 from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.strategies.factory import get_generator_strategy
-from agentic_synth_data.synthetic_generation.generation import select_generator, select_generator_ui, generator_profile, generator_profile_ui
+from agentic_synth_data.synthetic_generation.generation import select_generator, \
+    select_generator_ui, generator_profile, generator_profile_ui
 from agentic_synth_data.utils import df_formatter_st, format_response
 
 
@@ -98,8 +105,6 @@ class DataGen:
     def apply_preferences_ui(self):
         """Step 2: Setup preferences (UI)
         """
-        st.header("Select preferences")
-        st.space("small")
         request = select_preferences_ui()
 
         if request is None:
@@ -240,9 +245,6 @@ class DataGen:
         """Step 3: Preprocess
             iii. Select/verify chosen generator
         """
-        st.header("Prepare dataset: Generator selection")
-        st.space("small")
-
         df = self.train_df.copy()
         profile = generator_profile_ui(df)
         self.report.prep.profile = profile
@@ -312,8 +314,6 @@ class DataGen:
         """Step 3: Preprocess
             iv. Handle missing values (if needed for the generator) (UI)
         """
-        st.header("Prepare dataset: Missing value handling")
-        st.space("small")
         self.report.prep.missing_before = self.dtype_handled_df.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
@@ -391,8 +391,6 @@ class DataGen:
         """Step 4: Setup tool data
             i. Save the prepared data (UI)
         """
-        st.subheader("Create metadata for tool use") # TODO changed
-
         prepared_path = self.save_prepared_data()
 
         st.write(f"- Created csv for generator input: {self.prepared_path}")
@@ -438,7 +436,6 @@ class DataGen:
 
     def run_synthesis_ui(self):
         """Step 5: Synthesize data"""
-        st.subheader("Synthesize synthetic data")
         if st.session_state.get(f"generation_complete_{self.version_id}", False):
             self.synthetic_path = st.session_state.synthetic_path
             self.synthetic_df = st.session_state.synthetic_df
@@ -469,8 +466,11 @@ class DataGen:
             self.report.gen.synth_shape = self.synthetic_df.shape
             # self.report["gen"]["params"] = self.synthesis_request.generator.parameters # TODO: change to correct format (in dev but not in wrap-report)
 
-        st.info("=> Synthetic generation completed.")
+        st.info(f"=> Synthetic generation completed with {self.synthesis_request.generator.name}.")
         df_formatter_st(self.synthetic_df.copy().head())
+        st.write(
+            "Note: Only the first five rows of the synthetic dataset are displayed on this page."
+        )
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
 
@@ -546,7 +546,10 @@ class DataGen:
             semantic_types=self.semantic_types
         )
 
+        # col1, col2 = st.columns(2)
+        # with col1:
         metrics = calculate_metrics_ui(real_df=real_df, synthetic_df=synth_df)
+
         self.report.review.jsd = metrics["jsd"]
         self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
         self.report.review.discrim_auc = metrics["discrim_auc"]
@@ -554,6 +557,8 @@ class DataGen:
         st.write("---")
 
         attack_key = f"attack_metrics_{self.version_id}"
+
+        # with col2: # attack metrics aren't being displayed, fix before use
         if attack_key not in st.session_state:
             attack_metrics = calculate_attack_metrics_ui(
                 train_df=self.train_df,

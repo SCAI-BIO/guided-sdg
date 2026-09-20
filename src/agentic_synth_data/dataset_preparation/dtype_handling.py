@@ -175,6 +175,13 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
                                dataframe and their counts.
         - list[Hashable]: Missing value markers that were replaced.
     """
+    st.write(
+        "All missing values within the dataset should be encoded uniformly as null values. If "
+        "this is not the case, there can be issues during synthetic generation which are due to "
+        "mixing data types or inclusion of characters that do not correspond to the expected "
+        "groups. This step checks for any character that might be a placeholder for "
+        "a missing value in your dataset (e.g., `n/a`, `?`, `...`, `-999`)."
+    )
     df = df.copy()
     # TODO: Add more possible missing values that could be detected.
     possible_missing_values = {
@@ -196,97 +203,115 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
             df=df,
             has_missing_markers=False,
             detected_markers=detected_markers,
-            replaced_markers=replaced_markers
+            replaced_markers=replaced_markers,
         )
 
     markers = list(detected_markers)
     # If more than one potential missing value marker is found
     if len(detected_markers) > 1:
         st.write("The following potential missing value marker(s) were detected:")
-        st.write(detected_markers)
 
-        while True:
-            st.write("\nSelect what you would like to do, given the markers detected:")
-            options = [
-                "Continue without replacement", 
-                "Replace all",
-                #"Replace specific marker(s)",
-            ]
-            # TODO: Add an option to replace only specific markers out of the detected list.
-            # TODO: Add an option to view the column distribution for each marker (for this multiple case)
-            choice = st.selectbox("select_markers", options, index=None, label_visibility="hidden",)
+        single_marker_table = pd.DataFrame(detected_markers.items(), columns=["Marker", "Count"],)
 
-            if choice == "Continue without replacement":
-                st.info(
-                    "=> None of the markers detected have been replaced with a null value. The"
-                    " dataset remains unchanged."
-                )
-                return MissingPrecheckReport(
-                    df=df,
-                    has_missing_markers=False,
-                    detected_markers=detected_markers,
-                    replaced_markers=replaced_markers,
-                )
+        df_formatter_st(single_marker_table)
 
-            if choice == "Replace all":
-                mask = df_norm.isin(markers)
-                replaced_count = int(mask.sum().sum())
-                df = df.mask(mask, np.nan)
-                st.write(
-                    f"\n=> {replaced_count} of the following markers were replaced with null"
-                    " values: {markers}"
-                )
-                replaced_markers = markers
-                return MissingPrecheckReport(
-                    df=df,
-                    has_missing_markers=True,
-                    detected_markers=detected_markers,
-                    replaced_markers=replaced_markers,
-                )
+        st.write("\nSelect what you would like to do, given the markers detected:")
+        options = [
+            "Continue without replacement", 
+            "Replace all",
+            #"Replace specific marker(s)",
+        ]
+        # TODO: Add an option to replace only specific markers out of the detected list.
+        # TODO: Add an option to view the column distribution for each marker (for this multiple case)
+        choice = st.selectbox(
+            "select_markers",
+            options,
+            index=None,
+            label_visibility="hidden",
+            key="missing-value-marker-decision-multiple",
+        )
 
-            if choice == "Replace specific marker(s)":
-                # TODO: Add option for a specific marker or more to be selected and updated.
-                pass
+        if choice == "Continue without replacement":
+            st.info(
+                "=> None of the markers detected have been replaced with a null value. The"
+                " dataset remains unchanged."
+            )
+            return MissingPrecheckReport(
+                df=df,
+                has_missing_markers=False,
+                detected_markers=detected_markers,
+                replaced_markers=replaced_markers,
+            )
+
+        if choice == "Replace all":
+            mask = df_norm.isin(markers)
+            replaced_count = int(mask.sum().sum())
+            df = df.mask(mask, np.nan)
+            st.write(
+                f"=> {replaced_count} of the following markers were replaced with null"
+                f" values: {markers}"
+            )
+            replaced_markers = markers
+            return MissingPrecheckReport(
+                df=df,
+                has_missing_markers=True,
+                detected_markers=detected_markers,
+                replaced_markers=replaced_markers,
+            )
+
+        if choice == "Replace specific marker(s)":
+            # TODO: Add option for a specific marker or more to be selected and updated.
+            pass
 
     # Only one potential missing value marker was found.
     else:
         st.write("The following potential missing value marker was detected:")
-        st.write(detected_markers)
 
-        while True:
-            options = [
-                "Continue without replacement",
-                "Replace marker",
-                #"View column distribution",
-            ]
-                # TODO: Add an option to view the column distribution for the marker.
-            choice = st.selectbox("markers", options, index=None, label_visibility="hidden",)
+        single_marker_table = pd.DataFrame(detected_markers.items(), columns=["Marker", "Count"],)
 
-            if choice == "Continue without replacement":
-                st.info("No values were replaced.")
-                return MissingPrecheckReport(
-                    df=df,
-                    has_missing_markers=False,
-                    detected_markers=detected_markers,
-                    replaced_markers=replaced_markers,
-                )
+        df_formatter_st(single_marker_table)
 
-            if choice == "Replace marker":
-                st.write("\nReplacing marker...")
-                mask = df_norm.isin(markers)
-                replaced_count = int(mask.sum().sum())
-                df = df.mask(mask, np.nan)
-                st.info(
-                    f"{replaced_count} of the following marker were replaced with null"
-                    " values: {markers}"
-                )
-                replaced_markers = markers
-                return MissingPrecheckReport(
-                    df=df,
-                    has_missing_markers=True,
-                    detected_markers=detected_markers,
-                    replaced_markers=replaced_markers,
-                )
+        st.write("How would you like to handle this missing value marker?")
+
+        options = [
+            "Continue without replacement",
+            "Replace marker",
+            #"View column distribution",
+        ]
+            # TODO: Add an option to view the column distribution for the marker.
+        choice = st.selectbox(
+            "markers",
+            options,
+            index=None,
+            label_visibility="hidden",
+            key="missing-value-marker-decision-one",
+        )
+
+        if choice == "Continue without replacement":
+            st.info("No values were replaced.")
+            return MissingPrecheckReport(
+                df=df,
+                has_missing_markers=False,
+                detected_markers=detected_markers,
+                replaced_markers=replaced_markers,
+            )
+
+        if choice == "Replace marker":
+            st.write("\nReplacing marker...")
+            mask = df_norm.isin(markers)
+            replaced_count = int(mask.sum().sum())
+            df = df.mask(mask, np.nan)
+            st.info(
+                f"{replaced_count} of the following marker were replaced with null"
+                f" values: {markers}"
+            )
+            replaced_markers = markers
+            return MissingPrecheckReport(
+                df=df,
+                has_missing_markers=True,
+                detected_markers=detected_markers,
+                replaced_markers=replaced_markers,
+            )
 
 
 def infer_dtype(series:pd.Series) -> str:

@@ -1,20 +1,29 @@
 import streamlit as st
 
 
-st.sidebar.title("Agentic synthetic data workflow")
+st.sidebar.title("GuidedSDG")
 
 st.write(
-    "✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ "
-    "✓ Missing values ─ ● Generate ─ ○ Evaluate"
+    "`✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ ✓ Missing values ─ ● Generate ─ ○ Evaluate`"
 )
-st.write("---")
+
 st.header("Generation")
 st.space("small")
 
+st.write(
+    "Now that data types, the generator, and missing value handling strategy have been determined "
+    "it is time for SDG. Metadata is created for the data generator selected and now the data "
+    "generator is running."
+)
+
 # Generator selection
 gen = st.session_state.gen
+
+st.subheader("Create metadata for tool use") # TODO changed
 gen.save_prepared_data_ui()
 gen.create_metadata()
+
+st.subheader("Synthesize synthetic data")
 gen.run_synthesis_ui()
 
 def go_next():

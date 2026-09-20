@@ -1,16 +1,20 @@
 import streamlit as st
 
 
-st.sidebar.title("Agentic synthetic data workflow")
+st.sidebar.title("GuidedSDG")
 
 st.write(
-    "✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ "
-    "✓ Missing values ─ ✓ Generate ─ ● Evaluate"
+    "`✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ ✓ Missing values ─ ✓ Generate ─ ● Evaluate`"
 )
 
-st.write("---")
 st.header("Evaluation")
 st.space("small")
+
+st.write(
+    "This step involves combining metrics from both [syndat](https://syndat.scai.fraunhofer.de/) "
+    "and from [anonymeter](https://github.com/statice/anonymeter) to assess the fidelity and "
+    "utility as well as the privacy of the synthetic dataset."
+)
 
 # Evaluation
 gen = st.session_state.gen

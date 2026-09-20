@@ -8,7 +8,8 @@ import streamlit as st
 from agentic_synth_data.report import Report
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
-from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, parameter_revision_message
+from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
+    parameter_revision_message
 from agentic_synth_data.utils import parse_json, extract_output, newline_every_n_words
 
 

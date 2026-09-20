@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 import pyinputplus as pyip
 import streamlit as st
 
-from agentic_synth_data.utils import display_synthesis_request, display_synthesis_request_st, format_response, output_default_parameters
+from agentic_synth_data.utils import display_synthesis_request, display_synthesis_request_st, \
+    format_response, output_default_parameters
 
 
 class SampleSizeConfig(BaseModel):
@@ -219,6 +220,8 @@ def select_preferences_ui() -> SynthesisRequest:
         st.write("#### How many synthetic samples would you like to generate?")
         fixed_value = st.number_input("", min_value=1)
 
+        st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
+
     st.write("---")
 
     # Privacy
@@ -235,7 +238,10 @@ def select_preferences_ui() -> SynthesisRequest:
 
     # Generator
     st.subheader("Is there a specific data generator that you want to use on your data?")
-    st.write("Select 'auto' if you would like a suggestion.")
+    st.write(
+        "Select 'auto' if you would like a suggestion from the LLM agent. The agent will take in "
+        "characteristics of your dataset to inform its suggestion."
+    )
 
     generator = st.selectbox(
         "data generator",
@@ -253,7 +259,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
     if generator == "auto":
         st.info(
-            "=> You will receive a recommendation based on the dataset's characteristics."
+            "=> You will receive a recommendation from the agent."
         )
 
     else:
@@ -264,7 +270,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
     # Missing values
     st.subheader("How would you like missing values to be handled?")
-    st.write("Select 'auto' if you would like a suggestion.")
+    st.write("Select 'auto' if you would like a suggestion from the agent.")
 
     missing_values = st.selectbox(
         "missing strategy", 
@@ -284,13 +290,11 @@ def select_preferences_ui() -> SynthesisRequest:
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
         impute_method = "SimpleImputer"
-        st.info("\t=> Your missing data will be imputed by SimpleImputer.")
+        st.info("=> Your missing data will be imputed by SimpleImputer.")
 
         # Categorical handling
-        st.write(
-            "#### How would you like to handle missing categorical values? Select 'auto' if you "
-            "would like a suggestion."
-        )
+        st.write("#### How would you like to handle missing categorical values?")
+        st.write("Select 'auto' if you would like a suggestion from the agent.")
 
         categorical_strategy = st.selectbox(
             "categorical strategy",
@@ -316,9 +320,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
         # Numerical handling
         st.write("#### How would you like to handle missing numerical values?")
-        st.write("Select 'auto' if you"
-            " would like a suggestion."
-        )
+        st.write("Select 'auto' if you would like a suggestion from the agent.")
 
         numerical_strategy = st.selectbox(
             "numerical strategy", 

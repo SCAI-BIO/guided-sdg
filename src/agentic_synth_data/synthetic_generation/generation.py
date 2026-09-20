@@ -6,8 +6,10 @@ import pyinputplus as pyip
 from pydantic import BaseModel
 import streamlit as st
 
-from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, generator_review_message
-from agentic_synth_data.utils import format_response, extract_output, info_helper_message, output_default_parameters, parse_json
+from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, \
+    generator_review_message
+from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
+    output_default_parameters, parse_json
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -316,9 +318,11 @@ def select_generator_ui(
 
     info_helper_message(
         message="Agent generator evaluation completed.",
-        context="The agent created a generator suggestion based on your preferences," \
-                " the dataset's semantic types, the cardinality of the columns, and" \
-                " potential summary statistics and correlations...",
+        context=(
+            "The agent created a generator suggestion based on:\n- Your preferences.\n- The "
+            "dataset's semantic types.\n- The cardinality of the columns.\n Potential summary "
+            "statistics and correlations."
+        ),
         key="generator_selection_info",
     )
 

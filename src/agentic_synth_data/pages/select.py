@@ -1,13 +1,24 @@
 import streamlit as st
 
 
-st.sidebar.title("Agentic synthetic data workflow")
+st.sidebar.title("GuidedSDG")
 
 st.write(
-    "✓ Preferences ─ ✓ Data types ─ ● Generator ─ "
-    "○ Missing values ─ ○ Generate ─ ○ Evaluate"
+    "`✓ Preferences ─ ✓ Data types ─ ● Generator ─ ○ Missing values ─ ○ Generate ─ ○ Evaluate`"
 )
-st.write("---")
+
+st.header("Prepare dataset: Generator selection")
+st.space("small")
+
+st.write(
+    "Different data generators may create better synthetic data with particular datasets, "
+    "depending on their characteristics. Additionally, different data generators may have a "
+    "greater focus on privacy preservation than others. In this step, the summary statistics and "
+    "correlations of the dataset are recorded to inform the LLM agent about the dataset. Whether "
+    "the data generator has been selected or a suggestion has been requested, the agent will "
+    "assess the chosen data generator to determine if it has a greater likelihood of producing "
+    "usable data that has high fidelity, utility, and preserves privacy."
+)
 
 # Generator selection
 gen = st.session_state.gen

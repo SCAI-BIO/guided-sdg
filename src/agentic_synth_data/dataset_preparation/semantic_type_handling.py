@@ -8,7 +8,8 @@ from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
-from agentic_synth_data.utils import df_formatter_st, extract_output, info_helper_message, parse_json
+from agentic_synth_data.utils import df_formatter_st, extract_output, info_helper_message, \
+    parse_json
 
 
 class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]]):
@@ -178,8 +179,10 @@ def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:d
 
     info_helper_message(
         message="Agent semantic type inference completed.",
-        context="The agent inferred semantic types based on each column's " \
-            "data type, unique values, and value distribution.",
+        context=(
+            "The agent inferred semantic types based on each column's:\n- Assigned data type.\n- "
+            "Present unique values.\n- Distribution of unique values."
+        ),
         key="semantic_type_info",
     )
 
@@ -200,9 +203,9 @@ def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:d
             st.subheader("Final semantic types for each column:")
 
             final_stype_table = pd.DataFrame({
-                        "Column": semantic_types.keys(),
-                        "Semantic type": semantic_types.values(),
-                    })
+                "Column": semantic_types.keys(),
+                "Semantic type": semantic_types.values(),
+            })
 
             df_formatter_st(final_stype_table)
 

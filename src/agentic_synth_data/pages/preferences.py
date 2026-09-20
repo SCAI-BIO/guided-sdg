@@ -1,13 +1,20 @@
 import streamlit as st
 
 
-st.sidebar.title("Agentic synthetic data workflow")
+st.sidebar.title("GuidedSDG")
 
 st.write(
-    "● Preferences ─ ○ Data types ─ ○ Generator ─ "
-    "○ Missing values ─ ○ Generate ─ ○ Evaluate"
+    "`● Preferences ─ ○ Data types ─ ○ Generator ─ ○ Missing values ─ ○ Generate ─ ○ Evaluate`"
 )
-st.write("---")
+
+st.header("Select preferences")
+st.space("small")
+
+st.write(
+    "Your initial preprocessing and generation preferences are important as they can be used to "
+    "indicate how to best proceed in generating synthetic data. This is just a starting point and "
+    "your preferences will be updated throughout the workflow if you decide to change anything."
+)
 
 # Render preference settings
 gen = st.session_state.gen

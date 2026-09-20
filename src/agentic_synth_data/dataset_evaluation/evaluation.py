@@ -14,8 +14,10 @@ import syndat
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
 from agentic_synth_data.schemas.models import AgentEval
-from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, parse_json
-from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, eval_review_message, evaluation_prompt
+from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, \
+    info_helper_message, parse_json
+from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
+    eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.report import Report
 
@@ -104,7 +106,8 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     st.write(f"{round(norm_corr_diff, 4)}")
 
     if len(synthetic_df) < 2:
-        st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.") # TODO: also move to CLI
+        # TODO: also move to CLI
+        st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
         discrim_auc = None
 
     else:
@@ -592,13 +595,22 @@ def evaluation_ui(
     else:
         eval_plan = st.session_state.agent_evaluation
 
+    info_helper_message(
+        message="The Agent has finished its evaluation of the synthetic dataset.",
+        context=(
+            "The agent evaluated the synthetic dataset based on:\n- Your preferences.\n- "
+            "Calculated syndat metrics.\n- Calculated Anonymeter metrics."
+        ),
+        key="agent_eval_synth_data_info",
+    )
+
     st.subheader("Evaluation:")
     st.write(f"- Status: {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
         st.write(f"- Problem columns: {eval_plan.problem_columns}")
-    st.write("- Recommendation:")
+    st.write("#### - Recommendation:")
     st.write(eval_plan.recommendation)
-    st.write("- Rationale:")
+    st.write("#### - Rationale:")
     st.write(eval_plan.rationale)
     return eval_plan
 
