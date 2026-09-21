@@ -26,6 +26,11 @@ dependencies = [
     "sdv>=1.37.4",
 ]
 
+[tool.uv]
+constraint-dependencies = [
+    "numba>=0.67,<0.68",
+]
+
 [build-system]
 requires = ["uv_build>=0.11.6,<0.12.0"]
 build-backend = "uv_build"
