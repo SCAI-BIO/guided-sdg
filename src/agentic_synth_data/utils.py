@@ -26,7 +26,9 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
 
     if synthesis_request.missing_values.mode == "impute":
         print(f"- Imputer: {synthesis_request.missing_values.impute.method}")
-        print(f"- Categorical strategy: {synthesis_request.missing_values.impute.categorical_strategy}")
+        print(
+            f"- Categorical strategy: {synthesis_request.missing_values.impute.categorical_strategy}"
+        )
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
@@ -144,8 +146,8 @@ def output_default_parameters(
     and other instances where parameters are set to default.
 
     Args:
-        generator_name (Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]): Name of the 
-        selected generator.
+        generator_name (Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]): Name of
+        the selected generator.
 
     Returns:
         str | None: 
@@ -159,7 +161,7 @@ def output_default_parameters(
         return "10,1,False,True,None"
 
     elif generator_name == "PrivBayes":
-        return "10,1,.1,False,True,Non_description_e"
+        return "10,1,.1,False,True,None"
 
     elif generator_name == "CTGAN":
         return "128,(256, 256),(256, 256),1e-6,500,300,False"
