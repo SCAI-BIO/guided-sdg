@@ -9,7 +9,7 @@ import streamlit as st
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
 from agentic_synth_data.utils import df_formatter_st, extract_output, info_helper_message, \
-    parse_json
+    parse_json, parse_json_ui
 
 
 class STypeInference(RootModel[dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]]):
@@ -163,7 +163,7 @@ def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:d
 
             plan = extract_output(raw_inference)
 
-            inferred_semantic_types = parse_json(
+            inferred_semantic_types = parse_json_ui(
                 plan=plan,
                 model_cls=STypeInference,
                 agent=agent,

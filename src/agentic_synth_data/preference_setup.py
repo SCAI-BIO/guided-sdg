@@ -20,7 +20,7 @@ class PrivacyConfig(BaseModel):
 
 class GeneratorConfig(BaseModel):
     name: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"] | None = None
-    parameters: str | None = None
+    parameters: dict | None = None
 
 
 class ImputationConfig(BaseModel):

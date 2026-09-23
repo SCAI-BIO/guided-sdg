@@ -9,7 +9,7 @@ import streamlit as st
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, \
     generator_review_message
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
-    output_default_parameters, parse_json
+    output_default_parameters, parse_json, parse_json_ui
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -305,7 +305,7 @@ def select_generator_ui(
 
             plan = extract_output(raw_message=raw_response)
 
-            generation_plan = parse_json(
+            generation_plan = parse_json_ui(
                 plan=plan, model_cls=SelectGenerator, agent=agent, config=config,
             )
 

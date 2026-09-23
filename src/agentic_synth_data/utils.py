@@ -151,6 +151,63 @@ def parse_json(
             return model_cls.model_validate_json(repaired_plan)
 
 
+def parse_json_ui(
+    plan:str,
+    model_cls:Type[BaseModel],
+    agent:Optional[CompiledStateGraph],
+    config:dict,
+    root:bool=False,
+) -> T:
+    """If agent fails to correctly format JSON response, prompts to 
+    try again (UI).
+
+    Args:
+        plan (str): The agent output.
+        model_cls (Type[BaseModel]): Pydantic model class used to validate JSON response.
+        agent (Optional[CompiledStateGraph]): LangGraph agent.
+        config (dict): Configuration passed to the agent during invocation.
+        root (bool, optional): Indicates whether in semantic_type_handling (True) or not. 
+                    Defaults to False.
+
+    Returns:
+        T: Validated instance of the given Pydantic model.
+    """
+    if root: # semantic_type_handling follows a different structure than the other steps
+        try:
+            return model_cls.model_validate_json(plan).root
+
+        except Exception as error:
+            st.warning("Agent response could not be parsed. Asking agent to repair the response...")
+
+            repair_prompt = json_repair_prompt(error, plan, model_cls)
+
+            repair_raw = agent.invoke(
+                {"messages": [{"role": "system", "content": repair_prompt,}]},
+                config=config,
+            )
+
+            repaired_plan = extract_output(repair_raw)
+
+            return model_cls.model_validate_json(repaired_plan).root
+    else:
+        try:
+            return model_cls.model_validate_json(plan)
+
+        except Exception as error:
+            st.warning("Agent response could not be parsed. Asking agent to repair the response...")
+
+            repair_prompt = json_repair_prompt(error, plan, model_cls)
+
+            repair_raw = agent.invoke(
+                {"messages": [{"role": "system", "content": repair_prompt,}]},
+                config=config,
+            )
+
+            repaired_plan = extract_output(repair_raw)
+
+            return model_cls.model_validate_json(repaired_plan)
+
+
 def extract_output(raw_message:dict) -> str:
     """Extract content from the agent's invocation output
 
@@ -190,7 +247,7 @@ def newline_every_n_words(option:str, n:int) -> str:
 
 def output_default_parameters(
         generator_name:Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]
-    ) -> str | None:
+    ) -> dict | None:
     """Takes in generator name and outputs its default parameters. Used in select preferences
     and other instances where parameters are set to default.
 
@@ -202,16 +259,28 @@ def output_default_parameters(
         - str: The colon-separated generator parameters.
         - None: If auto is selected, no parameters are returned.
     """
+    # Synthetic Data Release
     if generator_name == "PATEGAN":
-        return "1,1e-5,False,10,100,128,1e-4,False"
+        return {
+            "eps":1, "delta":1e-5, "infer_ranges":False, "num_teachers":10, "n_iters":100,
+            "batch_size":128, "learning_rate":1e-4, "multiprocess":False,
+        }
 
     if generator_name == "BayesianNet":
-        return "10,1,False,True,None"
+        return {
+            "histogram_bins":10, "degree":1, "infer_ranges":False, "multiprocess":True, "seed":None,
+        }
 
     if generator_name == "PrivBayes":
-        return "10,1,.1,False,True,None"
+        return {
+            "histogram_bins":10, "degree":1, "epsilon":.1, "infer_ranges":False,
+            "multiprocess":True, "seed":None,
+        }
 
     if generator_name == "CTGAN":
-        return "128,(256, 256),(256, 256),1e-6,500,300,False"
+        return {
+            "embedding_dim":128, "gen_dim":(256, 256), "dis_dim":(256, 256), "l2scale":1e-6,
+            "batch_size":500, "epochs":300, "multiprocess":False,
+        }
 
     return None # "auto"

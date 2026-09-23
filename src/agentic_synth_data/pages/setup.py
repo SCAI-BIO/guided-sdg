@@ -62,11 +62,14 @@ with col1:
     st.subheader("Try it out with a preset dataset: Titanic dataset")
     st.write("Try out GuidedSDG with a tester dataset to get an idea of how this tool works.")
 
+    if "tester_selected" not in st.session_state or file is not None:
+        st.session_state.tester_selected = False
+
     tester = st.button("Load Titanic dataset")
 
     if tester:
         st.session_state.tester_selected = True
-        data_path = "../data/mix_titanic.csv"
+        st.session_state.data_path = Path("../data/mix_titanic.csv")
 
         st.success("Titanic dataset loaded.")
 
@@ -82,38 +85,28 @@ with col2:
     clicked = st.button("start", disabled=file is None and not st.session_state.tester_selected,)
 
 if clicked:
-    data_dir = Path("../data")
-    data_dir.mkdir(parents=True, exist_ok=True)
+    if st.session_state.tester_selected:
+        data_path = st.session_state.data_path
+        file_name = data_path.name
 
-    data_path = data_dir / file.name
+    else:
+        data_dir = Path("../data")
+        data_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(data_path, "wb") as f:
-        f.write(file.getbuffer())
+        data_path = data_dir / file.name
 
-    # Reset state from previous workflow
-    # TODO Update to clear all (now versions are added, maybe just list all)
-    for key in [
-        "semantic_types_complete",
-        "semantic_types",
-        "semantic_types_inference",
-        "semantic_type_confirmation",
-        "generator_feedback_hist",
-        "generator_plan",
-        "pending_generator_review",
-        "generator_selection_complete",
-        "generation_complete",
-        "evaluation_review_history",
-        "attack_metrics"
-        "agent_evaluation",
-        "generator_revision_plan",
-        "missing_revision_plan",
-    ]:
-        st.session_state.pop(key, None)
+        with open(data_path, "wb") as f:
+            f.write(file.getbuffer())
+
+        file_name = file.name
+
+    # Start a new workflow
+    st.session_state.clear()
 
     gen = DataGen(data_path)
     gen.load_dataframe()
 
     st.session_state.gen = gen
-    st.session_state.file_name = file.name
+    st.session_state.file_name = file_name
 
     st.switch_page("pages/preferences.py")

@@ -10,7 +10,8 @@ from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
     parameter_revision_message
-from agentic_synth_data.utils import parse_json, extract_output, newline_every_n_words
+from agentic_synth_data.utils import parse_json, parse_json_ui, extract_output, \
+    newline_every_n_words 
 
 
 PENDING = "pending"
@@ -272,7 +273,7 @@ def generator_update_ui(
             )
 
             plan = extract_output(raw_response)
-            revision_plan = parse_json(plan, GeneratorRevisionPlan, agent, config)
+            revision_plan = parse_json_ui(plan, GeneratorRevisionPlan, agent, config)
 
         st.session_state.generator_revision_plan = revision_plan
 
@@ -347,11 +348,17 @@ def parameter_update(
         return None
 
     if selected_mechanism == "PATEGAN":
-        mech_params = f"{param_revision.eps},1e-5,False,10,100,128,1e-4,False"
+        mech_params = {
+            "eps":param_revision.eps, "delta":1e-5, "infer_ranges":False, "num_teachers":10,
+            "n_iters":100, "batch_size":128, "learning_rate":1e-4, "multiprocess":False,
+        }
         selection = ("epsilon", 1, param_revision.eps)
 
     elif selected_mechanism == "PrivBayes":
-        mech_params = f"10,1,{param_revision.epsilon},False,True,None"
+        mech_params = {
+            "histogram_bins":10, "degree":1, "epsilon":param_revision.epsilon, "infer_ranges":False,
+            "multiprocess":True, "seed":None,
+        }
         selection = ("epsilon", .1, param_revision.epsilon)
 
     print(
@@ -393,24 +400,30 @@ def parameter_update_ui(
 
         raw_params = extract_output(raw_response)
 
-        param_revision = parse_json(raw_params, CONFIG_MAP[selected_mechanism], agent, config)
+        param_revision = parse_json_ui(raw_params, CONFIG_MAP[selected_mechanism], agent, config)
 
     changed_params = param_revision.model_dump(exclude_defaults=True) # TODO? move to indent?
 
     if not changed_params:
-        st.info("\n=> Default parameters retained.")
+        st.info("=> Default parameters retained.")
         return None
 
     if selected_mechanism == "PATEGAN":
-        mech_params = f"{param_revision.eps},1e-5,False,10,100,128,1e-4,False"
+        mech_params = {
+            "eps":param_revision.eps, "delta":1e-5, "infer_ranges":False, "num_teachers":10,
+            "n_iters":100, "batch_size":128, "learning_rate":1e-4, "multiprocess":False,
+        }
         selection = ("epsilon", 1, param_revision.eps)
 
     elif selected_mechanism == "PrivBayes":
-        mech_params = f"10,1,{param_revision.epsilon},False,True,None"
+        mech_params = {
+            "histogram_bins":10, "degree":1, "epsilon":param_revision.epsilon, "infer_ranges":False,
+            "multiprocess":True, "seed":None,
+        }
         selection = ("epsilon", .1, param_revision.epsilon)
 
     st.info(
-        f"\n=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} "
+        f"=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} "
         f"(default = {selection[1]})"
     )
     return mech_params
@@ -480,7 +493,7 @@ def missing_update_ui(
 ) -> MissingRevisionOption | None | Literal["pending"]:
     """
     Ask agent for possible generator revision options and returns the option selected by the 
-    user .
+    user (UI).
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
@@ -494,7 +507,9 @@ def missing_update_ui(
     """
     st.subheader("Select a missing value revision option")
 
-    if f"missing_revision_plan_{version_id}" not in st.session_state:
+    plan_key = f"missing_revision_plan_{version_id}"
+
+    if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with missing value handling options..."):
             prompt = missing_revision_message(synthesis_request)
             raw_response = agent.invoke(
@@ -503,12 +518,12 @@ def missing_update_ui(
             )
 
             plan = extract_output(raw_response)
-            revision_plan = parse_json(plan, MissingRevisionPlan, agent, config,)
+            revision_plan = parse_json_ui(plan, MissingRevisionPlan, agent, config,)
 
-        st.session_state.missing_revision_plan = revision_plan
+        st.session_state[plan_key] = revision_plan
 
     else:
-        revision_plan = st.session_state.missing_revision_plan
+        revision_plan = st.session_state[plan_key]
 
     menu_options = {}
 
@@ -544,3 +559,19 @@ def missing_update_ui(
         return None
 
     return menu_options[choice]
+
+
+def revision_tabs_ui() -> dict:
+    """Create a new tab for each revision (UI).
+
+    Returns:
+        dict: Versions and the tabs attributed to each version.
+    """
+    versions = st.session_state.get("revision_versions", [])
+
+    if not versions:
+        return {}
+
+    tabs = st.tabs([f"Revision {i}" for i, _ in enumerate(versions, start=1)])
+
+    return dict(zip(versions, tabs))

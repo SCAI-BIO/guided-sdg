@@ -25,13 +25,13 @@ class GeneratorStrategy(ABC):
         return output_dir / synth_path
 
 
-    def _run(self, n_samples:int, prep_path:Path, version_id:int,): #parameters:str,):
+    def _run(self, n_samples:int, prep_path:Path, version_id:int, parameters:dict,):
         synth_path = self._make_synth_path(prep_path=prep_path, version_id=version_id)
         return self.run(
             n_samples=n_samples,
             prep_path=prep_path,
             synth_path=synth_path,
-            #parameters=parameters,
+            parameters=parameters,
         )
 
 
@@ -46,12 +46,11 @@ class GeneratorStrategy(ABC):
         Returns:
             Path: Metadata path.
         """
-        pass
 
 
     @abstractmethod
     def run(
-        self, n_samples:int, prep_path:Path, synth_path:Path, #parameters:str
+        self, n_samples:int, prep_path:Path, synth_path:Path, parameters:dict,
         ) -> tuple[Path, pd.DataFrame]:
         """Run selected mechanism.
 
@@ -63,4 +62,3 @@ class GeneratorStrategy(ABC):
         Returns:
             tuple[Path, pd.DataFrame]: Synthetic path and dataframe.
         """
-        pass

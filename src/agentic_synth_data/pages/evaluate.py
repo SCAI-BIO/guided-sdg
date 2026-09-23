@@ -10,10 +10,18 @@ st.write(
 st.header("Evaluation")
 st.space("small")
 
+st.write("Evaluate whether the synthetic data is satisfactory.")
 st.write(
     "This step involves combining metrics from both [syndat](https://syndat.scai.fraunhofer.de/) "
     "and from [anonymeter](https://github.com/statice/anonymeter) to assess the fidelity and "
     "utility as well as the privacy of the synthetic dataset."
+)
+
+st.write(
+    "The synthetic data should resemble the original dataset. We record the following metrics from"
+    " syndat to determine the dataset's fidelity:\n- Jenson-Shannon Distance\n- Normalized "
+    "correlation difference\n- Discriminator AUC\nAll of these metrics output a value between 0 "
+    "and 1."
 )
 
 # Evaluation

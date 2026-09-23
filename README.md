@@ -14,6 +14,12 @@ uv sync
 Create the needed `.env` file with the necessary API credentials for the configured language model.
 - Note: OpenAI compatible APIs are currently permitted.
 
+```bash
+OPENAI_API_KEY="your-key-here"
+BASE_URL="https://your-openai-compatible-endpoint/v1"
+
+```
+
 ### 3. Start the Streamlit user interface
 Enter the following into the terminal:
 ```bash

@@ -15,13 +15,13 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
 
 
     def run(
-            self, n_samples:int, prep_path:Path, synth_path:Path, #parameters:str,
+            self, n_samples:int, prep_path:Path, synth_path:Path, parameters:dict,
         ) -> tuple[Path, pd.DataFrame]:
         self._run_generator(
             n_samples=n_samples,
             prep_path=prep_path,
             synth_path=synth_path,
-            #parameters=parameters
+            parameters=parameters,
         )
 
         # The generators add an "Unnamed: 0" column, so check that all cols match:
@@ -98,16 +98,17 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
 
     # TODO: If run_generator fails, for example, plug the error message into the agent and try to have the agent repair the issue.
     def _run_generator(
-            self, n_samples:int, prep_path:Path, synth_path:Path, #parameters:str # NOTE: params are not yet merged to dev
+            self, n_samples:int, prep_path:Path, synth_path:Path, parameters:dict,
         ) -> Path:
         mechanism = self.generator_name
+        parameters = ",".join(map(str, parameters.values()))
         container_path = f"/workspace/output/{synth_path.name}"
 
         print()
         print("-"*25+f"Running {mechanism}"+"-"*25)
 
-        # NOTE: parameters are not implemented yet here.
-        param_arg = "" #if mechanism == "CTGAN" else f"-P {parameters}" # NOTE: CTGAN does not allow for parameter updates (comma separation issue)
+        # NOTE: CTGAN does not allow for parameter updates (comma separation issue)
+        param_arg = "" if mechanism == "CTGAN" else f"-P {parameters}"
 
         command = dedent(f"""
         podman run --rm \
