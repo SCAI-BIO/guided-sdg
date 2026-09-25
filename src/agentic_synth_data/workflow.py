@@ -25,7 +25,7 @@ from agentic_synth_data.preference_setup import select_preferences, SynthesisReq
     ImputationConfig, select_preferences_ui
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
-from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui
+from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui, revision_tabs_ui
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
@@ -162,6 +162,10 @@ class DataGen:
         """
         # Initial check for missing value markers (can affect dtypes)
         st.subheader("Normalize missing values")
+        st.write(
+            "1. Look for any missing value markers that should be encoded as null values within "
+            "the dataset prior to analysis."
+        )
         source_df = self.source_df.copy()
         missing_report = missing_value_precheck_ui(source_df)
 
@@ -184,6 +188,10 @@ class DataGen:
         st.write("---")
 
         st.subheader("Handle data types")
+        st.write(
+            "2. Automatically detect the majority Python data types present for each variable "
+            "(column) in the dataframe."
+        )
         dtype_result = handle_dtypes_ui(norm_df)
 
         if dtype_result is None:
@@ -196,6 +204,7 @@ class DataGen:
         st.write("---")
 
         st.subheader("Handle semantic types")
+        st.write("3. Have the agent determine the semantic meaning of each variable (column).")
 
         stype_result = handle_semantic_types_ui(
             df=self.dtype_handled_df, agent=self.agent, config=self.config,
@@ -424,13 +433,13 @@ class DataGen:
         self.synthetic_path, self.synthetic_df = strategy._run(
             n_samples=sample_size,
             prep_path=self.prepared_path,
-            #parameters=self.synthesis_request.generator.parameters,
+            parameters=self.synthesis_request.generator.parameters,
             version_id=self.version_id,
         )
 
         self.report.gen.synth_path = self.synthetic_path
         self.report.gen.synth_shape = self.synthetic_df.shape
-        # self.report["gen"]["params"] = self.synthesis_request.generator.parameters # TODO: change to correct format (in dev but not in wrap-report)
+        self.report.gen.params = self.synthesis_request.generator.parameters
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
 
@@ -441,8 +450,9 @@ class DataGen:
             self.synthetic_df = st.session_state.synthetic_df
 
         else:
+            generator = self.synthesis_request.generator.name
             Path("../output").mkdir(parents=True, exist_ok=True)
-            strategy = get_generator_strategy(self.synthesis_request.generator.name)
+            strategy = get_generator_strategy(generator_name=generator)
 
             # Set sample size
             if self.synthesis_request.sample_size.mode == "fixed_value":
@@ -450,11 +460,11 @@ class DataGen:
             else:
                 sample_size = len(self.source_df)
 
-            with st.spinner("Generating data..."):
+            with st.spinner(f"Generating data with {generator}..."):
                 self.synthetic_path, self.synthetic_df = strategy._run(
                     n_samples=sample_size,
                     prep_path=self.prepared_path,
-                    #parameters=self.synthesis_request.generator.parameters,
+                    parameters=self.synthesis_request.generator.parameters,
                     version_id=self.version_id,
                 )
 
@@ -464,9 +474,9 @@ class DataGen:
 
             self.report.gen.synth_path = self.synthetic_path
             self.report.gen.synth_shape = self.synthetic_df.shape
-            # self.report["gen"]["params"] = self.synthesis_request.generator.parameters # TODO: change to correct format (in dev but not in wrap-report)
+            self.report.gen.params = self.synthesis_request.generator.parameters
 
-        st.info(f"=> Synthetic generation completed with {self.synthesis_request.generator.name}.")
+        st.info(f"=> Synthetic generation completed with {generator}.")
         df_formatter_st(self.synthetic_df.copy().head())
         st.write(
             "Note: Only the first five rows of the synthetic dataset are displayed on this page."
@@ -508,6 +518,7 @@ class DataGen:
         self.report.review.singling_out = attack_metrics.singling_out
         self.report.review.inference = attack_metrics.inference
         self.report.review.linkability = attack_metrics.linkability
+        #self.report.review.selected_columns = attack_metrics.selected_columns # TODO link this
 
         self.report.review.plots = generate_plots(real_df, synth_df, self.version_id)
         self.agent_decision = evaluation(
@@ -546,38 +557,40 @@ class DataGen:
             semantic_types=self.semantic_types
         )
 
-        # col1, col2 = st.columns(2)
-        # with col1:
-        metrics = calculate_metrics_ui(real_df=real_df, synthetic_df=synth_df)
+        col1, col2 = st.columns(2)
+        with col1:
+            metrics = calculate_metrics_ui(real_df=real_df, synthetic_df=synth_df)
 
-        self.report.review.jsd = metrics["jsd"]
-        self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
-        self.report.review.discrim_auc = metrics["discrim_auc"]
-
-        st.write("---")
+            self.report.review.jsd = metrics["jsd"]
+            self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
+            self.report.review.discrim_auc = metrics["discrim_auc"]
 
         attack_key = f"attack_metrics_{self.version_id}"
 
-        # with col2: # attack metrics aren't being displayed, fix before use
-        if attack_key not in st.session_state:
-            attack_metrics = calculate_attack_metrics_ui(
-                train_df=self.train_df,
-                test_df=self.test_df,
-                synthetic_df=synth_df,
-                semantic_types=self.semantic_types,
-                dtypes=self.python_dtypes,
-                agent=self.agent,
-                config=self.config,
-            )
+        with col2:
+            # Anonymeter metrics take longer to load, so they are saved for display upon page reload.
+            if attack_key not in st.session_state:
+                attack_metrics = calculate_attack_metrics_ui(
+                    train_df=self.train_df,
+                    test_df=self.test_df,
+                    synthetic_df=synth_df,
+                    semantic_types=self.semantic_types,
+                    dtypes=self.python_dtypes,
+                    agent=self.agent,
+                    config=self.config,
+                )
 
-            st.session_state[attack_key] = attack_metrics
+                st.session_state[attack_key] = attack_metrics
 
-        else:
-            attack_metrics = st.session_state[attack_key]
+            else:
+                attack_metrics = st.session_state[attack_key]
+
+                display_attack_metrics_ui(attack_metrics=attack_metrics)
 
         self.report.review.singling_out = attack_metrics.singling_out
         self.report.review.inference = attack_metrics.inference
         self.report.review.linkability = attack_metrics.linkability
+        #self.report.review.selected_columns = attack_metrics.selected_columns # TODO link this
 
         self.report.review.plots = generate_plots_ui(real_df, synth_df, self.version_id)
 
@@ -641,22 +654,32 @@ class DataGen:
         """Revise: Check in with user and possibly change the plan (UI)"""
         st.header("Evaluate workflow")
 
-        choice = evaluation_review_ui(
-            agent_decision=self.agent_decision,
-            agent=self.agent,
-            config=self.config,
-            version_id=self.version_id,
-        )
+        if "revision_versions" not in st.session_state:
+            st.session_state.revision_versions = []
 
-        if choice == "revise":
-            selected_updates = plan_update_ui(
-                synthesis_request=self.synthesis_request,
-                agent_decision=self.agent_decision,
-                report=self.report,
-                agent=self.agent,
-                config=self.config,
-                version_id=self.version_id,
-            )
+        if "revision_pending_from" not in st.session_state:
+            st.session_state.revision_pending_from = None
+
+        #activate_tab = st.session_state.pop("_activate_revision_tab", None)
+
+        # if activate_tab is not None:
+        #     st.session_state["revision_tabs"] = activate_tab
+
+        revision_tabs = revision_tabs_ui()
+
+        if st.session_state.revision_pending_from == self.version_id:
+            next_version = self.version_id + 1
+            tab = revision_tabs[next_version]
+
+            with tab:
+                selected_updates = plan_update_ui(
+                    synthesis_request=self.synthesis_request,
+                    agent_decision=self.agent_decision,
+                    report=self.report,
+                    agent=self.agent,
+                    config=self.config,
+                    version_id=self.version_id,
+                )
 
             if selected_updates is not None:
                 for key, value in selected_updates.items():
@@ -666,9 +689,29 @@ class DataGen:
                         self.report.review.selected_plan_updates[key] = value.model_dump()
 
                 revised = self.create_revision_ui(selected_updates)
+
+                st.session_state.revision_pending_from = None
+
                 return revised
 
             return self
+
+        choice = evaluation_review_ui(
+            agent_decision=self.agent_decision,
+            agent=self.agent,
+            config=self.config,
+            version_id=self.version_id,
+        )
+
+        if choice == "revise":
+            next_version = self.version_id + 1
+
+            if next_version not in st.session_state.revision_versions:
+                st.session_state.revision_versions.append(next_version)
+
+            st.session_state.revision_pending_from = self.version_id
+
+            st.rerun()
 
         return self
 

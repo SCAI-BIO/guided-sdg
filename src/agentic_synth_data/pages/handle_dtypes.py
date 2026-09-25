@@ -12,11 +12,8 @@ st.space("small")
 
 st.write(
     "To generate synthetic data, the data generators need to know the data types for each "
-    "variable (column). This step involves three parts:\n"
-    "1. Look for any missing value markers that should be encoded as null values within the "
-    "dataset prior to analysis.\n2. Automatically detect the majority Python data types present "
-    "for each variable (column) in the dataframe.\n3. Have the agent determine the semantic "
-    "meaning of each variable (column).\nData types should be recorded appropriately to avoid "
+    "variable (column)."
+    "Data types should be recorded appropriately to avoid "
     "errors or mistakes that can affect the workflow and make SDG not possible with the dataset."
 )
 

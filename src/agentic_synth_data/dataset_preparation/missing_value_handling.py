@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field
 from sklearn.impute import SimpleImputer
 import streamlit as st
 
-from agentic_synth_data.utils import format_response, extract_output, parse_json, display_synthesis_request
+from agentic_synth_data.utils import display_synthesis_request_st, format_response, \
+    extract_output, info_helper_message, parse_json, display_synthesis_request, parse_json_ui
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 from agentic_synth_data.preference_setup import SynthesisRequest, ImputationConfig
 
@@ -69,6 +70,69 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
             "\nHow would you like to handle missing numerical values? Select 'auto' if you would" \
             " like a suggestion.\n", 
             numbered=True,
+        )
+
+        if num_choice == "most frequent":
+            num_choice = "most_frequent"
+
+        synthesis_request.missing_values.impute.numerical_strategy = num_choice
+
+    elif choice == "auto":
+        synthesis_request.missing_values.threshold = None
+        synthesis_request.missing_values.impute = ImputationConfig()
+
+    return synthesis_request
+
+
+def update_missing_value_choice_ui(synthesis_request:SynthesisRequest) -> SynthesisRequest:
+    """Update missing value handling choice in the case that either the remove all or
+    threshold setting for null values is too harsh (UI).
+
+    Args:
+        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+
+    Returns:
+        SynthesisRequest: Updated synthesis request.
+    """
+    st.write("Please select another method to handle missing values:")
+    choice = st.selectbox(
+        label="Update missing value handling choice",
+        options=["auto", "impute",],
+        index=None,
+        key="update_missing_value_handling_choice",
+    )
+
+    if choice is None:
+        st.stop()
+
+    synthesis_request.missing_values.mode = choice
+
+    if choice == "impute":
+        synthesis_request.missing_values.impute.method = "SimpleImputer"
+        synthesis_request.missing_values.threshold = None
+
+        st.write(
+            "How would you like to handle missing categorical values? Select 'auto' if you would "
+            "like a suggestion."
+        )
+
+        cat_choice = st.selectbox(
+            label="Update missing value handling choice",
+            options=["auto", "impute",],
+            index=None,
+            key="update_missing_value_handling_choice",
+        )
+
+        if cat_choice == "most frequent":
+            cat_choice = "most_frequent"
+
+        synthesis_request.missing_values.impute.categorical_strategy = cat_choice
+
+        num_choice = st.selectbox(
+            label="Update missing value handling choice",
+            options=["auto", "impute",],
+            index=None,
+            key="update_missing_value_handling_choice",
         )
 
         if num_choice == "most frequent":
@@ -394,7 +458,7 @@ def handle_missing_values_ui(
     # 1. Remove all samples with NA columns.
     if mode == "remove":
         null_row_count = df.isna().any(axis=1).sum()
-        st.write(
+        st.warning(
             f"\nWarning: {null_row_count} out of {df.shape[0]} rows ("
             f"{null_row_count/df.shape[0]*100}%) will be removed from the dataset."
         )
@@ -405,16 +469,20 @@ def handle_missing_values_ui(
             index=None,
             label_visibility="hidden",
         )
+
+        if confirm is None:
+            st.stop()
+
         if confirm == "yes":
             df = df.dropna()
-            st.write(
+            st.info(
                 "\n=> All samples with missing values have been removed. There are "
                 f"{df.isna().sum().sum()} remaining missing values."
             )
             return df, synthesis_request
 
         # If this option is too harsh and the user wants to try another method.
-        synthesis_request = update_missing_value_choice(synthesis_request)
+        synthesis_request = update_missing_value_choice_ui(synthesis_request)
         return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
 
     # 3. Perform imputation given there are decided categorical and numerical strategies.
@@ -444,7 +512,7 @@ def handle_missing_values_ui(
                     "must be strings.\nPress enter if you would like to stay with the "
                     "default ('Unknown'):"
                 )
-                fill_value = st.text_input()
+                fill_value = st.text_input("fill_value")
 
                 if fill_value == "":
                     fill_value = "Unknown"
@@ -505,53 +573,65 @@ def handle_missing_values_ui(
             semantic_types=semantic_types,
         )
 
-        st.success("\nAgent is coming up with a suggestion for missing value handling...")
-        feedback = None
-        while True:
-            if feedback is None:
-                current_prompt = prompt
-            else:
-                current_prompt = missing_feedback(prompt, feedback)
-                st.write("Waiting for agent response...")
+        if "missing_plan" not in st.session_state:
+            with st.spinner("Agent is coming up with a suggestion for missing value handling..."):
+                raw_plan = agent.invoke(
+                    {"messages": [{"role": "user", "content": prompt,}]},
+                    config=config,
+                )
 
-            raw_plan = agent.invoke(
-                {"messages": [{"role": "user", "content": current_prompt,}]},
-                config=config,
+                plan = extract_output(raw_plan)
+
+                missing_plan = parse_json_ui(
+                    plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+                )
+
+
+                st.session_state.missing_plan = {
+                    "mode": missing_plan.mode,
+                    "imputation_method": missing_plan.imputation_method,
+                    "categorical_strategy": missing_plan.categorical_strategy, 
+                    "numerical_strategy": missing_plan.numerical_strategy,
+                    "set_threshold": missing_plan.set_threshold,
+                    "warning": missing_plan.warning,
+                    "rationale": missing_plan.rationale,
+                }
+
+
+            updated_plan = st.session_state.missing_plan
+
+            info_helper_message(
+                message="Agent has finished coming up with suggestion.",
+                context=(
+                    "The agent suggested a missing value handling strategy based on:\n- The "
+                    "proportion of missing values for each column.\n- The number of rows with "
+                    "missing values.\n- Total rows in the dataset.\n- Your synthesis request.\n- "
+                    "The semantic data types of each column present in the dataset."
+                ),
+                key="missing_handling_info",
             )
 
-            plan = extract_output(raw_plan)
-
-            missing_plan = parse_json(
-                plan=plan, model_cls=MissingHandling, agent=agent, config=config,
-            )
-
-            updated_plan = {
-                "mode": missing_plan.mode,
-                "imputation_method": missing_plan.imputation_method,
-                "categorical_strategy": missing_plan.categorical_strategy, 
-                "numerical_strategy": missing_plan.numerical_strategy,
-                "set_threshold": missing_plan.set_threshold,
-                "warning": missing_plan.warning,
-                "rationale": missing_plan.rationale,
-            }
-
-            st.write("\nSuggested plan:")
+            st.write("Suggested plan:")
             st.write(f"- Mode: {updated_plan['mode']}")
+
             if updated_plan["set_threshold"] is not None:
                 st.write(f"- Threshold: {updated_plan['set_threshold']}")
+
             if updated_plan["imputation_method"] is not None:
                 st.write(f"- Imputation method: {updated_plan['imputation_method']}")
+
             if updated_plan["categorical_strategy"] is not None:
                 st.write(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
+
             if updated_plan["numerical_strategy"]:
                 st.write(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
 
             if len(updated_plan["warning"]) > 0:
                 st.write("Warning:")
-                format_response(f"- Warning: {updated_plan['warning'][0]}")
+                st.warning(f"- Warning: {updated_plan['warning'][0]}")
 
-            st.write("\nReasoning behind the suggestion:")
-            format_response(updated_plan["rationale"])
+            st.write("Rationale behind the suggestion:")
+            st.write(updated_plan["rationale"])
 
             confirm = st.selectbox(
                 "Would you like to proceed with the suggestion?",
@@ -563,16 +643,50 @@ def handle_missing_values_ui(
             if confirm == "yes":
                 # Update synthesis request with new specifications
                 synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
-                st.write("\n\nThe missing value handling plan has been updated to the following:")
-                display_synthesis_request(synthesis_request)
-                break
 
-            st.write(
-                "\n\nPlease describe how you would want missing values to be"
-                " handled and what changes you would make to the suggested plan."
-            )
+                st.subheader(
+                    "The missing value handling plan has been updated to the following:"
+                )
+                display_synthesis_request_st(synthesis_request)
 
-            feedback = input()
+            elif confirm == "no":
+                st.write(
+                    "Please describe how you would want missing values to be "
+                    "handled and what changes you would make to the suggested plan."
+                )
+
+                feedback = st.text_area(
+                    "Enter your feedback",
+                    key="missing_handling_feedback",
+                )
+
+                if st.button("Submit feedback", key="missing_handling_feedback_submit",):
+                    current_prompt = missing_feedback(prompt, feedback)
+
+                    with st.spinner("Agent is updating suggestion..."):
+                        raw_plan = agent.invoke(
+                            {"messages": [{"role": "user", "content": current_prompt,}]},
+                            config=config,
+                        )
+
+                        plan = extract_output(raw_plan)
+
+                        missing_plan = parse_json_ui(
+                            plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+                        )
+
+                    st.session_state.missing_plan = {
+                        "mode": missing_plan.mode,
+                        "imputation_method": missing_plan.imputation_method,
+                        "categorical_strategy": missing_plan.categorical_strategy, 
+                        "numerical_strategy": missing_plan.numerical_strategy,
+                        "set_threshold": missing_plan.set_threshold,
+                        "warning": missing_plan.warning,
+                        "rationale": missing_plan.rationale,
+                    }
+
+                st.session_state.missing_handling_check_suggestion = None
+                st.rerun()
 
         # Update synthesis request with new specifications
         synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)

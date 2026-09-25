@@ -12,7 +12,7 @@ st.space("small")
 
 st.write(
     "Some data generators do not allow missing values in the dataset. If the dataset has "
-    "are missing values in those cases, it can result in an error. Regardless of whether you have "
+    "missing values in those cases, it can result in an error. Regardless of whether you have "
     "selected a specific strategy to handle missing values or indicated you wanted a suggestion "
     "from the LLM agent, you choose how to proceed."
 )

@@ -17,13 +17,6 @@ st.write(
     "utility as well as the privacy of the synthetic dataset."
 )
 
-st.write(
-    "The synthetic data should resemble the original dataset. We record the following metrics from"
-    " syndat to determine the dataset's fidelity:\n- Jenson-Shannon Distance\n- Normalized "
-    "correlation difference\n- Discriminator AUC\nAll of these metrics output a value between 0 "
-    "and 1."
-)
-
 # Evaluation
 gen = st.session_state.gen
 request = gen.evaluate_ui()

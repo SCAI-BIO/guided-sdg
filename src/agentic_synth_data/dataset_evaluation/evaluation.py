@@ -15,7 +15,7 @@ import syndat
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, \
-    info_helper_message, parse_json
+    info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
     eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
@@ -86,11 +86,24 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     Returns:
         dict: The decision plan based on the agent's assessment.
     """
-    st.subheader("Calculate fidelity (syndat) metrics")
+    st.subheader("Fidelity and utility metrics")
+    st.write(
+        "The synthetic data should resemble the original dataset. We record the following metrics "
+        "from syndat to determine the dataset's fidelity:\n- Jenson-Shannon Distance\n- Normalized "
+        "correlation difference\n- Discriminator AUC"
+    )
+    st.write("All of these metrics output a value between 0 and 1.")
     jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
     st.write("#### Jenson-Shannon Distances:")
+    st.write(
+        "Jenson-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
+        "across your real and the synthetic dataset. A value that is closer to 0 indicates that "
+        "the statistical distributions identically match the real and synthetic datasets, which is "
+        "favorable."
+    )
+
     jsd_table = pd.DataFrame({
         "Column": jsd_results.keys(),
         "Jenson-Shannon Distance (JSD)": jsd_results.values(),
@@ -103,6 +116,13 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     )
 
     st.write("#### Normalized correlation difference:")
+    st.write(
+        "Normalized correlation difference calculates the correlation similarity between real and "
+        "synthetic datasets and compares their correlation matrices. A value closer to 0 indicates "
+        "that the synthetic dataset has greater preservation of the original correlation structure"
+        "\n- Note: It is possible for the norm to exceed 1 when one dataset's correlations is "
+        "positive and the other negative."
+    )
     st.write(f"{round(norm_corr_diff, 4)}")
 
     if len(synthetic_df) < 2:
@@ -113,6 +133,11 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     else:
         discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
         st.write("#### Discriminator AUC:")
+        st.write(
+            "Discriminator Area Under the Curve (AUC) is a value between 0 and 1. An AUC near 0.5 "
+            "is preferable, whereas one near 1 indicates that real and synthetic datasets are easy "
+            "to distinguish between."
+        )
         st.write(f"{round(discrim_auc, 4)}")
 
     return {
@@ -212,7 +237,8 @@ def calculate_attack_metrics(
     return AttackMetrics(
         singling_out= singling_out_risk,
         inference=inference_risk,
-        linkability=linkability_risk
+        linkability=linkability_risk,
+        selected_cols=selected_cols,
     )
 
 
@@ -225,7 +251,7 @@ def calculate_attack_metrics_ui(
     agent:Optional[CompiledStateGraph] | None = None,
     config:dict | None = None,
 ) -> AttackMetrics:
-    st.subheader("Calculate attack (anonymeter) metrics")
+    st.subheader("Privacy metrics")
     anonymeter_input = prepare_anonymeter_input(
         train_df=train_df,
         test_df=test_df,
@@ -248,26 +274,25 @@ def calculate_attack_metrics_ui(
         singling_out.evaluate()
         singling_out_risk = singling_out.risk()
 
-    st.write(
-        f"#### Singling out risk:\n  - Value: {round(singling_out_risk.value*100, 3)}%"
-        f"\n  - Confidence interval between: {round(singling_out_risk.ci[0]*100,3)}%"
-        f" and {round(singling_out_risk.ci[1]*100,3)}%"
-    )
+    write_attack_metric_ui("Singling out", singling_out_risk)
 
     prompt = attack_column_selection_message(semantic_types=semantic_types)
-    st.success(
-        "\nAgent is selecting columns for the following privacy metrics to be assessed:"
-        "\n- Inference risk\n- Linkability risk"
+    with st.spinner("Agent is selecting columns to calculate metrics..."):
+        raw_response = agent.invoke(
+            {"messages": [{"role": "user", "content": prompt,}]}, config=config,
+        )
+
+        plan = extract_output(raw_response)
+
+        selected_cols = parse_json_ui(plan, AttackColumns, agent, config,)
+
+    info_helper_message(
+        message="Agent has selected columns for inference and linkability risk assessment.",
+        context="The agent was reminded of the variable names and their semantic types.",
+        key="privacy_metric_column_selection",
     )
 
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]}, config=config,
-    )
-
-    plan = extract_output(raw_response)
-
-    selected_cols = parse_json(plan, AttackColumns, agent, config,)
-
+    st.write(type(selected_cols))
     st.write(
         "\nSelected columns:\n- Linkability:\n  - Auxiliary columns: "
         f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary"
@@ -289,11 +314,7 @@ def calculate_attack_metrics_ui(
         inference.evaluate()
         inference_risk = inference.risk()
 
-    st.write(
-        f"#### Inference out risk:\n  - Value: {round(inference_risk.value*100, 3)}%"
-        f"\n  - Confidence interval: between {round(inference_risk.ci[0]*100,3)}%"
-        f" and {round(inference_risk.ci[1]*100,3)}%"
-    )
+    write_attack_metric_ui("Inference", inference_risk)
 
     with st.spinner("Evaluating linkability risk..."):
         linkability = LinkabilityEvaluator(
@@ -307,16 +328,62 @@ def calculate_attack_metrics_ui(
         linkability.evaluate()
         linkability_risk = linkability.risk()
 
-    st.write(
-        f"#### Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%"
-        f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%"
-        f" and {round(linkability_risk.ci[1]*100,3)}%"
-    )
+    write_attack_metric_ui("Linkability", linkability_risk)
 
     return AttackMetrics(
         singling_out= singling_out_risk,
         inference=inference_risk,
-        linkability=linkability_risk
+        linkability=linkability_risk,
+        selected_cols=selected_cols,
+    )
+
+
+def display_attack_metrics_ui(attack_metrics: AttackMetrics) -> None:
+    """Display what was calculated from Anonymeter's functions and the variables that were used
+    to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
+    run.
+
+    Args:
+        attack_metrics (AttackMetrics): Stores information regarding privacy metrics to be displayed.
+    """
+    st.subheader("Privacy metrics")
+
+    singling_out_risk = attack_metrics.singling_out
+    inference_risk = attack_metrics.inference
+    linkability_risk = attack_metrics.linkability
+    selected_cols = attack_metrics.selected_cols
+
+    write_attack_metric_ui("Singling out", singling_out_risk)
+
+    info_helper_message(
+        message="Agent has selected columns for inference and linkability risk assessment.",
+        context="The agent was reminded of the variable names and their semantic types.",
+        key="privacy_metric_column_selection_displayed",
+    )
+
+    st.write(
+        "\nSelected columns:\n- Linkability:\n  - Auxiliary columns: "
+        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary"
+        f" columns: {selected_cols.inference_aux_cols}\n  - Secret "
+        f"column: {selected_cols.secret}\n\nRationale:"
+    )
+    st.write(selected_cols.rationale)
+
+    write_attack_metric_ui("Inference", inference_risk)
+
+    write_attack_metric_ui("Linkability", linkability_risk)
+
+
+def write_attack_metric_ui(metric_name:str, metric) -> None:
+    """Display privacy metric information.
+
+    Args:
+        metric_name (str): Name of the metric (for display).
+        metric (_type_): Details (e.g., value and confidence interval) for each metric.
+    """
+    st.write(
+        f"#### {metric_name} risk:\n  - Value: {round(metric.value*100, 3)}%\n  - Confidence "
+        f"interval: between {round(metric.ci[0]*100,3)}% and {round(metric.ci[1]*100,3)}%"
     )
 
 
@@ -588,7 +655,7 @@ def evaluation_ui(
 
             plan = extract_output(raw_response)
 
-            eval_plan = parse_json(plan, AgentEval, agent, config,)
+            eval_plan = parse_json_ui(plan, AgentEval, agent, config,)
 
         st.session_state.agent_evaluation = eval_plan
 
