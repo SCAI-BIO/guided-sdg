@@ -55,12 +55,17 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
         print(col, round(jsd_score, 4))
 
     norm_corr_diff = syndat.metrics.normalized_correlation_difference(
-        real=real_df, synthetic=synthetic_df, ignore_cat=True
-        )
+        real=real_df, synthetic=synthetic_df, ignore_cat=True,
+    )
     print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
 
-    discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
-    print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
+    if len(synthetic_df) < 2:
+        print("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
+        discrim_auc = None
+
+    else:
+        discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
+        print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
 
     return {
         "jsd": jsd_results,
@@ -156,6 +161,23 @@ def calculate_attack_metrics(
         agent:Optional[CompiledStateGraph] | None = None, 
         config:dict | None = None
     ) -> AttackMetrics:
+    """Calculate Anonymeter metrics with agent assistance for column selection.
+    
+    Args:
+        train_df (pd.DataFrame): Training portion of the real dataset.
+        test_df (pd.DataFrame): Test portion of the real dataset.
+        synthetic_df (pd.DataFrame): Synthetically generated dataset.
+        semantic_types (dict[str, str]): Semantic types assigned to each column.
+        dtypes (dict[str, str]): Python storage dtypes for each column.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
+                        variables privacy metric calculation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation. 
+                        Defaults to None.
+
+    Returns:
+        AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
+        inference risk).
+    """
     has_missing = train_df.isna().any().any() or test_df.isna().any().any()
 
     if has_missing: # Temporarily encode missing values as a unique marker.
@@ -251,6 +273,23 @@ def calculate_attack_metrics_ui(
     agent:Optional[CompiledStateGraph] | None = None,
     config:dict | None = None,
 ) -> AttackMetrics:
+    """Calculate Anonymeter metrics with agent assistance for column selection (UI).
+
+    Args:
+        train_df (pd.DataFrame): Training portion of the real dataset.
+        test_df (pd.DataFrame): Test portion of the real dataset.
+        synthetic_df (pd.DataFrame): Synthetically generated dataset.
+        semantic_types (dict[str, str]): Semantic types assigned to each column.
+        dtypes (dict[str, str]): Python storage dtypes for each column.
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
+                        variables privacy metric calculation. Defaults to None.
+        config (dict | None, optional): Configuration passed to the agent during invocation. 
+                        Defaults to None.
+
+    Returns:
+        AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
+        inference risk).
+    """
     st.subheader("Privacy metrics")
     anonymeter_input = prepare_anonymeter_input(
         train_df=train_df,
@@ -292,7 +331,6 @@ def calculate_attack_metrics_ui(
         key="privacy_metric_column_selection",
     )
 
-    st.write(type(selected_cols))
     st.write(
         "\nSelected columns:\n- Linkability:\n  - Auxiliary columns: "
         f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary"
@@ -344,7 +382,8 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics) -> None:
     run.
 
     Args:
-        attack_metrics (AttackMetrics): Stores information regarding privacy metrics to be displayed.
+        attack_metrics (AttackMetrics): Stores information regarding privacy metrics to be 
+                                        displayed.
     """
     st.subheader("Privacy metrics")
 
@@ -551,21 +590,216 @@ def generate_plots(real_df, synth_df, version_id):
     return png_files
 
 
-def generate_plots_ui(real_df, synth_df, version_id):
-    """Plot feature distributions and store files (UI)."""
+def encode_for_correlation(
+    real_df: pd.DataFrame, synth_df: pd.DataFrame, max_categories: int = 10,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Encode categorical features for correlation analysis while limiting feature expansion.
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synth_df (pd.DataFrame): The synthetically generated dataframe.
+        max_categories (int, optional): _description_. Defaults to 10.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: _description_
+    """
+    n_real = len(real_df)
+    combined = pd.concat([real_df, synth_df], ignore_index=True,)
+    combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
+
+    categorical_cols = combined.select_dtypes(
+        include=["object", "str", "category"]
+    ).columns
+
+    low_cardinality = [
+        col for col in categorical_cols if combined[col].nunique(dropna=True) <= max_categories
+    ]
+    high_cardinality = [col for col in categorical_cols if col not in low_cardinality]
+
+    # One-hot only manageable categorical variables
+    encoded = pd.get_dummies(combined, columns=low_cardinality, dtype=int,)
+
+    # Exclude high-cardinality categoricals from Pearson correlation
+    encoded = encoded.drop(columns=high_cardinality)
+
+    return (encoded.iloc[:n_real], encoded.iloc[n_real:],)
+
+
+def encode_for_shap(
+    real_df: pd.DataFrame, synth_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Encode categorical features numerically for SHAP discrimination analysis.
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synth_df (pd.DataFrame): The synthetically generated dataframe.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: _description_
+    """
+    n_real = len(real_df)
+    combined = pd.concat([real_df, synth_df], ignore_index=True,)
+    combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
+
+    categorical_cols = combined.select_dtypes(include=["object", "str", "category"]).columns
+
+    for col in categorical_cols:
+        combined[col], _ = pd.factorize(combined[col])
+
+    return (combined.iloc[:n_real], combined.iloc[n_real:],)
+
+
+
+@st.fragment
+def plot_viewer(images, plot_type:str, version_id:int) -> None:
+    """Display plot images with previous and next navigation controls.
+
+    Args:
+        images (_type_): Cached plot images to display.
+        plot_type (str): Plot type used to distinguish session-state and widget keys.
+        version_id (int): Denotes the version of the workflow attempt.
+    """
+    index_key = f"{plot_type}_figure_idx_{version_id}"
+
+    if index_key not in st.session_state:
+        st.session_state[index_key] = 0
+
+    st.session_state[index_key] = min(
+        st.session_state[index_key],
+        len(images) - 1,
+    )
+
+    idx = st.session_state[index_key]
+
+    col_prev, col_count, col_next = st.columns([1, 8, 1])
+
+    with col_prev:
+        if st.button(
+            "←",
+            disabled=idx == 0,
+            key=f"previous_{plot_type}_{version_id}",
+        ):
+            st.session_state[index_key] -= 1
+            st.rerun(scope="fragment")
+
+    with col_count:
+        st.markdown(
+            f"<div style='text-align:center'>{idx + 1} / {len(images)}</div>",
+            unsafe_allow_html=True,
+        )
+
+    with col_next:
+        if st.button(
+            "→",
+            disabled=idx == len(images) - 1,
+            key=f"next_{plot_type}_{version_id}",
+        ):
+            st.session_state[index_key] += 1
+            st.rerun(scope="fragment")
+
+    idx = st.session_state[index_key]
+    st.image(images[idx]["data"], width="stretch")
+
+
+def _cache_pngs(directory: Path) -> list[dict]:
+    """Load PNG files from a directory into memory
+
+    Args:
+        directory (Path): Directory containing PNG files.
+
+    Returns:
+        list[dict]: Cached PNG data and filenames.
+    """
+    return [
+        {"name": path.name, "data": path.read_bytes()} for path in sorted(directory.glob("*.png"))
+    ]
+
+
+def _generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, output_dir:Path) -> dict:
+    """Generate and cache distribution, correlation, and SHAP plots.
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synth_df (pd.DataFrame): The synthetically generated dataframe.
+        output_dir (Path): Directory for storing generated plots.
+
+    Returns:
+        dict: Cached plot images grouped by plot type.
+    """
+    distribution_dir = output_dir / "distributions"
+    correlation_dir = output_dir / "correlations"
+    shap_dir = output_dir / "shap"
+
+    for directory in [distribution_dir, correlation_dir, shap_dir]:
+        directory.mkdir(parents=True, exist_ok=True)
+
+    # Distribution plots
+    syndat.visualization.plot_distributions(
+        real_df,
+        synth_df,
+        store_destination=str(distribution_dir),
+    )
+
+    # Correlation plots
+    real_corr, syn_corr = encode_for_correlation(real_df, synth_df)
+    syndat.plot_correlations(real_corr, syn_corr, store_destination=str(correlation_dir))
+
+    # SHAP discrimination plot
+    real_shap, syn_shap = encode_for_shap(real_df, synth_df)
+    shap_path = shap_dir / "shap_discrimination.png"
+
+    syndat.visualization.plot_shap_discrimination(real_shap, syn_shap, save_path=str(shap_path))
+
+    return {
+        "distributions": _cache_pngs(distribution_dir),
+        "correlations": _cache_pngs(correlation_dir),
+        "shap": _cache_pngs(shap_dir),
+    }
+
+
+def generate_plots_ui(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) -> dict:
+    """Generate, cache, store, and display distribution, correlation, and SHAP plots (UI).
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                        missing value markers replaced with nan (norm_na_df).
+        synth_df (pd.DataFrame): The synthetically generated dataframe.
+        version_id (int): Denotes the version of the workflow attempt.
+
+    Returns:
+        dict: Cached plot images grouped by plot type.
+    """
     output_dir = Path("../output") / "plots" / f"version_{version_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    syndat.visualization.plot_distributions(real_df, synth_df, store_destination=str(output_dir))
+    cache_key = f"plots_{version_id}"
 
-    png_files = sorted(output_dir.glob("*.png"))
+    if cache_key not in st.session_state:
+        st.session_state[cache_key] = _generate_plots(real_df, synth_df, output_dir)
 
-    st.write(f"Distribution plot for: {png_files[0].name}")
-    st.image(str(png_files[0]))
+    plots = st.session_state[cache_key]
 
-    st.info(f"=> Distribution plots for all features saved to: {output_dir}")
+    tab_dist, tab_corr, tab_shap = st.tabs([
+        "Distribution plots",
+        "Correlation plots",
+        "SHAP discrimination plot",
+    ])
 
-    return png_files
+    with tab_dist:
+        plot_viewer(plots["distributions"], "distribution", version_id)
+
+    with tab_corr:
+        st.write("Correlation plots")
+        plot_viewer(plots["correlations"], "correlation", version_id)
+
+    with tab_shap:
+        st.write("SHAP plot")
+        plot_viewer(plots["shap"], "shap", version_id)
+
+    return plots
 
 
 def evaluation(
@@ -663,7 +897,7 @@ def evaluation_ui(
         eval_plan = st.session_state.agent_evaluation
 
     info_helper_message(
-        message="The Agent has finished its evaluation of the synthetic dataset.",
+        message="The agent has finished its evaluation of the synthetic dataset.",
         context=(
             "The agent evaluated the synthetic dataset based on:\n- Your preferences.\n- "
             "Calculated syndat metrics.\n- Calculated Anonymeter metrics."
@@ -786,7 +1020,6 @@ def evaluation_review_ui(
         })
 
         st.rerun()
-
 
         finished = st.button(
             "Done asking questions",

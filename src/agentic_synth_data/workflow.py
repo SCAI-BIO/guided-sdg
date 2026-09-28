@@ -1,4 +1,5 @@
 import copy
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any, Hashable
 import os
@@ -12,8 +13,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, \
-    calculate_metrics_ui, evaluation, evaluation_review_ui, evaluation_ui, generate_plots, \
-    generate_plots_ui, write_report, calculate_attack_metrics, calculate_metrics, evaluation_review
+    calculate_metrics_ui, display_attack_metrics_ui, evaluation, evaluation_review_ui, evaluation_ui, \
+    generate_plots, generate_plots_ui, write_report, calculate_attack_metrics, calculate_metrics, \
+    evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
@@ -32,6 +34,19 @@ from agentic_synth_data.synthetic_generation.generation import select_generator,
     select_generator_ui, generator_profile, generator_profile_ui
 from agentic_synth_data.utils import df_formatter_st, format_response
 
+
+class StreamlitOutput:
+    def __init__(self):
+        self.placeholder = st.empty()
+        self.buffer = ""
+
+    def write(self, text):
+        if text:
+            self.buffer += text
+            self.placeholder.code(self.buffer)
+
+    def flush(self):
+        pass
 
 class DataGen:
     def __init__(self, data_path):
@@ -460,23 +475,31 @@ class DataGen:
             else:
                 sample_size = len(self.source_df)
 
-            with st.spinner(f"Generating data with {generator}..."):
-                self.synthetic_path, self.synthetic_df = strategy._run(
-                    n_samples=sample_size,
-                    prep_path=self.prepared_path,
-                    parameters=self.synthesis_request.generator.parameters,
-                    version_id=self.version_id,
+            with st.status(f"Generating data with {generator}...", expanded=True) as status:
+                output = StreamlitOutput()
+
+                with redirect_stdout(output):
+                    self.synthetic_path, self.synthetic_df = strategy._run(
+                        n_samples=sample_size,
+                        prep_path=self.prepared_path,
+                        parameters=self.synthesis_request.generator.parameters,
+                        version_id=self.version_id,
+                    )
+
+                status.update(
+                    label=f"=> Synthetic generation completed with {generator}.",
+                    state="complete",
+                    expanded=False,
                 )
 
             st.session_state.synthetic_path = self.synthetic_path
             st.session_state.synthetic_df = self.synthetic_df
-            st.session_state.generation_complete = True
+            st.session_state[f"generation_complete_{self.version_id}"] = True
 
             self.report.gen.synth_path = self.synthetic_path
             self.report.gen.synth_shape = self.synthetic_df.shape
             self.report.gen.params = self.synthesis_request.generator.parameters
 
-        st.info(f"=> Synthetic generation completed with {generator}.")
         df_formatter_st(self.synthetic_df.copy().head())
         st.write(
             "Note: Only the first five rows of the synthetic dataset are displayed on this page."
@@ -592,6 +615,9 @@ class DataGen:
         self.report.review.linkability = attack_metrics.linkability
         #self.report.review.selected_columns = attack_metrics.selected_columns # TODO link this
 
+        st.write("---")
+
+        st.subheader("View syndat plots")
         self.report.review.plots = generate_plots_ui(real_df, synth_df, self.version_id)
 
         st.write("---")
