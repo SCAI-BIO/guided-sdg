@@ -87,7 +87,6 @@ class DataGen:
             model_provider="openai",
             base_url=os.environ.get("BASE_URL"),
         )
-        #print("\n=> Model successfully created.")
         return model
 
 
@@ -178,8 +177,8 @@ class DataGen:
         # Initial check for missing value markers (can affect dtypes)
         st.subheader("Normalize missing values")
         st.write(
-            "1. Look for any missing value markers that should be encoded as null values within "
-            "the dataset prior to analysis."
+            "**Look for any missing value markers that should be encoded as null values within "
+            "the dataset prior to analysis.**"
         )
         source_df = self.source_df.copy()
         missing_report = missing_value_precheck_ui(source_df)
@@ -204,8 +203,8 @@ class DataGen:
 
         st.subheader("Handle data types")
         st.write(
-            "2. Automatically detect the majority Python data types present for each variable "
-            "(column) in the dataframe."
+            "Automatically detect the majority Python data types present for each variable "
+            "in the dataframe."
         )
         dtype_result = handle_dtypes_ui(norm_df)
 
@@ -219,7 +218,10 @@ class DataGen:
         st.write("---")
 
         st.subheader("Handle semantic types")
-        st.write("3. Have the agent determine the semantic meaning of each variable (column).")
+        st.write(
+            "Have the agent determine the semantic meaning of each variable based on "
+            "information found in the dataset."
+        )
 
         stype_result = handle_semantic_types_ui(
             df=self.dtype_handled_df, agent=self.agent, config=self.config,
