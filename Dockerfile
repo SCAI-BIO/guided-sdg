@@ -13,8 +13,4 @@ RUN uv sync --frozen --no-dev
 
 EXPOSE 8080
 
-# Setup an app user so the container doesn't run as the root user
-RUN useradd app
-USER app
-
 CMD ["uv", "run", "streamlit", "run", "src/agentic_synth_data/main.py", "--server.address=0.0.0.0", "--server.port=8080"]
