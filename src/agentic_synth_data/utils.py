@@ -1,13 +1,19 @@
 import textwrap
 import streamlit as st
 from typing import Literal, Optional, Type, TypeVar
+from pathlib import Path
 
 import pandas as pd
+from pandas.io.formats.style import Styler
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
+import streamlit as st
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEMO_DATA_DIR = PROJECT_ROOT / "demo_data"
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -36,6 +42,28 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
+def page_navigation(back_page:str, next_page:str, next_disabled:bool=False,):
+    st.markdown("""
+        <style>
+        div[data-testid="stPageLink"] a {
+            border: 1px solid #D3D3D3;
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            text-align: center;
+            display: block;
+            text-decoration: none;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.page_link(back_page, label="back", use_container_width=True,)
+
+    with col2:
+        st.page_link(next_page, label="continue", use_container_width=True, disabled=next_disabled,)
+
+
 def display_synthesis_request_st(synthesis_request:"SynthesisRequest") -> None:
     st.write(f"\n**Sample size mode:** {synthesis_request.sample_size.mode}")
 
@@ -60,14 +88,20 @@ def display_synthesis_request_st(synthesis_request:"SynthesisRequest") -> None:
         )
 
 
-def df_formatter_st(df:pd.DataFrame) -> None:
+def df_formatter_st(df:pd.DataFrame | Styler) -> None:
     """Format dataframes with consistent sizing when over 10 rows are present.
 
     Args:
         df (pd.DataFrame): The input dataframe.
     """
-    if len(df) > 10:
+    if isinstance(df, Styler):
+        n_rows = len(df.data)
+    else:
+        n_rows = len(df)
+
+    if n_rows > 10:
         st.dataframe(df, hide_index=True, width="stretch", height=400,)
+        st.caption("Scroll to view all variables.")
     else:
         st.dataframe(df, hide_index=True, width="stretch",)
 

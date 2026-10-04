@@ -3,6 +3,7 @@ import time
 
 import streamlit as st
 
+from agentic_synth_data.utils import DEMO_DATA_DIR
 from agentic_synth_data.workflow import DataGen
 
 
@@ -69,7 +70,7 @@ with col1:
 
     if tester:
         st.session_state.tester_selected = True
-        st.session_state.data_path = Path("../data/mix_titanic.csv")
+        st.session_state.data_path = DEMO_DATA_DIR / "mix_titanic.csv"
 
         st.success("Titanic dataset loaded.")
 

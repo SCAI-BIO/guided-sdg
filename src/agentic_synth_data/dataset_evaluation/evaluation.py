@@ -1,3 +1,4 @@
+from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Any
@@ -12,14 +13,31 @@ import pyinputplus as pyip
 import streamlit as st
 import syndat
 
-from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
-from agentic_synth_data.schemas.models import AgentEval
+from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
+from agentic_synth_data.schemas.models import AgentEval, SyndatOutputs
+from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, \
     info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
     eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.report import Report
+
+
+anonymeter_metric_descriptions = {
+    "singling_out": (
+        "Singling out risk, when it is possible to determine a single data record inside the "
+        "original dataset."
+    ),
+    "linkability": (
+        "Linkability risk, when it is possible to link two or more records within the same dataset "
+        "or in different ones."
+    ),
+    "inference": (
+        "Inference risk, when an attacker can confidently infer the value of an unknown variable "
+        "and its value of the original data."
+    ),
+}
 
 
 @dataclass
@@ -47,6 +65,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     Returns:
         dict: The decision plan based on the agent's assessment.
     """
+    # TODO: Add an output measuring variant for CLI functions
     jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
@@ -74,6 +93,83 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     }
 
 
+def jsd_table_html(jsd_results: dict[str, float]) -> str:
+    rows = []
+
+    for column, value in jsd_results.items():
+        if value > 0.5:
+            status = "High"
+            style = """
+                background-color:#fee2e2;
+                color:#991b1b;
+                font-weight:600;
+            """
+        elif value <= 0.1:
+            status = "Low"
+            style = """
+                background-color:#dcfce7;
+                color:#166534;
+                font-weight:600;
+            """
+        else:
+            status = "Moderate"
+            style = """
+                background-color:#fef3c7;
+                color:#92400e;
+                font-weight:600;
+            """
+
+        rows.append(f"""
+            <tr>
+                <td>{column}</td>
+                <td>{value:.4f}</td>
+                <td>
+                    <span style="
+                        display:inline-block;
+                        padding:4px 10px;
+                        border-radius:999px;
+                        {style}
+                    ">
+                        {status}
+                    </span>
+                </td>
+            </tr>
+        """)
+
+    return f"""
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px;">Column</th>
+                    <th style="text-align:left; padding:8px;">
+                        Jensen-Shannon Distance (JSD)
+                    </th>
+                    <th style="text-align:left; padding:8px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
+    """
+
+
+def show_anonymeter_warning(output:str) -> None:
+    """Show Anonymeter UserWarning initially and add an expandable box to allow for more information
+    to be visible.
+
+    Args:
+        output (str): Function output warning message.
+    """
+    start = output.find("UserWarning:")
+
+    if start != -1:
+        warning_summary = output[start:]
+
+        with st.expander(warning_summary):
+            st.code(output)
+
+
 def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
     """Calculate metrics comparing the original dataframe (optionally, with missing value markers
      removed) with the synthetic dataframe (UI).
@@ -98,7 +194,18 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
         "correlation difference\n- Discriminator AUC"
     )
     st.write("All of these metrics output a value between 0 and 1.")
-    jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+
+    jsd_output = StreamlitOutput()
+    norm_corr_diff_output = StreamlitOutput()
+    discrim_auc_output = StreamlitOutput()
+
+    with redirect_stdout(jsd_output):
+        jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+
+    if jsd_output.buffer:
+        with st.expander("UserWarning: Some variables may have been excluded for computation."):
+            st.warning(jsd_output.buffer)
+
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
     st.write("#### Jenson-Shannon Distances:")
@@ -116,9 +223,16 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
 
     df_formatter_st(jsd_table)
 
-    norm_corr_diff = syndat.metrics.normalized_correlation_difference(
-        real=real_df, synthetic=synthetic_df, ignore_cat=True,
-    )
+    st.html(jsd_table_html(jsd_results))
+
+    with redirect_stdout(norm_corr_diff_output):
+        norm_corr_diff = syndat.metrics.normalized_correlation_difference(
+            real=real_df, synthetic=synthetic_df, ignore_cat=True,
+        )
+
+    if norm_corr_diff_output.buffer:
+        with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
+            st.warning(norm_corr_diff_output.buffer)
 
     st.write("#### Normalized correlation difference:")
     st.write(
@@ -131,12 +245,25 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     st.write(f"{round(norm_corr_diff, 4)}")
 
     if len(synthetic_df) < 2:
-        # TODO: also move to CLI
         st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
         discrim_auc = None
 
+        SyndatOutputs(
+            jsd=jsd_output.buffer or None,
+            norm_corr_diff=norm_corr_diff_output.buffer or None,
+            discrim_auc=discrim_auc_output.buffer or None,
+        )
+
     else:
-        discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
+        with redirect_stdout(discrim_auc_output):
+            discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
+
+        if discrim_auc_output.buffer:
+            with st.expander(
+                "UserWarning: A message has been output by syndat discrimination AUC tool"
+            ):
+                st.warning(discrim_auc_output.buffer)
+
         st.write("#### Discriminator AUC:")
         st.write(
             "Discriminator Area Under the Curve (AUC) is a value between 0 and 1. An AUC near 0.5 "
@@ -144,6 +271,12 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
             "to distinguish between."
         )
         st.write(f"{round(discrim_auc, 4)}")
+
+        SyndatOutputs(
+            jsd=jsd_output.buffer or None,
+            norm_corr_diff=norm_corr_diff_output.buffer or None,
+            discrim_auc=discrim_auc_output.buffer or None,
+        )
 
     return {
         "jsd": jsd_results,
@@ -158,7 +291,7 @@ def calculate_attack_metrics(
         synthetic_df:pd.DataFrame,
         semantic_types:dict[str, str],
         dtypes:dict[str, str],
-        agent:Optional[CompiledStateGraph] | None = None, 
+        agent:Optional[CompiledStateGraph] | None = None,
         config:dict | None = None
     ) -> AttackMetrics:
     """Calculate Anonymeter metrics with agent assistance for column selection.
@@ -256,11 +389,18 @@ def calculate_attack_metrics(
         f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
         f" and {round(linkability_risk.ci[1]*100,3)}%")
 
+    outputs = AttackOutputs(
+        singling_out=so_risk_output.buffer or None,
+        inference=inference_risk_output.buffer or None,
+        linkability=link_risk_output.buffer or None,
+    )
+
     return AttackMetrics(
         singling_out= singling_out_risk,
         inference=inference_risk,
         linkability=linkability_risk,
         selected_cols=selected_cols,
+        output_messages=outputs,
     )
 
 
@@ -291,6 +431,12 @@ def calculate_attack_metrics_ui(
         inference risk).
     """
     st.subheader("Privacy metrics")
+    st.write(
+        "The synthetic dataset should also preserve privacy such that no sensitive information can "
+        "be derived nor determined from the dataset. We record the following metrics from "
+        "anonymeter to determine the dataset's privacy."
+    )
+
     anonymeter_input = prepare_anonymeter_input(
         train_df=train_df,
         test_df=test_df,
@@ -303,17 +449,30 @@ def calculate_attack_metrics_ui(
     test_df = anonymeter_input.test_df
     synthetic_df = anonymeter_input.synthetic_df
 
-    with st.spinner("Evaluating singling out risk..."):
-        singling_out = SinglingOutEvaluator(
-            ori=train_df,
-            syn=synthetic_df,
-            max_attempts=1_000,
-            control=test_df,
-        )
-        singling_out.evaluate()
-        singling_out_risk = singling_out.risk()
+    so_risk_output = StreamlitOutput()
+    link_risk_output = StreamlitOutput()
+    inference_risk_output = StreamlitOutput()
 
-    write_attack_metric_ui("Singling out", singling_out_risk)
+    with st.spinner("Evaluating singling out risk..."):
+        with redirect_stderr(so_risk_output):
+            singling_out = SinglingOutEvaluator(
+                ori=train_df,
+                syn=synthetic_df,
+                max_attempts=1_000,
+                control=test_df,
+            )
+
+            singling_out.evaluate()
+            singling_out_risk = singling_out.risk()
+
+    if so_risk_output.buffer:
+        show_anonymeter_warning(so_risk_output.buffer)
+
+    write_attack_metric_ui(
+        metric_name="Singling out",
+        metric=singling_out_risk,
+        description=anonymeter_metric_descriptions["singling_out"],
+    )
 
     prompt = attack_column_selection_message(semantic_types=semantic_types)
     with st.spinner("Agent is selecting columns to calculate metrics..."):
@@ -340,43 +499,68 @@ def calculate_attack_metrics_ui(
     st.write(selected_cols.rationale)
 
     with st.spinner("Evaluating inference risk..."):
-        inference = InferenceEvaluator(
-            ori=train_df,
-            syn=synthetic_df,
-            aux_cols=selected_cols.inference_aux_cols,
-            secret=selected_cols.secret,
-            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-            control=test_df,
-        )
+        with redirect_stderr(inference_risk_output):
+            inference = InferenceEvaluator(
+                ori=train_df,
+                syn=synthetic_df,
+                aux_cols=selected_cols.inference_aux_cols,
+                secret=selected_cols.secret,
+                n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+                control=test_df,
+            )
 
-        inference.evaluate()
-        inference_risk = inference.risk()
+            inference.evaluate()
+            inference_risk = inference.risk()
 
-    write_attack_metric_ui("Inference", inference_risk)
+    if inference_risk_output.buffer:
+        show_anonymeter_warning(inference_risk_output.buffer)
+
+    write_attack_metric_ui(
+        metric_name="Inference",
+        metric=inference_risk,
+        description=anonymeter_metric_descriptions["inference"]
+    )
 
     with st.spinner("Evaluating linkability risk..."):
-        linkability = LinkabilityEvaluator(
-            ori=train_df,
-            syn=synthetic_df,
-            aux_cols=selected_cols.linkability_aux_cols,
-            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-            control=test_df,
-        )
+        with redirect_stderr(link_risk_output):
+            linkability = LinkabilityEvaluator(
+                ori=train_df,
+                syn=synthetic_df,
+                aux_cols=selected_cols.linkability_aux_cols,
+                n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+                control=test_df,
+            )
 
-        linkability.evaluate()
-        linkability_risk = linkability.risk()
+            linkability.evaluate()
+            linkability_risk = linkability.risk()
 
-    write_attack_metric_ui("Linkability", linkability_risk)
+    if link_risk_output.buffer:
+        show_anonymeter_warning(link_risk_output.buffer)
+
+    write_attack_metric_ui(
+        metric_name="Linkability",
+        metric=linkability_risk,
+        description=anonymeter_metric_descriptions["linkability"],
+    )
+
+    outputs = AttackOutputs(
+        singling_out=so_risk_output.buffer or None,
+        inference=inference_risk_output.buffer or None,
+        linkability=link_risk_output.buffer or None,
+    )
+    st.write("---\n EXample")
+    st.write(outputs)
 
     return AttackMetrics(
         singling_out= singling_out_risk,
         inference=inference_risk,
         linkability=linkability_risk,
         selected_cols=selected_cols,
+        output_messages=outputs,
     )
 
 
-def display_attack_metrics_ui(attack_metrics: AttackMetrics) -> None:
+def display_attack_metrics_ui(attack_metrics: AttackMetrics, description:dict[str, str]) -> None:
     """Display what was calculated from Anonymeter's functions and the variables that were used
     to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
     run.
@@ -384,15 +568,30 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics) -> None:
     Args:
         attack_metrics (AttackMetrics): Stores information regarding privacy metrics to be 
                                         displayed.
+        description (dict[str, str]): Quick overview of attack metrics.
     """
     st.subheader("Privacy metrics")
+    st.write(
+        "The synthetic dataset should also preserve privacy such that no sensitive information can "
+        "be derived nor determined from the dataset. We record the following metrics from "
+        "anonymeter to determine the dataset's privacy."
+    )
 
     singling_out_risk = attack_metrics.singling_out
     inference_risk = attack_metrics.inference
     linkability_risk = attack_metrics.linkability
     selected_cols = attack_metrics.selected_cols
 
-    write_attack_metric_ui("Singling out", singling_out_risk)
+    outputs = attack_metrics.output_messages
+
+    write_attack_metric_ui(
+        metric_name="Singling out",
+        metric=singling_out_risk,
+        description=description["singling_out"],
+    )
+
+    if outputs.singling_out:
+        st.warning(outputs.singling_out)
 
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",
@@ -406,23 +605,39 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics) -> None:
         f" columns: {selected_cols.inference_aux_cols}\n  - Secret "
         f"column: {selected_cols.secret}\n\nRationale:"
     )
+
     st.write(selected_cols.rationale)
 
-    write_attack_metric_ui("Inference", inference_risk)
+    write_attack_metric_ui(
+        metric_name="Inference",
+        metric=inference_risk,
+        description=description["inference"],
+    )
 
-    write_attack_metric_ui("Linkability", linkability_risk)
+    if outputs.inference:
+        st.warning(outputs.inference)
 
+    write_attack_metric_ui(
+        metric_name="Linkability",
+        metric=linkability_risk,
+        description=description["linkability"],
+    )
 
-def write_attack_metric_ui(metric_name:str, metric) -> None:
+    if outputs.linkability:
+        st.warning(outputs.linkability)
+
+def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:str) -> None:
     """Display privacy metric information.
 
     Args:
         metric_name (str): Name of the metric (for display).
-        metric (_type_): Details (e.g., value and confidence interval) for each metric.
+        metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
+        description (str): Basic explanation of the metric for a quick overview.
     """
     st.write(
-        f"#### {metric_name} risk:\n  - Value: {round(metric.value*100, 3)}%\n  - Confidence "
-        f"interval: between {round(metric.ci[0]*100,3)}% and {round(metric.ci[1]*100,3)}%"
+        f"#### {metric_name} risk:\n{description}\n - Value: {round(metric.value*100, 3)}%\n  - "
+        f"Confidence interval: between {round(metric.ci[0]*100,3)}% and {round(metric.ci[1]*100,3)}"
+        "%"
     )
 
 
@@ -569,12 +784,22 @@ def prepare_anonymeter_input(
         train_df=train,
         test_df=test,
         synthetic_df=synthetic,
-        missing_markers=markers
+        missing_markers=markers,
     )
 
 
-def generate_plots(real_df, synth_df, version_id):
-    """Plot feature distributions and store files."""
+def generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) -> list[Path]:
+    """Plot feature distributions and store files.
+
+    Args:
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                        missing value markers replaced with nan (norm_na_df).
+        synth_df (pd.DataFrame): The synthetically generated dataframe.
+        version_id (int): Denotes the version of the workflow attempt.
+
+    Returns:
+        list[Path]: JSD plot images.
+    """
     output_dir = Path("../output") / "plots" / f"version_{version_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -826,7 +1051,9 @@ def evaluation(
         AgentEval: The decision plan based on the agent's assessment.
     """
     request_dict = synthesis_request.model_dump()
-    prompt = evaluation_prompt(synthesis_request=request_dict, metrics=metrics, attack_metrics=attack_metrics)
+    prompt = evaluation_prompt(
+        synthesis_request=request_dict, metrics=metrics, attack_metrics=attack_metrics
+    )
 
     print("\nAgent is evaluating the results...")
 

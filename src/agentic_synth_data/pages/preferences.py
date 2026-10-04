@@ -1,5 +1,7 @@
 import streamlit as st
 
+from agentic_synth_data.utils import page_navigation
+
 
 st.sidebar.title("GuidedSDG")
 
@@ -20,22 +22,7 @@ st.write(
 gen = st.session_state.gen
 request = gen.apply_preferences_ui()
 
-def go_next():
-    if request is None:
-        st.warning("Please complete all preference selections before continuing.")
-    else:
-        st.session_state.gen.synthesis_request = request
-        st.switch_page("pages/handle_dtypes.py")
+if request is not None:
+    st.session_state.gen.synthesis_request = request
 
-def go_back():
-    # TODO: Add a warning (are you sure you want to go back to x step?)
-    st.switch_page("pages/setup.py")
-
-col1, col2 = st.columns(2)
-with col1:
-    back = st.button("back", on_click=go_back, key="preferences_back",)
-    # add an " are you sure you want to go back button"
-
-with col2:
-    # make continue pop up once everything is done
-    cont = st.button("continue", on_click=go_next, key="preferences_cont",)
+page_navigation(back_page="pages/setup.py", next_page="pages/handle_dtypes.py", next_disabled=request is None,)

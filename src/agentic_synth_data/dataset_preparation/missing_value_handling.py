@@ -627,7 +627,6 @@ def handle_missing_values_ui(
                 st.write(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
 
             if len(updated_plan["warning"]) > 0:
-                st.write("Warning:")
                 st.warning(f"- Warning: {updated_plan['warning'][0]}")
 
             st.write("Rationale behind the suggestion:")

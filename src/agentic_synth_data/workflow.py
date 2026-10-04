@@ -13,9 +13,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
 from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, \
-    calculate_metrics_ui, display_attack_metrics_ui, evaluation, evaluation_review_ui, evaluation_ui, \
-    generate_plots, generate_plots_ui, write_report, calculate_attack_metrics, calculate_metrics, \
-    evaluation_review
+    calculate_metrics_ui, display_attack_metrics_ui, evaluation, evaluation_review_ui, \
+    evaluation_ui, generate_plots, generate_plots_ui, write_report, calculate_attack_metrics, \
+    calculate_metrics, evaluation_review
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
@@ -29,24 +29,12 @@ from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
 from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui, revision_tabs_ui
 from agentic_synth_data.schemas.models import AgentEval
+from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
 from agentic_synth_data.utils import df_formatter_st, format_response
 
-
-class StreamlitOutput:
-    def __init__(self):
-        self.placeholder = st.empty()
-        self.buffer = ""
-
-    def write(self, text):
-        if text:
-            self.buffer += text
-            self.placeholder.code(self.buffer)
-
-    def flush(self):
-        pass
 
 class DataGen:
     def __init__(self, data_path):
@@ -592,8 +580,8 @@ class DataGen:
 
         attack_key = f"attack_metrics_{self.version_id}"
 
+        # Anonymeter metrics take longer to load, so they are saved for display upon page reload.
         with col2:
-            # Anonymeter metrics take longer to load, so they are saved for display upon page reload.
             if attack_key not in st.session_state:
                 attack_metrics = calculate_attack_metrics_ui(
                     train_df=self.train_df,
