@@ -53,7 +53,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
      removed) with the synthetic dataframe.
 
     Calculates SYNDAT metrics:
-    - Jenson-Shannon Distance
+    - Jensen-Shannon Distance
     - Normalized Correlation Difference
     - Discriminator AUC
 
@@ -69,7 +69,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    print("\nJenson-Shannon Distances:")
+    print("\nJensen-Shannon Distances:")
     for col, jsd_score in jsd_results.items():
         print(col, round(jsd_score, 4))
 
@@ -93,67 +93,6 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     }
 
 
-def jsd_table_html(jsd_results: dict[str, float]) -> str:
-    rows = []
-
-    for column, value in jsd_results.items():
-        if value > 0.5:
-            status = "High"
-            style = """
-                background-color:#fee2e2;
-                color:#991b1b;
-                font-weight:600;
-            """
-        elif value <= 0.1:
-            status = "Low"
-            style = """
-                background-color:#dcfce7;
-                color:#166534;
-                font-weight:600;
-            """
-        else:
-            status = "Moderate"
-            style = """
-                background-color:#fef3c7;
-                color:#92400e;
-                font-weight:600;
-            """
-
-        rows.append(f"""
-            <tr>
-                <td>{column}</td>
-                <td>{value:.4f}</td>
-                <td>
-                    <span style="
-                        display:inline-block;
-                        padding:4px 10px;
-                        border-radius:999px;
-                        {style}
-                    ">
-                        {status}
-                    </span>
-                </td>
-            </tr>
-        """)
-
-    return f"""
-        <table style="width:100%; border-collapse:collapse;">
-            <thead>
-                <tr>
-                    <th style="text-align:left; padding:8px;">Column</th>
-                    <th style="text-align:left; padding:8px;">
-                        Jensen-Shannon Distance (JSD)
-                    </th>
-                    <th style="text-align:left; padding:8px;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {''.join(rows)}
-            </tbody>
-        </table>
-    """
-
-
 def show_anonymeter_warning(output:str) -> None:
     """Show Anonymeter UserWarning initially and add an expandable box to allow for more information
     to be visible.
@@ -167,7 +106,25 @@ def show_anonymeter_warning(output:str) -> None:
         warning_summary = output[start:]
 
         with st.expander(warning_summary):
-            st.code(output)
+            st.warning(output)
+
+
+def style_status(value: str) -> str:
+    """Attribute cell status marker for Jensen-Shannon Distance (JSD) to a specific color. 
+
+    Args:
+        value (str): JSD value.
+
+    Returns:
+        str: Color specifications.
+    """
+    if value == "High":
+        return "background-color:#fee2e2; color:#991b1b; font-weight:600;"
+    if value == "Moderate":
+        return "background-color:#fef3c7; color:#92400e; font-weight:600;"
+    if value == "Low":
+        return "background-color:#dcfce7; color:#166534; font-weight:600;"
+    return ""
 
 
 def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
@@ -175,7 +132,7 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
      removed) with the synthetic dataframe (UI).
 
     Calculates SYNDAT metrics:
-    - Jenson-Shannon Distance
+    - Jensen-Shannon Distance
     - Normalized Correlation Difference
     - Discriminator AUC
 
@@ -190,27 +147,23 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     st.subheader("Fidelity and utility metrics")
     st.write(
         "The synthetic data should resemble the original dataset. We record the following metrics "
-        "from syndat to determine the dataset's fidelity:\n- Jenson-Shannon Distance\n- Normalized "
+        "from syndat to determine the dataset's fidelity:\n- Jensen-Shannon Distance\n- Normalized "
         "correlation difference\n- Discriminator AUC"
     )
     st.write("All of these metrics output a value between 0 and 1.")
 
-    jsd_output = StreamlitOutput()
-    norm_corr_diff_output = StreamlitOutput()
-    discrim_auc_output = StreamlitOutput()
+    jsd_output = StreamlitOutput(live=False)
+    norm_corr_diff_output = StreamlitOutput(live=False)
+    discrim_auc_output = StreamlitOutput(live=False)
 
-    with redirect_stdout(jsd_output):
+    with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
         jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
-
-    if jsd_output.buffer:
-        with st.expander("UserWarning: Some variables may have been excluded for computation."):
-            st.warning(jsd_output.buffer)
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    st.write("#### Jenson-Shannon Distances:")
+    st.write("#### Jensen-Shannon Distances:")
     st.write(
-        "Jenson-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
+        "Jensen-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
         "across your real and the synthetic dataset. A value that is closer to 0 indicates that "
         "the statistical distributions identically match the real and synthetic datasets, which is "
         "favorable."
@@ -218,21 +171,31 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
 
     jsd_table = pd.DataFrame({
         "Column": jsd_results.keys(),
-        "Jenson-Shannon Distance (JSD)": jsd_results.values(),
+        "JSD": jsd_results.values(),
     })
 
-    df_formatter_st(jsd_table)
+    jsd_table["Status"] = jsd_table["JSD"].apply(
+        lambda x: "High" if x > 0.5
+        else "Low" if x <= 0.1
+        else "Moderate"
+    )
 
-    st.html(jsd_table_html(jsd_results))
+    styled_jsd_table = (
+        jsd_table.style
+        .map(style_status, subset=["Status"])
+        .format({"JSD": "{:.4f}"})
+    )
 
-    with redirect_stdout(norm_corr_diff_output):
+    df_formatter_st(styled_jsd_table)
+
+    if jsd_output.buffer:
+        with st.expander("UserWarning: Some variables may have been excluded for computation."):
+            st.warning(jsd_output.buffer)
+
+    with redirect_stdout(norm_corr_diff_output), redirect_stderr(norm_corr_diff_output):
         norm_corr_diff = syndat.metrics.normalized_correlation_difference(
             real=real_df, synthetic=synthetic_df, ignore_cat=True,
         )
-
-    if norm_corr_diff_output.buffer:
-        with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
-            st.warning(norm_corr_diff_output.buffer)
 
     st.write("#### Normalized correlation difference:")
     st.write(
@@ -243,6 +206,10 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
         "positive and the other negative."
     )
     st.write(f"{round(norm_corr_diff, 4)}")
+
+    if norm_corr_diff_output.buffer:
+        with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
+            st.warning(norm_corr_diff_output.buffer)
 
     if len(synthetic_df) < 2:
         st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
@@ -255,14 +222,8 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
         )
 
     else:
-        with redirect_stdout(discrim_auc_output):
+        with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
             discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
-
-        if discrim_auc_output.buffer:
-            with st.expander(
-                "UserWarning: A message has been output by syndat discrimination AUC tool"
-            ):
-                st.warning(discrim_auc_output.buffer)
 
         st.write("#### Discriminator AUC:")
         st.write(
@@ -271,6 +232,12 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
             "to distinguish between."
         )
         st.write(f"{round(discrim_auc, 4)}")
+
+        if discrim_auc_output.buffer:
+            with st.expander(
+                "UserWarning: A message has been output by syndat discrimination AUC tool"
+            ):
+                st.warning(discrim_auc_output.buffer)
 
         SyndatOutputs(
             jsd=jsd_output.buffer or None,
@@ -395,6 +362,8 @@ def calculate_attack_metrics(
         linkability=link_risk_output.buffer or None,
     )
 
+    # TODO: include in report
+
     return AttackMetrics(
         singling_out= singling_out_risk,
         inference=inference_risk,
@@ -449,12 +418,12 @@ def calculate_attack_metrics_ui(
     test_df = anonymeter_input.test_df
     synthetic_df = anonymeter_input.synthetic_df
 
-    so_risk_output = StreamlitOutput()
-    link_risk_output = StreamlitOutput()
-    inference_risk_output = StreamlitOutput()
+    so_risk_output = StreamlitOutput(live=False)
+    link_risk_output = StreamlitOutput(live=False)
+    inference_risk_output = StreamlitOutput(live=False)
 
     with st.spinner("Evaluating singling out risk..."):
-        with redirect_stderr(so_risk_output):
+        with redirect_stdout(so_risk_output), redirect_stderr(so_risk_output):
             singling_out = SinglingOutEvaluator(
                 ori=train_df,
                 syn=synthetic_df,
@@ -465,14 +434,14 @@ def calculate_attack_metrics_ui(
             singling_out.evaluate()
             singling_out_risk = singling_out.risk()
 
-    if so_risk_output.buffer:
-        show_anonymeter_warning(so_risk_output.buffer)
-
     write_attack_metric_ui(
         metric_name="Singling out",
         metric=singling_out_risk,
         description=anonymeter_metric_descriptions["singling_out"],
     )
+
+    if so_risk_output.buffer:
+        show_anonymeter_warning(so_risk_output.buffer)
 
     prompt = attack_column_selection_message(semantic_types=semantic_types)
     with st.spinner("Agent is selecting columns to calculate metrics..."):
@@ -499,7 +468,7 @@ def calculate_attack_metrics_ui(
     st.write(selected_cols.rationale)
 
     with st.spinner("Evaluating inference risk..."):
-        with redirect_stderr(inference_risk_output):
+        with redirect_stdout(inference_risk_output), redirect_stderr(inference_risk_output):
             inference = InferenceEvaluator(
                 ori=train_df,
                 syn=synthetic_df,
@@ -512,17 +481,17 @@ def calculate_attack_metrics_ui(
             inference.evaluate()
             inference_risk = inference.risk()
 
-    if inference_risk_output.buffer:
-        show_anonymeter_warning(inference_risk_output.buffer)
-
     write_attack_metric_ui(
         metric_name="Inference",
         metric=inference_risk,
         description=anonymeter_metric_descriptions["inference"]
     )
 
+    if inference_risk_output.buffer:
+        show_anonymeter_warning(inference_risk_output.buffer)
+
     with st.spinner("Evaluating linkability risk..."):
-        with redirect_stderr(link_risk_output):
+        with redirect_stdout(link_risk_output), redirect_stderr(link_risk_output):
             linkability = LinkabilityEvaluator(
                 ori=train_df,
                 syn=synthetic_df,
@@ -534,22 +503,21 @@ def calculate_attack_metrics_ui(
             linkability.evaluate()
             linkability_risk = linkability.risk()
 
-    if link_risk_output.buffer:
-        show_anonymeter_warning(link_risk_output.buffer)
-
     write_attack_metric_ui(
         metric_name="Linkability",
         metric=linkability_risk,
         description=anonymeter_metric_descriptions["linkability"],
     )
 
+    if link_risk_output.buffer:
+        show_anonymeter_warning(link_risk_output.buffer)
+
     outputs = AttackOutputs(
         singling_out=so_risk_output.buffer or None,
         inference=inference_risk_output.buffer or None,
         linkability=link_risk_output.buffer or None,
     )
-    st.write("---\n EXample")
-    st.write(outputs)
+    # TODO: Tie outputs in with the report
 
     return AttackMetrics(
         singling_out= singling_out_risk,
@@ -591,7 +559,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description:dict[st
     )
 
     if outputs.singling_out:
-        st.warning(outputs.singling_out)
+        show_anonymeter_warning(outputs.singling_out)
 
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",
@@ -615,7 +583,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description:dict[st
     )
 
     if outputs.inference:
-        st.warning(outputs.inference)
+        show_anonymeter_warning(outputs.inference)
 
     write_attack_metric_ui(
         metric_name="Linkability",
@@ -624,7 +592,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description:dict[st
     )
 
     if outputs.linkability:
-        st.warning(outputs.linkability)
+        show_anonymeter_warning(outputs.linkability)
 
 def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:str) -> None:
     """Display privacy metric information.
@@ -800,7 +768,8 @@ def generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) 
     Returns:
         list[Path]: JSD plot images.
     """
-    output_dir = Path("../output") / "plots" / f"version_{version_id}"
+    # TODO: verify whether path needs to be fixed here too
+    output_dir = Path("../output") / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     syndat.visualization.plot_distributions(real_df, synth_df, store_destination=str(output_dir))
@@ -848,6 +817,8 @@ def encode_for_correlation(
     # Exclude high-cardinality categoricals from Pearson correlation
     encoded = encoded.drop(columns=high_cardinality)
 
+    # TODO: add a limit to the encoding (perhaps preferring first to encode smaller card. cols first)
+
     return (encoded.iloc[:n_real], encoded.iloc[n_real:],)
 
 
@@ -878,13 +849,14 @@ def encode_for_shap(
 
 
 @st.fragment
-def plot_viewer(images, plot_type:str, version_id:int) -> None:
+def plot_viewer(images, plot_type:str, version_id:int, show_filename=False,) -> None:
     """Display plot images with previous and next navigation controls.
 
     Args:
         images (_type_): Cached plot images to display.
         plot_type (str): Plot type used to distinguish session-state and widget keys.
         version_id (int): Denotes the version of the workflow attempt.
+        show_filename (bool): Whether filename should be displayed. Defaults to False.
     """
     index_key = f"{plot_type}_figure_idx_{version_id}"
 
@@ -925,6 +897,8 @@ def plot_viewer(images, plot_type:str, version_id:int) -> None:
             st.rerun(scope="fragment")
 
     idx = st.session_state[index_key]
+    if show_filename:
+        st.caption(Path(images[idx]["name"]).name)
     st.image(images[idx]["data"], width="stretch")
 
 
@@ -963,20 +937,28 @@ def _generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, output_dir:Path
 
     # Distribution plots
     syndat.visualization.plot_distributions(
-        real_df,
-        synth_df,
+        real=real_df,
+        synthetic=synth_df,
         store_destination=str(distribution_dir),
     )
 
     # Correlation plots
     real_corr, syn_corr = encode_for_correlation(real_df, synth_df)
-    syndat.plot_correlations(real_corr, syn_corr, store_destination=str(correlation_dir))
+    syndat.visualization.plot_correlations(
+        real=real_corr,
+        synthetic=syn_corr,
+        store_destination=str(correlation_dir),
+    )
 
     # SHAP discrimination plot
     real_shap, syn_shap = encode_for_shap(real_df, synth_df)
     shap_path = shap_dir / "shap_discrimination.png"
 
-    syndat.visualization.plot_shap_discrimination(real_shap, syn_shap, save_path=str(shap_path))
+    syndat.visualization.plot_shap_discrimination(
+        real=real_shap,
+        synthetic=syn_shap,
+        save_path=str(shap_path),
+    )
 
     return {
         "distributions": _cache_pngs(distribution_dir),
@@ -997,7 +979,7 @@ def generate_plots_ui(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:in
     Returns:
         dict: Cached plot images grouped by plot type.
     """
-    output_dir = Path("../output") / "plots" / f"version_{version_id}"
+    output_dir = Path("output") / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     cache_key = f"plots_{version_id}"
@@ -1014,15 +996,28 @@ def generate_plots_ui(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:in
     ])
 
     with tab_dist:
-        plot_viewer(plots["distributions"], "distribution", version_id)
+        plot_viewer(
+            images=plots["distributions"],
+            plot_type="distribution",
+            version_id=version_id,
+        )
 
     with tab_corr:
         st.write("Correlation plots")
-        plot_viewer(plots["correlations"], "correlation", version_id)
+        plot_viewer(
+            images=plots["correlations"],
+            plot_type="correlation",
+            version_id=version_id,
+            show_filename=True,
+        )
 
     with tab_shap:
         st.write("SHAP plot")
-        plot_viewer(plots["shap"], "shap", version_id)
+        plot_viewer(
+            images=plots["shap"],
+            plot_type="shap",
+            version_id=version_id,
+        )
 
     return plots
 
@@ -1282,9 +1277,11 @@ def write_report(report: Report, synthesis_request:SynthesisRequest, data_path: 
         version_id (int): Denotes the version of the workflow attempt.
     """
     request_dict = synthesis_request.model_dump()
+
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
-    output_path = Path("../output") / output_filename
+    output_path = Path("output") / f"version_{version_id}" / output_filename
+
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("# SYNTHETIC DATA GENERATION REPORT\n")
 

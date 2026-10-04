@@ -15,7 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, \
     calculate_metrics_ui, display_attack_metrics_ui, evaluation, evaluation_review_ui, \
     evaluation_ui, generate_plots, generate_plots_ui, write_report, calculate_attack_metrics, \
-    calculate_metrics, evaluation_review
+    calculate_metrics, evaluation_review, anonymeter_metric_descriptions
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
@@ -379,7 +379,7 @@ class DataGen:
 
         # The prepared data for generator tool input
         output_filename = f"{input_path.stem}_prepared.csv"
-        output_dir = Path("../data")
+        output_dir = Path("data")
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self.prepared_path = output_dir / output_filename
@@ -456,7 +456,7 @@ class DataGen:
 
         else:
             generator = self.synthesis_request.generator.name
-            Path("../output").mkdir(parents=True, exist_ok=True)
+            Path("output").mkdir(parents=True, exist_ok=True)
             strategy = get_generator_strategy(generator_name=generator)
 
             # Set sample size
@@ -598,7 +598,10 @@ class DataGen:
             else:
                 attack_metrics = st.session_state[attack_key]
 
-                display_attack_metrics_ui(attack_metrics=attack_metrics)
+                display_attack_metrics_ui(
+                    attack_metrics=attack_metrics,
+                    description=anonymeter_metric_descriptions,
+                )
 
         self.report.review.singling_out = attack_metrics.singling_out
         self.report.review.inference = attack_metrics.inference
