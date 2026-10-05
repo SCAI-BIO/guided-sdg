@@ -53,7 +53,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
      removed) with the synthetic dataframe.
 
     Calculates SYNDAT metrics:
-    - Jensen-Shannon Distance
+    - Jensen-Shannon Divergence
     - Normalized Correlation Difference
     - Discriminator AUC
 
@@ -69,7 +69,7 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
     jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    print("\nJensen-Shannon Distances:")
+    print("\nJensen-Shannon Divergences:")
     for col, jsd_score in jsd_results.items():
         print(col, round(jsd_score, 4))
 
@@ -110,7 +110,7 @@ def show_anonymeter_warning(output:str) -> None:
 
 
 def style_status(value: str) -> str:
-    """Attribute cell status marker for Jensen-Shannon Distance (JSD) to a specific color. 
+    """Attribute cell status marker for Jensen-Shannon Divergence (JSD) to a specific color. 
 
     Args:
         value (str): JSD value.
@@ -132,7 +132,7 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
      removed) with the synthetic dataframe (UI).
 
     Calculates SYNDAT metrics:
-    - Jensen-Shannon Distance
+    - Jensen-Shannon Divergence
     - Normalized Correlation Difference
     - Discriminator AUC
 
@@ -147,8 +147,8 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     st.subheader("Fidelity and utility metrics")
     st.write(
         "The synthetic data should resemble the original dataset. We record the following metrics "
-        "from syndat to determine the dataset's fidelity:\n- Jensen-Shannon Distance\n- Normalized "
-        "correlation difference\n- Discriminator AUC"
+        "from syndat to determine the dataset's fidelity:\n- Jensen-Shannon Divergence\n- "
+        "Normalized correlation difference\n- Discriminator AUC"
     )
     st.write("All of these metrics output a value between 0 and 1.")
 
@@ -161,9 +161,9 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    st.write("#### Jensen-Shannon Distances:")
+    st.write("#### Jensen-Shannon Divergences:")
     st.write(
-        "Jensen-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
+        "Jensen-Shannon Divergence (JSD) quantifies the statistical distributions of each variable "
         "across your real and the synthetic dataset. A value that is closer to 0 indicates that "
         "the statistical distributions identically match the real and synthetic datasets, which is "
         "favorable."
