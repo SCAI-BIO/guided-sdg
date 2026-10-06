@@ -14,9 +14,9 @@ import streamlit as st
 import syndat
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
-from agentic_synth_data.schemas.models import AgentEval, SyndatOutputs
+from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
-from agentic_synth_data.schemas.syndat_model import SyndatMetrics
+from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
 from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, \
     info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
@@ -221,12 +221,6 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
         st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
         discrim_auc = None
 
-        SyndatOutputs(
-            jsd=jsd_output.buffer or None,
-            norm_corr_diff=norm_corr_diff_output.buffer or None,
-            discrim_auc=discrim_auc_output.buffer or None,
-        )
-
     else:
         with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
             discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df,)
@@ -245,13 +239,18 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
             ):
                 st.warning(discrim_auc_output.buffer)
 
-        syndat_outputs = SyndatOutputs(
-            jsd=jsd_output.buffer or None,
-            norm_corr_diff=norm_corr_diff_output.buffer or None,
-            discrim_auc=discrim_auc_output.buffer or None,
-        )
+    syndat_outputs = SyndatOutputs(
+        jsd=jsd_output.buffer or None,
+        norm_corr_diff=norm_corr_diff_output.buffer or None,
+        discrim_auc=discrim_auc_output.buffer or None,
+    )
 
-    return syndat_outputs
+    return SyndatMetrics(
+        jsd=jsd_results,
+        norm_corr_diff=norm_corr_diff,
+        discrim_auc=discrim_auc,
+        output_messages=syndat_outputs,
+    )
 
 
 def calculate_attack_metrics(

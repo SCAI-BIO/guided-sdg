@@ -321,9 +321,11 @@ def select_generator_ui(
     info_helper_message(
         message="Agent generator evaluation completed.",
         context=(
-            "The agent created a generator suggestion based on:\n- Your preferences.\n- The "
-            "dataset's semantic types.\n- The cardinality of the columns.\n Potential summary "
-            "statistics and correlations."
+            "The agent created a generator suggestion based on:\n"
+            "- Your preferences.\n"
+            "- The dataset's semantic types.\n"
+            "- The cardinality of the columns.\n"
+            "Potential summary statistics and correlations."
         ),
         key="generator_selection_info",
     )

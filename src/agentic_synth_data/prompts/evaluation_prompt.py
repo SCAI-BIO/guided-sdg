@@ -1,5 +1,5 @@
 from textwrap import dedent
-from typing import Any, Literal
+from typing import Literal
 
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.schemas.models import AgentEval
@@ -142,8 +142,8 @@ def evaluation_prompt(
     {{
         "status": "satisfactory",
         "problem_columns": [],
-        "recommendation": "Specific next action. Mention which workflow step should be revisited if needed.",
-        "rationale": "Explain why this status was assigned, referring to average JSD, problem columns, generator fit, and any relevant workflow step."
+        "recommendation": "Define the next action; name the workflow step to revisit if needed.",
+        "rationale": "Justify the status using privacy and fidelity metrics, generator fit, problem features."
     }}
     """)
 
@@ -165,7 +165,7 @@ def eval_review_message(agent_decision:AgentEval, response:str):
 
 
 def attack_column_selection_message(
-    semantic_types: dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']],
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
 ) -> str:
     return dedent(f"""
     You need to come up with appropriate auxiliary columns and secret arguments for 

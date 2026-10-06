@@ -183,8 +183,10 @@ def handle_semantic_types_ui(
     info_helper_message(
         message="Agent semantic type inference completed.",
         context=(
-            "The agent inferred semantic types based on each column's:\n- Assigned data type.\n- "
-            "Present unique values.\n- Distribution of unique values."
+            "The agent inferred semantic types based on each column's:\n"
+            "- Assigned data type.\n"
+            "- Present unique values.\n"
+            "- Distribution of unique values."
         ),
         key="semantic_type_info",
     )

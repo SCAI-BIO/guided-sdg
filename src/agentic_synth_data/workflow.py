@@ -1,7 +1,7 @@
 import copy
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any, Hashable
+from typing import Any, Hashable, Literal
 import os
 
 import pandas as pd
@@ -46,7 +46,9 @@ class DataGen:
 
         self.synthesis_request: SynthesisRequest | None = None
         self.python_dtypes: dict[Hashable, str] | None = None
-        self.semantic_types: dict[str, str] | None = None
+        self.semantic_types: dict[
+            str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]
+        ] | None = None
 
         self.source_df: pd.DataFrame | None = None # Original data
         self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
@@ -230,6 +232,7 @@ class DataGen:
 
         df_formatter_st(final_dtypes)
 
+        # possible TODO: Leave train test split to when continue is pressed (maybe a 1 second delay before next page).
         self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
         st.info("=> Created train/test split") # TODO: show how many train and how many test?
         return self.train_df
@@ -390,6 +393,9 @@ class DataGen:
 
 
     def save_prepared_data_cli(self) -> Path:
+        """ Step 4: Setup tool data
+            i. Save the prepared data (CLI)
+        """
         print("\n\n")
         print("=" * 25 + "[STEP: Create metadata for tool use]" + "=" * 25)
 
@@ -449,7 +455,7 @@ class DataGen:
 
 
     def run_synthesis_ui(self):
-        """Step 5: Synthesize data"""
+        """Step 5: Synthesize data (UI)"""
         if st.session_state.get(f"generation_complete_{self.version_id}", False):
             self.synthetic_path = st.session_state.synthetic_path
             self.synthetic_df = st.session_state.synthetic_df
@@ -508,15 +514,14 @@ class DataGen:
             real_df = self.source_df.copy()
 
         real_df, synth_df = prepare_for_syndat(
-            real_df=real_df, 
-            synthetic_df=synth_df, 
-            semantic_types=self.semantic_types
+            real_df=real_df,
+            synthetic_df=synth_df,
+            semantic_types=self.semantic_types,
         )
 
-        metrics = calculate_metrics(real_df=real_df, synthetic_df=synth_df)
-        self.report.review.jsd = metrics["jsd"]
-        self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
-        self.report.review.discrim_auc = metrics["discrim_auc"]
+        syndat_metrics = calculate_metrics(real_df=real_df, synthetic_df=synth_df,)
+
+        self.report.evaluate.syndat = syndat_metrics
 
         attack_metrics = calculate_attack_metrics(
             train_df=self.train_df,
@@ -528,24 +533,26 @@ class DataGen:
             config=self.config,
         )
 
-        self.report.review.singling_out = attack_metrics.singling_out
-        self.report.review.inference = attack_metrics.inference
-        self.report.review.linkability = attack_metrics.linkability
-        #self.report.review.selected_columns = attack_metrics.selected_columns # TODO link this
+        self.report.evaluate.attack = attack_metrics
 
-        self.report.review.plots = generate_plots(real_df, synth_df, self.version_id)
+        self.report.evaluate.plots = generate_plots(
+            real_df=real_df, synth_df=synth_df, version_id=self.version_id,
+        )
+
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
-            metrics=metrics,
+            syndat_metrics=syndat_metrics,
             attack_metrics=attack_metrics,
             agent=self.agent,
             config=self.config,
         )
 
-        self.report.review.status = self.agent_decision.status
-        self.report.review.problem_columns = self.agent_decision.problem_columns
-        self.report.review.recommendation = self.agent_decision.recommendation
-        self.report.review.rationale = self.agent_decision.rationale
+        self.report.review = ReviewReport(
+            problem_columns=self.agent_decision.problem_columns,
+            status=self.agent_decision.status,
+            recommendation=self.agent_decision.recommendation,
+            rationale=self.agent_decision.rationale,
+        )
 
         write_report(
             report=self.report,
@@ -567,16 +574,14 @@ class DataGen:
         real_df, synth_df = prepare_for_syndat(
             real_df=real_df,
             synthetic_df=synth_df,
-            semantic_types=self.semantic_types
+            semantic_types=self.semantic_types,
         )
 
         col1, col2 = st.columns(2)
         with col1:
-            metrics = calculate_metrics_ui(real_df=real_df, synthetic_df=synth_df)
+            syndat_metrics = calculate_metrics_ui(real_df=real_df, synthetic_df=synth_df,)
 
-            self.report.review.jsd = metrics["jsd"]
-            self.report.review.norm_corr_diff = metrics["norm_corr_diff"]
-            self.report.review.discrim_auc = metrics["discrim_auc"]
+            self.report.evaluate.syndat = syndat_metrics
 
         attack_key = f"attack_metrics_{self.version_id}"
 
@@ -603,30 +608,32 @@ class DataGen:
                     description=anonymeter_metric_descriptions,
                 )
 
-        self.report.review.singling_out = attack_metrics.singling_out
-        self.report.review.inference = attack_metrics.inference
-        self.report.review.linkability = attack_metrics.linkability
-        #self.report.review.selected_columns = attack_metrics.selected_columns # TODO link this
+        self.report.evaluate.attack = attack_metrics
 
         st.write("---")
 
         st.subheader("View syndat plots")
-        self.report.review.plots = generate_plots_ui(real_df, synth_df, self.version_id)
+
+        self.report.evaluate.plots = generate_plots_ui(
+            real_df=real_df, synth_df=synth_df, version_id=self.version_id,
+        )
 
         st.write("---")
 
         self.agent_decision = evaluation_ui(
             synthesis_request=self.synthesis_request,
-            metrics=metrics,
+            syndat_metrics=syndat_metrics,
             attack_metrics=attack_metrics,
             agent=self.agent,
             config=self.config,
         )
 
-        self.report.review.status = self.agent_decision.status
-        self.report.review.problem_columns = self.agent_decision.problem_columns
-        self.report.review.recommendation = self.agent_decision.recommendation
-        self.report.review.rationale = self.agent_decision.rationale
+        self.report.review = ReviewReport(
+            problem_columns=self.agent_decision.problem_columns,
+            status=self.agent_decision.status,
+            recommendation=self.agent_decision.recommendation,
+            rationale=self.agent_decision.rationale,
+        )
 
         write_report(
             report=self.report,
@@ -642,7 +649,7 @@ class DataGen:
         print("="*25+"[END: Evaluate workflow]"+"="*25)
 
         choice = evaluation_review(
-            agent_decision=self.agent_decision, agent=self.agent, config=self.config
+            agent_decision=self.agent_decision, agent=self.agent, config=self.config,
         )
 
         if choice == "revise":
@@ -657,9 +664,9 @@ class DataGen:
             if selected_updates is not None:
                 for key, value in selected_updates.items():
                     if key == "update_params":
-                        self.report.review.selected_plan_updates[key] = value
+                        self.report.update.selected_plan_updates[key] = value
                     else:
-                        self.report.review.selected_plan_updates[key] = value.model_dump()
+                        self.report.update.selected_plan_updates[key] = value.model_dump()
 
                 revised = self.create_revision(selected_updates)
                 return revised
@@ -703,9 +710,9 @@ class DataGen:
             if selected_updates is not None:
                 for key, value in selected_updates.items():
                     if key == "update_params":
-                        self.report.review.selected_plan_updates[key] = value
+                        self.report.update.selected_plan_updates[key] = value
                     else:
-                        self.report.review.selected_plan_updates[key] = value.model_dump()
+                        self.report.update.selected_plan_updates[key] = value.model_dump()
 
                 revised = self.create_revision_ui(selected_updates)
 
@@ -861,13 +868,13 @@ class DataGen:
             print(f"\nNew missing handling strategy: {update_plan['update_missing'].mode}")
             print(f"\nReason: {update_plan['update_missing'].reason}")
 
-        self.report.review.selected_plan_updates = {}
+        self.report.update.selected_plan_updates = {}
 
         for key, value in update_plan.items():
-            if key == "update_params": # NOTE: "update_params" is a string.
-                self.report.review.selected_plan_updates[key] = value
+            if key == "update_params":
+                self.report.update.selected_plan_updates[key] = value
             else:
-                self.report.review.selected_plan_updates[key] = value.model_dump()
+                self.report.update.selected_plan_updates[key] = value.model_dump()
 
         self.preprocess_missing_vals()
         self.save_prepared_data()
@@ -881,24 +888,28 @@ class DataGen:
     def _rerun_selection_ui(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps (UI)."""
         if "update_mech" in update_plan:
-            st.write(f"New generator: {update_plan['update_mech'].generator_name}")
-            st.write("Reason:")
+            st.write(
+                f"New generator: {update_plan['update_mech'].generator_name}\n"
+                "Reason:\n"
+            )
             st.write(update_plan['update_mech'].reason)
 
         if "update_params" in update_plan:
             st.write(f"New parameter configuration: {update_plan['update_params']}")
 
         if "update_missing" in update_plan:
-            st.write(f"New missing handling strategy: {update_plan['update_missing'].mode}")
-            st.write(f"Reason: {update_plan['update_missing'].reason}")
+            st.write(
+                f"New missing handling strategy: {update_plan['update_missing'].mode}\n"
+                f"Reason: {update_plan['update_missing'].reason}"
+            )
 
-        self.report.review.selected_plan_updates = {}
+        self.report.update.selected_plan_updates = {}
 
         for key, value in update_plan.items():
-            if key == "update_params": # NOTE: "update_params" is a string.
-                self.report.review.selected_plan_updates[key] = value
+            if key == "update_params":
+                self.report.update.selected_plan_updates[key] = value
             else:
-                self.report.review.selected_plan_updates[key] = value.model_dump()
+                self.report.update.selected_plan_updates[key] = value.model_dump()
 
         self.preprocess_missing_vals_ui()
         self.save_prepared_data_ui()

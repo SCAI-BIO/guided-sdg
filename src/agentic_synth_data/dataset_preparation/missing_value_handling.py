@@ -603,10 +603,12 @@ def handle_missing_values_ui(
             info_helper_message(
                 message="Agent has finished coming up with suggestion.",
                 context=(
-                    "The agent suggested a missing value handling strategy based on:\n- The "
-                    "proportion of missing values for each column.\n- The number of rows with "
-                    "missing values.\n- Total rows in the dataset.\n- Your synthesis request.\n- "
-                    "The semantic data types of each column present in the dataset."
+                    "The agent suggested a missing value handling strategy based on:\n"
+                    "- The proportion of missing values for each column.\n"
+                    "- The number of rows with missing values.\n"
+                    "- Total rows in the dataset.\n"
+                    "- Your synthesis request.\n"
+                    "- The semantic data types of each column present in the dataset."
                 ),
                 key="missing_handling_info",
             )
