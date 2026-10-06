@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 import pyinputplus as pyip
@@ -9,33 +9,39 @@ from agentic_synth_data.utils import display_synthesis_request, display_synthesi
 
 
 class SampleSizeConfig(BaseModel):
+    """Synthesis request sample size configuration."""
     mode: Literal["fixed_value", "same_as_original"] | None = None
     fixed_value: int | None = None
 
 
 class PrivacyConfig(BaseModel):
+    """Synthesis request privacy configuration."""
     mode: Literal["standard", "differential_privacy"] = "standard"
     sensitive_columns: list[str] = Field(default_factory=list)
 
 
 class GeneratorConfig(BaseModel):
+    """Synthesis request generator configuration."""
     name: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"] | None = None
-    parameters: dict | None = None
+    parameters: dict[str, Any] | None = None
 
 
 class ImputationConfig(BaseModel):
+    """Synthesis request imputation configuration."""
     method: Literal["SimpleImputer"] | None = None
     categorical_strategy: Literal["auto", "most_frequent", "constant"] | None = None
     numerical_strategy: Literal["auto", "mean", "median", "most_frequent"] | None = None
 
 
 class MissingValueConfig(BaseModel):
+    """Synthesis request missing value handling configuration."""
     mode: Literal["auto", "impute", "threshold", "remove"] | None = None
     impute: ImputationConfig = Field(default_factory=ImputationConfig)
     threshold: int | None = None
 
 
 class SynthesisRequest(BaseModel):
+    """Configured synthesis request."""
     sample_size: SampleSizeConfig = Field(default_factory=SampleSizeConfig)
     privacy: PrivacyConfig = Field(default_factory=PrivacyConfig)
     generator: GeneratorConfig = Field(default_factory=GeneratorConfig)
@@ -43,15 +49,35 @@ class SynthesisRequest(BaseModel):
 
 
 def build_synthesis_request(
-    sample_size,
-    fixed_value,
-    privacy,
-    generator,
-    missing_values,
-    impute_method=None,
-    categorical_strategy=None,
-    numerical_strategy=None,
+    sample_size: Literal["fixed_value", "same_as_original"],
+    fixed_value: int,
+    privacy: Literal["standard", "differential_privacy"],
+    generator: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"],
+    missing_values: Literal["auto", "impute", "threshold", "remove"],
+    impute_method: Literal["SimpleImputer"] | None=None,
+    categorical_strategy: Literal["auto", "most_frequent", "constant"] | None=None,
+    numerical_strategy: Literal["auto", "mean", "median", "most_frequent"] | None=None,
 ) -> SynthesisRequest:
+    """Build the starting synthesis request from user configuration.
+
+    Args:
+        sample_size (Literal["fixed_value", "same_as_original"]): Sample size configuration mode.
+        fixed_value (int): Fixed sample size when using `fixed_value` mode.
+        privacy (Literal["standard", "differential_privacy"]): Privacy configuration mode.
+        generator (Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"]): Synthetic data 
+            generator to use.
+        missing_values (Literal["auto", "impute", "threshold", "remove"]): Missing value handling 
+            mode.
+        impute_method (Literal["SimpleImputer"] | None, optional): Imputation method. Defaults to 
+            None.
+        categorical_strategy (Literal["auto", "most_frequent", "constant"] | None, optional): 
+            Strategy for categorical imputation. Defaults to None.
+        numerical_strategy (Literal["auto", "mean", "median", "most_frequent"] | None, optional): 
+            Strategy for numerical imputation. Defaults to None.
+
+    Returns:
+        SynthesisRequest: Configured data synthesis request.
+    """
     request = SynthesisRequest()
 
     # Sample size
@@ -90,7 +116,7 @@ def select_preferences() -> SynthesisRequest:
     """Initial setup of user preferences.
 
     Returns:
-        dict[str, Any]: Dictionary of the user's preferences.
+        SynthesisRequest: Configured data synthesis request.
     """
     request = SynthesisRequest()
 
@@ -197,6 +223,11 @@ def select_preferences() -> SynthesisRequest:
 
 
 def select_preferences_ui() -> SynthesisRequest:
+    """Initial setup of user preferences (UI).
+    
+    Returns:
+        SynthesisRequest: Configured data synthesis request.
+    """
     fixed_value = None
     impute_method = None
     categorical_strategy = None
@@ -364,14 +395,14 @@ def select_preferences_ui() -> SynthesisRequest:
         st.stop()
 
     request = build_synthesis_request(
-                sample_size=sample_size,
-                fixed_value=fixed_value,
-                privacy=privacy,
-                generator=generator,
-                missing_values=missing_values,
-                impute_method=impute_method,
-                categorical_strategy=categorical_strategy,
-                numerical_strategy=numerical_strategy,
+        sample_size=sample_size,
+        fixed_value=fixed_value,
+        privacy=privacy,
+        generator=generator,
+        missing_values=missing_values,
+        impute_method=impute_method,
+        categorical_strategy=categorical_strategy,
+        numerical_strategy=numerical_strategy,
     )
 
     st.header("Your preferences have been recorded")

@@ -6,8 +6,8 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 
 
 def revision_message(
-        synthesis_request:SynthesisRequest, report:Report, agent_decision:AgentEval,
-    ) -> str:
+    synthesis_request: SynthesisRequest, report: Report, agent_decision: AgentEval,
+) -> str:
     """Remind agent of all steps taken so far the latest attempt in the workflow and other outputs
     associated with that attempt. This then prompts the agent to recommend a generator update
     (no params at this point).
@@ -60,11 +60,11 @@ def revision_message(
     {missing_handling}
 
     Syndat metrics:
-    Average jsd: {round(report.review.jsd['jsd_AVERAGE'], 4)}
-    Normalized correlation difference: {round(report.review.norm_corr_diff, 4)}
+    Average jsd: {round(report.evaluate.syndat.jsd['jsd_AVERAGE'], 4)}
+    Normalized correlation difference: {round(report.evaluate.syndat.norm_corr_diff, 4)}
     Discriminator AUC: {
-        round(report.review.discrim_auc, 4)
-        if report.review.discrim_auc is not None
+        round(report.evaluate.syndat.discrim_auc, 4)
+        if report.evaluate.syndat.discrim_auc is not None
         else "Not calculated"
     }
 

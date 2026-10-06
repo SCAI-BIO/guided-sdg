@@ -1,13 +1,13 @@
 from textwrap import dedent
-from typing import Any, Hashable
+from typing import Any, Hashable, Literal
 
 
 def missing_value_prompt(
-    proportion_missing:dict[Hashable, Any],
-    rows_with_missing:int,
-    total_rows:int,
-    synthesis_request:dict[str, Any],
-    semantic_types:dict[str, str],
+    proportion_missing: dict[Hashable, Any],
+    rows_with_missing: int,
+    total_rows: int,
+    synthesis_request: dict[str, Any],
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
 ) -> str:
     return dedent(f"""
     Current workflow step: missing value handling only.

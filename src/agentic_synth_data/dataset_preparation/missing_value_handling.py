@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Literal, Optional, Any
 
 import pandas as pd
 import numpy as np
@@ -170,12 +170,12 @@ def auto_update_missing_plan(synthesis_request:SynthesisRequest, missing_plan:di
 
 
 def handle_missing_values(
-        df:pd.DataFrame,
-        synthesis_request:SynthesisRequest,
-        semantic_types:dict[str, str],
-        agent:Optional[CompiledStateGraph],# | None = None,
-        config:dict,# | None = None,
-        ) -> tuple[pd.DataFrame, SynthesisRequest] | None:
+    df: pd.DataFrame,
+    synthesis_request: SynthesisRequest,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    agent: Optional[CompiledStateGraph],# | None = None,
+    config: dict,# | None = None,
+) -> tuple[pd.DataFrame, SynthesisRequest] | None:
     """Handle missing values in a dataframe based on user defined preferences.
 
     Missing value strategies include:
@@ -187,12 +187,12 @@ def handle_missing_values(
     Args:
         df (pd.DataFrame): The input dataframe.
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        semantic_types (dict[str, str]): Map of column names to semantic types (e.g., categorical, 
-                               ordinal, integer, float).
-        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to 
-                               recommend a strategy for missing values. Defaults to None.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            Map of column names to semantic types (e.g., categorical, ordinal, integer, float).
+        agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to recommend 
+            a strategy for missing values. Defaults to None.
         config (dict | None, optional): Configuration passed to the agent during invocation.
-                               Defaults to None.
+            Defaults to None.
 
     Returns:
         tuple[pd.DataFrame, dict[str, Any]] | None: 
@@ -415,12 +415,12 @@ def handle_missing_values(
 
 
 def handle_missing_values_ui(
-        df:pd.DataFrame,
-        synthesis_request:SynthesisRequest,
-        semantic_types:dict[str, str],
-        agent:Optional[CompiledStateGraph],
-        config:dict,
-        ) -> tuple[pd.DataFrame, SynthesisRequest] | None:
+    df: pd.DataFrame,
+    synthesis_request: SynthesisRequest,
+    semantic_types: dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']],
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+) -> tuple[pd.DataFrame, SynthesisRequest] | None:
     """Handle missing values in a dataframe based on user defined preferences (UI).
 
     Missing value strategies include:
@@ -432,12 +432,12 @@ def handle_missing_values_ui(
     Args:
         df (pd.DataFrame): The input dataframe.
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        semantic_types (dict[str, str]): Map of column names to semantic types (e.g., categorical, 
-                               ordinal, integer, float).
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            Map of column names to semantic types (e.g., categorical, ordinal, integer, float).
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to 
-                               recommend a strategy for missing values. Defaults to None.
+            recommend a strategy for missing values. Defaults to None.
         config (dict | None, optional): Configuration passed to the agent during invocation.
-                               Defaults to None.
+            Defaults to None.
 
     Returns:
         tuple[pd.DataFrame, dict[str, Any]] | None: 

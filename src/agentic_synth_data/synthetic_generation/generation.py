@@ -158,18 +158,19 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
 
 # TODO: Expand to parameter selection.
 def select_generator(
-        synthesis_request:SynthesisRequest,
-        semantic_types:dict[str, str],
-        profile:dict[str, Any],
-        agent:CompiledStateGraph,
-        config:dict[str, dict[str, Any]],
-    ) -> SynthesisRequest:
+    synthesis_request: SynthesisRequest,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    profile: dict[str, Any],
+    agent: CompiledStateGraph,
+    config: dict[str, dict[str, Any]],
+) -> SynthesisRequest:
     """Based on the user's preferences and information about the dataset, the agent 
     selects a data generator mechanism.
 
     Args:
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (dict[str, str]): The semantic dtypes for each column in the dataset.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
 
@@ -257,18 +258,19 @@ def select_generator(
 
 
 def select_generator_ui(
-        synthesis_request:SynthesisRequest,
-        semantic_types:dict[str, str],
-        profile:dict[str, Any],
-        agent:CompiledStateGraph,
-        config:dict[str, dict[str, Any]],
-    ) -> SynthesisRequest:
+    synthesis_request: SynthesisRequest,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    profile: dict[str, Any],
+    agent: CompiledStateGraph,
+    config: dict[str, dict[str, Any]],
+) -> SynthesisRequest:
     """Based on the user's preferences and information about the dataset, the agent 
     selects a data generator mechanism (UI).
 
     Args:
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (dict[str, str]): The semantic dtypes for each column in the dataset.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
 

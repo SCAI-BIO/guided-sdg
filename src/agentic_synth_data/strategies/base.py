@@ -1,15 +1,16 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any, Literal
 
 import pandas as pd
 
 
 class GeneratorStrategy(ABC):
-    def __init__(self, generator_name):
-        self.generator_name:str = generator_name
+    def __init__(self, generator_name: str,):
+        self.generator_name = generator_name
 
 
-    def _make_synth_path(self, prep_path:Path, version_id:int) -> Path:
+    def _make_synth_path(self, prep_path: Path, version_id: int,) -> Path:
         """Format the path for the synthetic data.
 
         Args:
@@ -20,12 +21,15 @@ class GeneratorStrategy(ABC):
             Path: Synthetic dataset path.
         """
         data_name = prep_path.stem.removesuffix("_prepared")
-        output_dir = Path("../output")
+
+        output_dir = Path("output") / f"version_{version_id}"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
         synth_path = f"synthetic_{data_name}_{self.generator_name.lower()}_v{version_id}.csv"
         return output_dir / synth_path
 
 
-    def _run(self, n_samples:int, prep_path:Path, version_id:int, parameters:dict,):
+    def _run(self, n_samples: int, prep_path: Path, version_id: int, parameters: dict[str, Any],):
         synth_path = self._make_synth_path(prep_path=prep_path, version_id=version_id)
         return self.run(
             n_samples=n_samples,
@@ -36,7 +40,11 @@ class GeneratorStrategy(ABC):
 
 
     @abstractmethod
-    def prepare_metadata(self, prep_path:Path, semantic_types:dict[str,str]) -> Path:
+    def prepare_metadata(
+        self,
+        prep_path: Path,
+        semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    ) -> Path:
         """Prepare metadata for tool use.
 
         Args:
@@ -50,8 +58,8 @@ class GeneratorStrategy(ABC):
 
     @abstractmethod
     def run(
-        self, n_samples:int, prep_path:Path, synth_path:Path, parameters:dict,
-        ) -> tuple[Path, pd.DataFrame]:
+        self, n_samples: int, prep_path: Path, synth_path: Path, parameters: dict[str, Any],
+    ) -> tuple[Path, pd.DataFrame]:
         """Run selected mechanism.
 
         Args:

@@ -14,9 +14,8 @@ st.space("small")
 
 st.write(
     "To generate synthetic data, the data generators need to know the data types for each "
-    "variable (column)."
-    "Data types should be recorded appropriately to avoid "
-    "errors or mistakes that can affect the workflow and make SDG not possible with the dataset."
+    "variable (column). Data types should be recorded appropriately to avoid errors or "
+    "mistakes that can affect the workflow and make SDG not possible with the dataset."
 )
 
 # Handle dtypes

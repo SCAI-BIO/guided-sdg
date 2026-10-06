@@ -1,37 +1,42 @@
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal
 
+from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.schemas.models import AgentEval
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics
+from agentic_synth_data.schemas.syndat_model import SyndatMetrics
 
 
 def evaluation_prompt(
-        synthesis_request:dict[str, Any], 
-        metrics:dict[str, Any],
-        attack_metrics:AttackMetrics
-    ) -> str:
+    synthesis_request: SynthesisRequest,
+    syndat_metrics: SyndatMetrics,
+    attack_metrics: AttackMetrics,
+) -> str:
     return dedent(f"""
-    Evaluate whether synthetic data quality is satisfactory.
+    Evaluate whether synthetic data quality is satisfactory. If a metric has an output, consider that in your analysis of the dataset's quality.
 
     Return exactly ONE valid JSON object.
     No markdown.
     No explanation outside of JSON.
 
     Synthesis request:
-    {synthesis_request}
+    {synthesis_request.model_dump()}
 
     Generator used:
-    {synthesis_request['generator']}
+    {synthesis_request.generator.name}
 
     Jensen-Shannon Divergence results:
-    {metrics['jsd']}
+    * {syndat_metrics.jsd}
+    * Output for normalized correlation difference: {syndat_metrics.output_messages.jsd}
 
     Normalized correlation difference:
-    {metrics['norm_corr_diff']}
+    * {syndat_metrics.norm_corr_diff}
+    * Output for normalized correlation difference: {syndat_metrics.output_messages.norm_corr_diff}
 
     Discriminator AUC: 
-    {metrics['discrim_auc']}
+    * {syndat_metrics.discrim_auc}
+    * Output for discriminator AUC: {syndat_metrics.output_messages.discrim_auc}
 
     Evaluate whether the synthetic data is satisfactory.
 
@@ -63,8 +68,20 @@ def evaluation_prompt(
     - If the confidence interval is wide, mention uncertainty.
     - Privacy warnings or unreliable estimates should be treated cautiously and mentioned in the rationale.
 
-    Privacy metrics:
-    {attack_metrics.model_dump()}
+    ---
+
+    Privacy metric results:
+    Singling out risk results:
+    * {attack_metrics.singling_out}
+    * Output for singling out risk: {attack_metrics.output_messages.singling_out}
+
+    Linkability risk results:
+    * {attack_metrics.linkability}
+    * Output for singling out risk: {attack_metrics.output_messages.linkability}
+    
+    Inference risk results:
+    * {attack_metrics.inference}
+    * Output for singling out risk: {attack_metrics.output_messages.inference}
 
     Workflow steps that can be revisited:
     | Step | Substep | Description | Agent |
@@ -147,7 +164,9 @@ def eval_review_message(agent_decision:AgentEval, response:str):
     """)
 
 
-def attack_column_selection_message(semantic_types:dict[str, str]) -> str:
+def attack_column_selection_message(
+    semantic_types: dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']],
+) -> str:
     return dedent(f"""
     You need to come up with appropriate auxiliary columns and secret arguments for 
     both linkability and inference risks. The columns selected will be used for 

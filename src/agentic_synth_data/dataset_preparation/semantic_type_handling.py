@@ -132,7 +132,9 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     return semantic_types
 
 
-def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]:
+def handle_semantic_types_ui(
+    df: pd.DataFrame, agent: CompiledStateGraph, config: dict,
+) -> dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]:
     """Determine the semantic type of each column in a dataframe by (UI):
     1. Making a profile for each column (dtype, unique non null values and 
        their counts, and total number of non null unique values).
@@ -146,7 +148,8 @@ def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:d
         config (dict): Configuration passed to the agent during invocation.
 
     Returns:
-        dict[str, str]: Semantic types (value) assigned to each column (key).
+        dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]: 
+            Semantic types (value) assigned to each column (key).
     """
     # 1. Generate agent inference once, then save it.
     if "semantic_types_inference" not in st.session_state:
@@ -273,14 +276,17 @@ def handle_semantic_types_ui(df:pd.DataFrame, agent:CompiledStateGraph, config:d
 
 
 def prepare_for_syndat(
-        real_df: pd.DataFrame, synthetic_df: pd.DataFrame, semantic_types: dict[str, str]
-        ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    real_df: pd.DataFrame,
+    synthetic_df: pd.DataFrame,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Match real and synthetic dataframe columns to previously defined dtypes for compatibility 
     with Syndat.
     Args:
         real_df (pd.DataFrame): The real dataframe (either with missing values replaced or not).
         synthetic_df (pd.DataFrame): The synthetic dataframe.
-        semantic_types (dict[str, str]): Dictionary with the semantic types of each column.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            Dictionary with the semantic types of each column.
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]:

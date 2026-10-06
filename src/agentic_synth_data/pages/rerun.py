@@ -16,8 +16,9 @@ st.write(
     "All main workflow steps have been completed, but now, you determine whether you would like to "
     "try alternative choices in the workflow or not. If the results are satisfactory to you, "
     "'finish' can be selected. Otherwise, select 'revise' to revise any of the following decisions:"
-    "\n- Generator selection choice.\n- Parameter selection choice.\n- Missing value handling "
-    "decision."
+    "\n- Generator selection choice.\n"
+    "- Parameter selection choice.\n"
+    "- Missing value handling decision."
 )
 
 # Evaluation

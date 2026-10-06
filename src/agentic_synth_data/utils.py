@@ -1,15 +1,14 @@
 import textwrap
-import streamlit as st
-from typing import Literal, Optional, Type, TypeVar
+from typing import Any, Literal, Optional, Type, TypeVar
 from pathlib import Path
 
 import pandas as pd
 from pandas.io.formats.style import Styler
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
+import streamlit as st
 
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
-import streamlit as st
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -17,11 +16,11 @@ DEMO_DATA_DIR = PROJECT_ROOT / "demo_data"
 
 T = TypeVar("T", bound=BaseModel)
 
-def format_response(text:str):
+def format_response(text: str):
     print(textwrap.fill(text, width=100))
 
 
-def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
+def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
     print(f"\nSample size mode: {synthesis_request.sample_size.mode}")
 
     if synthesis_request.sample_size.fixed_value is not None:
@@ -42,7 +41,7 @@ def display_synthesis_request(synthesis_request:"SynthesisRequest") -> None:
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
-def page_navigation(back_page:str, next_page:str, next_disabled:bool=False,):
+def page_navigation(back_page: str, next_page: str, next_disabled: bool=False,):
     st.markdown("""
         <style>
         div[data-testid="stPageLink"] a {
@@ -64,31 +63,29 @@ def page_navigation(back_page:str, next_page:str, next_disabled:bool=False,):
         st.page_link(next_page, label="continue", use_container_width=True, disabled=next_disabled,)
 
 
-def display_synthesis_request_st(synthesis_request:"SynthesisRequest") -> None:
+def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
     st.write(f"\n**Sample size mode:** {synthesis_request.sample_size.mode}")
 
     if synthesis_request.sample_size.fixed_value is not None:
         st.write(f"**Sample size:** {synthesis_request.sample_size.fixed_value}")
 
-    st.write(f"**Privacy mode:** {synthesis_request.privacy.mode}")
-
-    st.write(f"**Generator:** {synthesis_request.generator.name}")
-
-    st.write(f"**Missing value handling:** {synthesis_request.missing_values.mode}")
+    st.write(
+        f"**Privacy mode:** {synthesis_request.privacy.mode}\n\n"
+        f"**Generator:** {synthesis_request.generator.name}\n\n"
+        f"**Missing value handling:** {synthesis_request.missing_values.mode}"
+    )
 
     if synthesis_request.missing_values.mode == "impute":
-        st.write(f"- **Imputer:** {synthesis_request.missing_values.impute.method}")
         st.write(
-            "- **Categorical strategy:** " \
-            f"{synthesis_request.missing_values.impute.categorical_strategy}"
-        )
-        st.write(
-            "- **Numerical strategy:** " \
+            f"- **Imputer:** {synthesis_request.missing_values.impute.method}\n\n"
+            "- **Categorical strategy:** "
+            f"{synthesis_request.missing_values.impute.categorical_strategy}\n\n"
+            "- **Numerical strategy:** "
             f"{synthesis_request.missing_values.impute.numerical_strategy}"
         )
 
 
-def df_formatter_st(df:pd.DataFrame | Styler) -> None:
+def df_formatter_st(df: pd.DataFrame | Styler) -> None:
     """Format dataframes with consistent sizing when over 10 rows are present.
 
     Args:
@@ -101,12 +98,12 @@ def df_formatter_st(df:pd.DataFrame | Styler) -> None:
 
     if n_rows > 10:
         st.dataframe(df, hide_index=True, width="stretch", height=400,)
-        st.caption("Scroll to view all variables.")
+        st.caption("Scroll to view all features.")
     else:
         st.dataframe(df, hide_index=True, width="stretch",)
 
 
-def info_helper_message(message:str, context:str, key:str):
+def info_helper_message(message: str, context: str, key: str,) -> None:
     """Display an information message with a hover help icon.
 
     Args:
@@ -187,11 +184,11 @@ def parse_json(
 
 
 def parse_json_ui(
-    plan:str,
-    model_cls:Type[BaseModel],
-    agent:Optional[CompiledStateGraph],
-    config:dict,
-    root:bool=False,
+    plan: str,
+    model_cls: Type[BaseModel],
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+    root: bool=False,
 ) -> T:
     """If agent fails to correctly format JSON response, prompts to 
     try again (UI).
@@ -243,7 +240,7 @@ def parse_json_ui(
             return model_cls.model_validate_json(repaired_plan)
 
 
-def extract_output(raw_message:dict) -> str:
+def extract_output(raw_message: dict) -> str:
     """Extract content from the agent's invocation output
 
     Args:
@@ -260,7 +257,7 @@ def extract_output(raw_message:dict) -> str:
     return response.strip()
 
 
-def newline_every_n_words(option:str, n:int) -> str:
+def newline_every_n_words(option: str, n: int) -> str:
     """Format the options output by the agent to improve the readability of pyinputplus's 
     choice menu.
 
@@ -281,8 +278,8 @@ def newline_every_n_words(option:str, n:int) -> str:
 
 
 def output_default_parameters(
-        generator_name:Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]
-    ) -> dict | None:
+    generator_name: Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]
+) -> dict[str, Any] | None:
     """Takes in generator name and outputs its default parameters. Used in select preferences
     and other instances where parameters are set to default.
 

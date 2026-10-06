@@ -1,7 +1,7 @@
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Any
+from typing import Literal, Optional, Any
 import pprint
 
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
@@ -16,6 +16,7 @@ import syndat
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
 from agentic_synth_data.schemas.models import AgentEval, SyndatOutputs
 from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
+from agentic_synth_data.schemas.syndat_model import SyndatMetrics
 from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, \
     info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
@@ -48,7 +49,7 @@ class AnonymeterInput:
     missing_markers:dict[str, str | int | float]
 
 
-def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
+def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
     """Calculate metrics comparing the original dataframe (optionally, with missing value markers
      removed) with the synthetic dataframe.
 
@@ -86,11 +87,14 @@ def calculate_metrics(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[s
         discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
         print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
 
-    return {
-        "jsd": jsd_results,
-        "norm_corr_diff": norm_corr_diff,
-        "discrim_auc": discrim_auc,
-    }
+    syndat_outputs = SyndatOutputs() # TODO: Need to update this to capture CLI outputs too.
+
+    return SyndatMetrics(
+        jsd=jsd_results,
+        norm_corr_diff=norm_corr_diff,
+        discrim_auc=discrim_auc,
+        output_messages=syndat_outputs,
+    )
 
 
 def show_anonymeter_warning(output:str) -> None:
@@ -127,7 +131,7 @@ def style_status(value: str) -> str:
     return ""
 
 
-def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dict[str, Any]:
+def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
     """Calculate metrics comparing the original dataframe (optionally, with missing value markers
      removed) with the synthetic dataframe (UI).
 
@@ -147,17 +151,19 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
     st.subheader("Fidelity and utility metrics")
     st.write(
         "The synthetic data should resemble the original dataset. We record the following metrics "
-        "from syndat to determine the dataset's fidelity:\n- Jensen-Shannon Divergence\n- "
-        "Normalized correlation difference\n- Discriminator AUC"
+        "from syndat to determine the dataset's fidelity:\n"
+        "- Jensen-Shannon Divergence\n"
+        "- Normalized correlation difference\n"
+        "- Discriminator AUC\n\n"
+        "All of these metrics output a value between 0 and 1."
     )
-    st.write("All of these metrics output a value between 0 and 1.")
 
     jsd_output = StreamlitOutput(live=False)
     norm_corr_diff_output = StreamlitOutput(live=False)
     discrim_auc_output = StreamlitOutput(live=False)
 
     with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
-        jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+        jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df,)
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
@@ -223,7 +229,7 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
 
     else:
         with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
-            discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
+            discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df,)
 
         st.write("#### Discriminator AUC:")
         st.write(
@@ -239,44 +245,41 @@ def calculate_metrics_ui(real_df:pd.DataFrame, synthetic_df:pd.DataFrame) -> dic
             ):
                 st.warning(discrim_auc_output.buffer)
 
-        SyndatOutputs(
+        syndat_outputs = SyndatOutputs(
             jsd=jsd_output.buffer or None,
             norm_corr_diff=norm_corr_diff_output.buffer or None,
             discrim_auc=discrim_auc_output.buffer or None,
         )
 
-    return {
-        "jsd": jsd_results,
-        "norm_corr_diff": norm_corr_diff,
-        "discrim_auc": discrim_auc,
-    }
+    return syndat_outputs
 
 
 def calculate_attack_metrics(
-        train_df:pd.DataFrame,
-        test_df:pd.DataFrame,
-        synthetic_df:pd.DataFrame,
-        semantic_types:dict[str, str],
-        dtypes:dict[str, str],
-        agent:Optional[CompiledStateGraph] | None = None,
-        config:dict | None = None
-    ) -> AttackMetrics:
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    synthetic_df: pd.DataFrame,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    dtypes: dict[str, str],
+    agent: Optional[CompiledStateGraph] | None = None,
+    config: dict | None = None,
+) -> AttackMetrics:
     """Calculate Anonymeter metrics with agent assistance for column selection.
     
     Args:
         train_df (pd.DataFrame): Training portion of the real dataset.
         test_df (pd.DataFrame): Test portion of the real dataset.
         synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (dict[str, str]): Semantic types assigned to each column.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
-                        variables privacy metric calculation. Defaults to None.
+            variables privacy metric calculation. Defaults to None.
         config (dict | None, optional): Configuration passed to the agent during invocation. 
-                        Defaults to None.
+            Defaults to None.
 
     Returns:
         AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
-        inference risk).
+            inference risk).
     """
     has_missing = train_df.isna().any().any() or test_df.isna().any().any()
 
@@ -374,13 +377,13 @@ def calculate_attack_metrics(
 
 
 def calculate_attack_metrics_ui(
-    train_df:pd.DataFrame,
-    test_df:pd.DataFrame,
-    synthetic_df:pd.DataFrame,
-    semantic_types:dict[str, str],
-    dtypes:dict[str, str],
-    agent:Optional[CompiledStateGraph] | None = None,
-    config:dict | None = None,
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    synthetic_df: pd.DataFrame,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    dtypes: dict[str, str],
+    agent: Optional[CompiledStateGraph] | None = None,
+    config: dict | None = None,
 ) -> AttackMetrics:
     """Calculate Anonymeter metrics with agent assistance for column selection (UI).
 
@@ -388,12 +391,13 @@ def calculate_attack_metrics_ui(
         train_df (pd.DataFrame): Training portion of the real dataset.
         test_df (pd.DataFrame): Test portion of the real dataset.
         synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (dict[str, str]): Semantic types assigned to each column.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]): 
+            Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
-                        variables privacy metric calculation. Defaults to None.
+            variables privacy metric calculation. Defaults to None.
         config (dict | None, optional): Configuration passed to the agent during invocation. 
-                        Defaults to None.
+            Defaults to None.
 
     Returns:
         AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
@@ -425,10 +429,7 @@ def calculate_attack_metrics_ui(
     with st.spinner("Evaluating singling out risk..."):
         with redirect_stdout(so_risk_output), redirect_stderr(so_risk_output):
             singling_out = SinglingOutEvaluator(
-                ori=train_df,
-                syn=synthetic_df,
-                max_attempts=1_000,
-                control=test_df,
+                ori=train_df, syn=synthetic_df, max_attempts=1_000, control=test_df,
             )
 
             singling_out.evaluate()
@@ -446,7 +447,8 @@ def calculate_attack_metrics_ui(
     prompt = attack_column_selection_message(semantic_types=semantic_types)
     with st.spinner("Agent is selecting columns to calculate metrics..."):
         raw_response = agent.invoke(
-            {"messages": [{"role": "user", "content": prompt,}]}, config=config,
+            {"messages": [{"role": "user", "content": prompt,}]},
+            config=config,
         )
 
         plan = extract_output(raw_response)
@@ -460,10 +462,13 @@ def calculate_attack_metrics_ui(
     )
 
     st.write(
-        "\nSelected columns:\n- Linkability:\n  - Auxiliary columns: "
-        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary"
-        f" columns: {selected_cols.inference_aux_cols}\n  - Secret "
-        f"column: {selected_cols.secret}\n\nRationale:"
+        "\nSelected columns:\n"
+        "- Linkability:\n"
+        f"  - Auxiliary columns: {selected_cols.linkability_aux_cols}\n"
+        "- Inference:\n"
+        f"  - Auxiliary columns: {selected_cols.inference_aux_cols}\n"
+        f"  - Secret column: {selected_cols.secret}\n\n"
+        "Rationale:"
     )
     st.write(selected_cols.rationale)
 
@@ -517,7 +522,6 @@ def calculate_attack_metrics_ui(
         inference=inference_risk_output.buffer or None,
         linkability=link_risk_output.buffer or None,
     )
-    # TODO: Tie outputs in with the report
 
     return AttackMetrics(
         singling_out= singling_out_risk,
@@ -528,7 +532,7 @@ def calculate_attack_metrics_ui(
     )
 
 
-def display_attack_metrics_ui(attack_metrics: AttackMetrics, description:dict[str, str]) -> None:
+def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[str, str]) -> None:
     """Display what was calculated from Anonymeter's functions and the variables that were used
     to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
     run.
@@ -568,33 +572,32 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description:dict[st
     )
 
     st.write(
-        "\nSelected columns:\n- Linkability:\n  - Auxiliary columns: "
-        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary"
-        f" columns: {selected_cols.inference_aux_cols}\n  - Secret "
-        f"column: {selected_cols.secret}\n\nRationale:"
+        "\nSelected columns:\n"
+        "- Linkability:\n"
+        f"  - Auxiliary columns: {selected_cols.linkability_aux_cols}\n"
+        "- Inference:\n"
+        f"  - Auxiliary columns: {selected_cols.inference_aux_cols}\n"
+        f"  - Secret column: {selected_cols.secret}\n\n"
+        "Rationale:"
     )
 
     st.write(selected_cols.rationale)
 
     write_attack_metric_ui(
-        metric_name="Inference",
-        metric=inference_risk,
-        description=description["inference"],
+        metric_name="Inference", metric=inference_risk, description=description["inference"],
     )
 
     if outputs.inference:
         show_anonymeter_warning(outputs.inference)
 
     write_attack_metric_ui(
-        metric_name="Linkability",
-        metric=linkability_risk,
-        description=description["linkability"],
+        metric_name="Linkability", metric=linkability_risk, description=description["linkability"],
     )
 
     if outputs.linkability:
         show_anonymeter_warning(outputs.linkability)
 
-def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:str) -> None:
+def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:str,) -> None:
     """Display privacy metric information.
 
     Args:
@@ -603,9 +606,11 @@ def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:st
         description (str): Basic explanation of the metric for a quick overview.
     """
     st.write(
-        f"#### {metric_name} risk:\n{description}\n - Value: {round(metric.value*100, 3)}%\n  - "
-        f"Confidence interval: between {round(metric.ci[0]*100,3)}% and {round(metric.ci[1]*100,3)}"
-        "%"
+        f"#### {metric_name} risk:\n"
+        f"{description}\n"
+        f"- Value: {round(metric.value*100, 3)}%\n"
+        f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
+        f"{round(metric.ci[1]*100,3)}%"
     )
 
 
@@ -698,11 +703,11 @@ def select_missing_marker(
 
 
 def prepare_anonymeter_input(
-    train_df:pd.DataFrame,
-    test_df:pd.DataFrame,
-    synthetic_df:pd.DataFrame,
-    semantic_types:dict[str, str],
-    dtypes:dict[str, str],
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    synthetic_df: pd.DataFrame,
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    dtypes: dict[str, str],
 ) -> AnonymeterInput:
     """Prepare copies of train, test, and synthetic dataframes for Anonymeter evaluation
     in the event that there are missing values. Missing values are temporarily replaced
@@ -712,7 +717,8 @@ def prepare_anonymeter_input(
         train_df (pd.DataFrame): Training portion of the real dataset.
         test_df (pd.DataFrame): Test portion of the real dataset.
         synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (dict[str, str]): Semantic types assigned to each column.
+        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+            Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
 
     Returns:
@@ -756,7 +762,9 @@ def prepare_anonymeter_input(
     )
 
 
-def generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) -> list[Path]:
+def generate_plots(
+    real_df: pd.DataFrame, synth_df: pd.DataFrame, version_id: int,
+) -> dict[str, list[Path]]:
     """Plot feature distributions and store files.
 
     Args:
@@ -766,13 +774,15 @@ def generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) 
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
-        list[Path]: JSD plot images.
+        dict[str, list[Path]]: JSD plot images.
     """
     # TODO: verify whether path needs to be fixed here too
     output_dir = Path("../output") / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    syndat.visualization.plot_distributions(real_df, synth_df, store_destination=str(output_dir))
+    syndat.visualization.plot_distributions(
+        real=real_df, synthetic=synth_df, store_destination=str(output_dir),
+    )
 
     png_files = sorted(output_dir.glob("*.png"))
 
@@ -780,8 +790,14 @@ def generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) 
     display(Image(filename=str(png_files[0])))
 
     print(f"\n=> Distribution plots for all features saved to: {output_dir}")
+    
+    # TODO: add remaining plots
 
-    return png_files
+    return {
+        "distributions": sorted((output_dir / "distributions").glob("*.png")),
+        #"correlations": sorted((output_dir / "correlations").glob("*.png")),
+        #"shap": sorted((output_dir / "shap").glob("*.png")),
+    }
 
 
 def encode_for_correlation(
@@ -847,7 +863,6 @@ def encode_for_shap(
     return (combined.iloc[:n_real], combined.iloc[n_real:],)
 
 
-
 @st.fragment
 def plot_viewer(images, plot_type:str, version_id:int, show_filename=False,) -> None:
     """Display plot images with previous and next navigation controls.
@@ -902,22 +917,24 @@ def plot_viewer(images, plot_type:str, version_id:int, show_filename=False,) -> 
     st.image(images[idx]["data"], width="stretch")
 
 
-def _cache_pngs(directory: Path) -> list[dict]:
+def _cache_pngs(paths: list[Path]) -> list[dict]:
     """Load PNG files from a directory into memory
 
     Args:
-        directory (Path): Directory containing PNG files.
+        paths (Path): Directory containing PNG files.
 
     Returns:
         list[dict]: Cached PNG data and filenames.
     """
     return [
-        {"name": path.name, "data": path.read_bytes()} for path in sorted(directory.glob("*.png"))
+        {"name": path.name, "data": path.read_bytes()} for path in paths
     ]
 
 
-def _generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, output_dir:Path) -> dict:
-    """Generate and cache distribution, correlation, and SHAP plots.
+def _generate_plots(
+    real_df: pd.DataFrame, synth_df: pd.DataFrame, output_dir: Path,
+) -> dict[str, list[Path]]:
+    """Generate distribution, correlation, and SHAP plots.
 
     Args:
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
@@ -926,7 +943,7 @@ def _generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, output_dir:Path
         output_dir (Path): Directory for storing generated plots.
 
     Returns:
-        dict: Cached plot images grouped by plot type.
+        dict[str, list[Path]]: Paths to generated plot images grouped by plot type.
     """
     distribution_dir = output_dir / "distributions"
     correlation_dir = output_dir / "correlations"
@@ -943,11 +960,9 @@ def _generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, output_dir:Path
     )
 
     # Correlation plots
-    real_corr, syn_corr = encode_for_correlation(real_df, synth_df)
+    real_corr, syn_corr = encode_for_correlation(real_df=real_df, synth_df=synth_df,)
     syndat.visualization.plot_correlations(
-        real=real_corr,
-        synthetic=syn_corr,
-        store_destination=str(correlation_dir),
+        real=real_corr, synthetic=syn_corr, store_destination=str(correlation_dir),
     )
 
     # SHAP discrimination plot
@@ -955,19 +970,19 @@ def _generate_plots(real_df:pd.DataFrame, synth_df:pd.DataFrame, output_dir:Path
     shap_path = shap_dir / "shap_discrimination.png"
 
     syndat.visualization.plot_shap_discrimination(
-        real=real_shap,
-        synthetic=syn_shap,
-        save_path=str(shap_path),
+        real=real_shap, synthetic=syn_shap, save_path=str(shap_path),
     )
 
     return {
-        "distributions": _cache_pngs(distribution_dir),
-        "correlations": _cache_pngs(correlation_dir),
-        "shap": _cache_pngs(shap_dir),
+        "distributions": sorted(distribution_dir.glob("*.png")),
+        "correlations": sorted(correlation_dir.glob("*.png")),
+        "shap": sorted(shap_dir.glob("*.png")),
     }
 
 
-def generate_plots_ui(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:int) -> dict:
+def generate_plots_ui(
+    real_df: pd.DataFrame, synth_df: pd.DataFrame, version_id: int,
+) -> dict[str, list[Path]]:
     """Generate, cache, store, and display distribution, correlation, and SHAP plots (UI).
 
     Args:
@@ -977,15 +992,26 @@ def generate_plots_ui(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:in
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
-        dict: Cached plot images grouped by plot type.
+        dict[str, list[Path]]: Cached plot images grouped by plot type.
     """
     output_dir = Path("output") / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    paths_key = f"plot_paths_{version_id}"
     cache_key = f"plots_{version_id}"
 
+    if paths_key not in st.session_state:
+        st.session_state[paths_key] = _generate_plots(
+            real_df=real_df, synth_df=synth_df, output_dir=output_dir,
+        )
+
+    plot_paths = st.session_state[paths_key]
+
     if cache_key not in st.session_state:
-        st.session_state[cache_key] = _generate_plots(real_df, synth_df, output_dir)
+        st.session_state[cache_key] = {
+            plot_type: _cache_pngs(paths)
+            for plot_type, paths in plot_paths.items()
+        }
 
     plots = st.session_state[cache_key]
 
@@ -1019,16 +1045,16 @@ def generate_plots_ui(real_df:pd.DataFrame, synth_df:pd.DataFrame, version_id:in
             version_id=version_id,
         )
 
-    return plots
+    return plot_paths
 
 
 def evaluation(
-        synthesis_request:SynthesisRequest,
-        metrics:dict[str, Any],
-        attack_metrics:dict[str, Any],
-        agent:Optional[CompiledStateGraph] | None = None, 
-        config:dict | None = None
-    ) -> AgentEval:
+    synthesis_request: SynthesisRequest,
+    syndat_metrics: SyndatMetrics,
+    attack_metrics: AttackMetrics,
+    agent: Optional[CompiledStateGraph] | None = None,
+    config: dict | None = None,
+) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics.
 
     Args:
@@ -1045,9 +1071,10 @@ def evaluation(
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
     """
-    request_dict = synthesis_request.model_dump()
     prompt = evaluation_prompt(
-        synthesis_request=request_dict, metrics=metrics, attack_metrics=attack_metrics
+        synthesis_request=synthesis_request,
+        syndat_metrics=syndat_metrics,
+        attack_metrics=attack_metrics,
     )
 
     print("\nAgent is evaluating the results...")
@@ -1059,7 +1086,7 @@ def evaluation(
 
     plan = extract_output(raw_response)
 
-    eval_plan = parse_json(plan, AgentEval, agent, config)
+    eval_plan = parse_json(plan, AgentEval, agent, config,)
 
     print("\nEvaluation:")
     print(f"- Status: {eval_plan.status}")
@@ -1073,11 +1100,11 @@ def evaluation(
 
 
 def evaluation_ui(
-    synthesis_request:SynthesisRequest,
-    metrics:dict[str, Any],
-    attack_metrics:dict[str, Any],
-    agent:Optional[CompiledStateGraph] | None = None,
-    config:dict | None = None,
+    synthesis_request: SynthesisRequest,
+    syndat_metrics: SyndatMetrics,
+    attack_metrics: AttackMetrics,
+    agent: Optional[CompiledStateGraph] | None = None,
+    config: dict | None = None,
 ) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics (UI).
 
@@ -1095,11 +1122,8 @@ def evaluation_ui(
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
     """
-    request_dict = synthesis_request.model_dump()
     prompt = evaluation_prompt(
-        synthesis_request=request_dict,
-        metrics=metrics,
-        attack_metrics=attack_metrics,
+        synthesis_request=synthesis_request, syndat_metrics=syndat_metrics, attack_metrics=attack_metrics,
     )
 
     if "agent_evaluation" not in st.session_state:
@@ -1121,8 +1145,10 @@ def evaluation_ui(
     info_helper_message(
         message="The agent has finished its evaluation of the synthetic dataset.",
         context=(
-            "The agent evaluated the synthetic dataset based on:\n- Your preferences.\n- "
-            "Calculated syndat metrics.\n- Calculated Anonymeter metrics."
+            "The agent evaluated the synthetic dataset based on:\n"
+            "- Your preferences.\n"
+            "- Calculated syndat metrics.\n"
+            "- Calculated Anonymeter metrics."
         ),
         key="agent_eval_synth_data_info",
     )
@@ -1139,10 +1165,10 @@ def evaluation_ui(
 
 
 def evaluation_review(
-        agent_decision:AgentEval, 
-        agent:Optional[CompiledStateGraph] | None = None, 
-        config:dict | None = None
-        ) -> str:
+    agent_decision: AgentEval,
+    agent: Optional[CompiledStateGraph] | None = None,
+    config: dict | None = None
+) -> str:
     """User asks questions about agent's assessment/discusses details to focus on.
 
     Args:
@@ -1181,10 +1207,10 @@ def evaluation_review(
 
 
 def evaluation_review_ui(
-    agent_decision:AgentEval,
-    agent:Optional[CompiledStateGraph] | None = None,
-    config:dict | None = None,
-    version_id:int | None = None,
+    agent_decision: AgentEval,
+    agent: Optional[CompiledStateGraph] | None = None,
+    config: dict | None = None,
+    version_id: int | None = None,
 ) -> str:
     """User asks questions about agent's assessment/discusses details to focus on (UI).
 
@@ -1267,7 +1293,9 @@ def evaluation_review_ui(
     return choice
 
 
-def write_report(report: Report, synthesis_request:SynthesisRequest, data_path: str, version_id:int) -> None:
+def write_report(
+    report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
+) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
@@ -1325,7 +1353,7 @@ def write_report(report: Report, synthesis_request:SynthesisRequest, data_path: 
 
         f.write("\n\n### Evaluation\n")
         f.write("```python\n")
-        pprint.pprint(report.review.jsd, stream=f, sort_dicts=False)
+        pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False)
         f.write("```\n")
 
         f.write("\nConclusion\n")

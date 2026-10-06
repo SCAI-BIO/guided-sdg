@@ -1,5 +1,5 @@
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal
 
 from agentic_synth_data.preference_setup import SynthesisRequest
 
@@ -7,9 +7,9 @@ from agentic_synth_data.preference_setup import SynthesisRequest
 # NOTE: missingness per column could also be input here
 def generator_selection_message(
     synthesis_request: SynthesisRequest,
-    semantic_types: dict[str, str],
-    profile:dict[str, Any],
-    ) -> str:
+    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    profile: dict[str, Any],
+) -> str:
     return dedent(f"""
     Current workflow step: generator selection.
 
