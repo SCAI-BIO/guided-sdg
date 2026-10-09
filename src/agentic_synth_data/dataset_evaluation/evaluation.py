@@ -54,7 +54,7 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
      removed) with the synthetic dataframe.
 
     Calculates SYNDAT metrics:
-    - Jensen-Shannon Divergence
+    - Jensen-Shannon Distance
     - Normalized Correlation Difference
     - Discriminator AUC
 
@@ -75,7 +75,7 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    print("\nJensen-Shannon Divergences:")
+    print("\nJensen-Shannon Distances:")
     for col, jsd_score in jsd_results.items():
         print(col, round(jsd_score, 4))
 
@@ -126,7 +126,7 @@ def show_anonymeter_warning(output:str) -> None:
 
 
 def style_status(value: str) -> str:
-    """Attribute cell status marker for Jensen-Shannon Divergence (JSD) to a specific color. 
+    """Attribute cell status marker for Jensen-Shannon Distance (JSD) to a specific color. 
 
     Args:
         value (str): JSD value.
@@ -148,7 +148,7 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
      removed) with the synthetic dataframe (UI).
 
     Calculates SYNDAT metrics:
-    - Jensen-Shannon Divergence
+    - Jensen-Shannon Distance
     - Normalized Correlation Difference
     - Discriminator AUC
 
@@ -164,7 +164,7 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
     st.write(
         "The synthetic data should resemble the original dataset. We record the following metrics "
         "from syndat to determine the dataset's fidelity:\n"
-        "- Jensen-Shannon Divergence\n"
+        "- Jensen-Shannon Distance\n"
         "- Normalized correlation difference\n"
         "- Discriminator AUC\n\n"
         "All of these metrics output a value between 0 and 1."
@@ -179,9 +179,9 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    st.write("#### Jensen-Shannon Divergences:")
+    st.write("#### Jensen-Shannon Distance:")
     st.write(
-        "Jensen-Shannon Divergence (JSD) quantifies the statistical distributions of each variable "
+        "Jensen-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
         "across your real and the synthetic dataset. A value that is closer to 0 indicates that "
         "the statistical distributions identically match the real and synthetic datasets, which is "
         "favorable."
@@ -1340,23 +1340,26 @@ def write_report(
     output_path = output_dir / output_filename
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write("# SYNTHETIC DATA GENERATION REPORT\n")
+        parent = f"; parent_version_{report.input.parent_version}" if report.input.parent_version else ""
+        f.write(f"# SYNTHETIC DATA GENERATION REPORT (version_{version_id}{parent})\n")
 
-        f.write("## Input Dataset:\n")
+        f.write("## Input dataset:\n")
         f.write(f"- Path: {report.input.path}\n")
-        f.write(f"- Original shape: {report.input.original_shape}\n")
-        f.write(f"- Prepared shape: {report.input.prepared_shape}\n\n")
+        f.write(f"- Original shape: {report.input.original_shape[0]} rows, {report.input.original_shape[1]} columns.\n")
+        f.write(f"- Prepared shape: {report.input.prepared_shape[0]} rows, {report.input.prepared_shape[1]} columns.\n")
+        f.write(f"- Synthetic shape: {report.gen.synth_shape[0]} rows, {report.gen.synth_shape[1]} columns.\n\n")
 
         f.write("## Preprocessing:\n")
-        f.write("Missing Value Detection\n")
-        f.write("Detected markers:\n")
-        f.write("```python\n")
-        pprint.pprint(report.prep.missing_markers_detected, stream=f, sort_dicts=False,)
+        if report.prep.missing_markers_detected:
+            f.write("Missing value marker detection\n")
+            f.write("Detected markers:\n")
+            f.write("```python\n")
+            pprint.pprint(report.prep.missing_markers_detected, stream=f, sort_dicts=False,)
 
-        f.write("\n Replaced markers:\n")
-        f.write("```python\n")
-        pprint.pprint(report.prep.missing_markers_replaced, stream=f, sort_dicts=False,)
-        f.write("```\n")
+            f.write("\n Replaced markers:\n")
+            f.write("```python\n")
+            pprint.pprint(report.prep.missing_markers_replaced, stream=f, sort_dicts=False,)
+            f.write("```\n")
 
         f.write("\n\n### Python data types\n")
         f.write("```python\n")
@@ -1368,22 +1371,91 @@ def write_report(
         pprint.pprint(report.prep.stypes, stream=f, sort_dicts=False)
         f.write("```\n")
 
+        f.write("\n\n### Profile\n")
+        f.write("```python\n")
+        pprint.pprint(report.prep.profile, stream=f, sort_dicts=False)
+        f.write("```\n")
+
         f.write("\n\n### Missing Value Handling\n")
+        f.write("Before:")
         f.write("```python\n")
         pprint.pprint(report.prep.missing_before, stream=f, sort_dicts=False,)
+        f.write("```\n")
+        f.write("After:")
+        f.write("```python\n")
         pprint.pprint(report.prep.missing_after, stream=f, sort_dicts=False,)
         f.write("```\n")
 
         f.write("\n\n### Generation:\n")
-        f.write(f"Chosen generator: {request_dict['generator']}\n")
-        f.write(f"Prepared dataset: {report.gen.prep_path}\n")
-        f.write(f"Synthetic dataset: {report.gen.synth_path}\n")
+        f.write(f"Chosen generator: {synthesis_request.generator.name}\n")
+        f.write(f"Parameters: {report.gen.params}\n")
+        f.write(f"Prepared dataset path: {report.gen.prep_path}\n")
+        f.write(f"Synthetic dataset path: {report.gen.synth_path}\n")
         f.write(f"Synthetic shape: {report.gen.synth_shape}\n")
+
+        # Metric results
+        f.write("\n\n### Results:\n")
+        f.write("Jensen-Shannon Distance:\n")
+        pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False,)
+        jsd_output = f"- Output: {report.evaluate.syndat.output_messages.jsd}" if report.evaluate.syndat.output_messages.jsd else None
+        if jsd_output:
+            f.write(f"{jsd_output}")
+
+        f.write(f"Normalized correlation difference: {report.evaluate.syndat.norm_corr_diff}\n")
+        norm_corr_diff_output = f"- Output: {report.evaluate.syndat.output_messages.norm_corr_diff}" if report.evaluate.syndat.output_messages.norm_corr_diff else None
+        if norm_corr_diff_output:
+            f.write(f"{norm_corr_diff_output}")
+
+        f.write(f"Discriminator AUC: {report.evaluate.syndat.discrim_auc}\n")
+        discrim_auc_output = f"- Output: {report.evaluate.syndat.output_messages.discrim_auc}" if report.evaluate.syndat.output_messages.discrim_auc else None
+        if discrim_auc_output:
+            f.write(f"{discrim_auc_output}")
+
+        f.write("---\n")
+        f.write(f"Singling out risk: {report.evaluate.attack.singling_out}\n")
+        singling_out_output = f"- Output: {report.evaluate.attack.output_messages.singling_out}" if report.evaluate.attack.output_messages.singling_out else None
+        if singling_out_output:
+            f.write(f"{singling_out_output}")
+
+        f.write(f"Inference risk: {report.evaluate.attack.inference}\n")
+        inference_output = f"- Output: {report.evaluate.attack.output_messages.inference}" if report.evaluate.attack.output_messages.inference else None
+        if inference_output:
+            f.write(f"{inference_output}")
+
+        f.write(f"Linkability risk: {report.evaluate.attack.linkability}\n")
+        linkability_output = f"- Output: {report.evaluate.attack.output_messages.linkability}" if report.evaluate.attack.output_messages.linkability else None
+        if linkability_output:
+            f.write(f"{linkability_output}")
+
+# class EvalReport(BaseModel):
+#     """Evaluation metrics with plots comparing real and synthetic data for report."""
+#     attack: AttackMetrics | None = None
+#     syndat: SyndatMetrics | None = None
+#     plots: dict[str, list[Path]] = Field(default_factory=dict)
+
+
+# class ReviewReport(BaseModel):
+#     # TODO: After splitting, as this is, it only has the same information as AgentEval. Possibly add more regarding user input in response.
+#     """Agent identified input for report."""
+#     problem_columns: list[str] = Field(default_factory=list)
+#     status: str | None = None
+#     recommendation: str | None = None
+#     rationale: str | None = None
+#     # user_decision - finish | revise
+#     # additional details...
+
 
         f.write("\n\n### Evaluation\n")
         f.write("```python\n")
         pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False)
         f.write("```\n")
+
+
+# class UpdatePlanReport(BaseModel):
+#     """The plan update that was selected for a subsequent run to be included in the current report.
+#     """
+#     selected_plan_updates: dict = Field(default_factory=dict)
+
 
         f.write("\nConclusion\n")
         f.write("```python\n")

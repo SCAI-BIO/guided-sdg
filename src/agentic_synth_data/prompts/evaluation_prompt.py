@@ -26,7 +26,7 @@ def evaluation_prompt(
     Generator used:
     {synthesis_request.generator.name}
 
-    Jensen-Shannon Divergence results:
+    Jensen-Shannon Distance results:
     * {syndat_metrics.jsd}
     * Output for normalized correlation difference: {syndat_metrics.output_messages.jsd}
 
@@ -41,7 +41,7 @@ def evaluation_prompt(
     Evaluate whether the synthetic data is satisfactory.
 
     Interpretation:
-    Jensen-Shannon Divergence: 
+    Jensen-Shannon Distance: 
     - Between 0 and 1.
     - Lower is better.
     - average_jsd <= 0.10 strongly supports a satisfactory assessment.
