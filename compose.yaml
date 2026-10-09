@@ -1,0 +1,18 @@
+services:
+  guided-sdg:
+    image: guided-sdg
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/workspace/data:Z
+      - ./output:/workspace/output:Z
+
+  sdr:
+    image: docker.io/springepfl/synthetic-data:latest
+    working_dir: /synthetic_data_release
+    entrypoint: python3
+    volumes:
+      - ./data:/workspace/data:Z
+      - ./output:/workspace/output:Z

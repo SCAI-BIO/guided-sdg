@@ -15,9 +15,9 @@ import syndat
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
 from agentic_synth_data.schemas.models import AgentEval
-from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
+from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
-from agentic_synth_data.utils import df_formatter_st, format_response, extract_output, \
+from agentic_synth_data.utils import PROJECT_ROOT, df_formatter_st, format_response, extract_output, \
     info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
     eval_review_message, evaluation_prompt
@@ -66,17 +66,24 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
     Returns:
         dict: The decision plan based on the agent's assessment.
     """
-    # TODO: Add an output measuring variant for CLI functions
-    jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+    jsd_output = CapturedOutput()
+    norm_corr_diff_output = CapturedOutput()
+    discrim_auc_output = CapturedOutput()
+
+    with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
+        jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
     print("\nJensen-Shannon Divergences:")
     for col, jsd_score in jsd_results.items():
         print(col, round(jsd_score, 4))
 
-    norm_corr_diff = syndat.metrics.normalized_correlation_difference(
-        real=real_df, synthetic=synthetic_df, ignore_cat=True,
-    )
+    with redirect_stdout(norm_corr_diff_output), redirect_stderr(norm_corr_diff_output):
+        norm_corr_diff = syndat.metrics.normalized_correlation_difference(
+            real=real_df, synthetic=synthetic_df, ignore_cat=True,
+        )
+
     print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
 
     if len(synthetic_df) < 2:
@@ -84,10 +91,15 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
         discrim_auc = None
 
     else:
-        discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df)
+        with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
+            discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df,)
         print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
 
-    syndat_outputs = SyndatOutputs() # TODO: Need to update this to capture CLI outputs too.
+    syndat_outputs = SyndatOutputs(
+        jsd=jsd_output.buffer or None,
+        norm_corr_diff=norm_corr_diff_output.buffer or None,
+        discrim_auc=discrim_auc_output.buffer or None,
+    )
 
     return SyndatMetrics(
         jsd=jsd_results,
@@ -280,6 +292,10 @@ def calculate_attack_metrics(
         AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
             inference risk).
     """
+    so_risk_output = CapturedOutput()
+    inference_risk_output = CapturedOutput()
+    link_risk_output = CapturedOutput()
+
     has_missing = train_df.isna().any().any() or test_df.isna().any().any()
 
     if has_missing: # Temporarily encode missing values as a unique marker.
@@ -296,14 +312,18 @@ def calculate_attack_metrics(
         synthetic_df = anonymeter_input.synthetic_df
 
     print("\nEvaluating singling out risk...")
-    singling_out = SinglingOutEvaluator(
-        ori=train_df,
-        syn=synthetic_df,
-        max_attempts=1_000,
-        control=test_df,
-    )
-    singling_out.evaluate()
-    singling_out_risk = singling_out.risk()
+
+    with redirect_stdout(so_risk_output), redirect_stderr(so_risk_output):
+        singling_out = SinglingOutEvaluator(
+            ori=train_df,
+            syn=synthetic_df,
+            max_attempts=1_000,
+            control=test_df,
+        )
+
+        singling_out.evaluate()
+        singling_out_risk = singling_out.risk()
+
     print(f"\n=> Singling out risk:\n  - Value: {round(singling_out_risk.value*100, 3)}%" \
         f"\n  - Confidence interval between: {round(singling_out_risk.ci[0]*100,3)}%" \
         f" and {round(singling_out_risk.ci[1]*100,3)}%")
@@ -328,32 +348,38 @@ def calculate_attack_metrics(
     format_response(selected_cols.rationale)
 
     print("\nEvaluating inference risk...")
-    inference = InferenceEvaluator(
-        ori=train_df,
-        syn=synthetic_df,
-        aux_cols=selected_cols.inference_aux_cols,
-        secret=selected_cols.secret,
-        n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-        control=test_df,
-    )
 
-    inference.evaluate()
-    inference_risk = inference.risk()
+    with redirect_stdout(inference_risk_output), redirect_stderr(inference_risk_output):
+        inference = InferenceEvaluator(
+            ori=train_df,
+            syn=synthetic_df,
+            aux_cols=selected_cols.inference_aux_cols,
+            secret=selected_cols.secret,
+            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+            control=test_df,
+        )
+
+        inference.evaluate()
+        inference_risk = inference.risk()
+
     print(f"\n=> Inference out risk:\n  - Value: {round(inference_risk.value*100, 3)}%" \
         f"\n  - Confidence interval: between {round(inference_risk.ci[0]*100,3)}%" \
         f" and {round(inference_risk.ci[1]*100,3)}%")
 
     print("\nEvaluating linkability risk...")
-    linkability = LinkabilityEvaluator(
-        ori=train_df,
-        syn=synthetic_df,
-        aux_cols=selected_cols.linkability_aux_cols,
-        n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-        control=test_df,
-    )
 
-    linkability.evaluate()
-    linkability_risk = linkability.risk()
+    with redirect_stdout(link_risk_output), redirect_stderr(link_risk_output):
+        linkability = LinkabilityEvaluator(
+            ori=train_df,
+            syn=synthetic_df,
+            aux_cols=selected_cols.linkability_aux_cols,
+            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
+            control=test_df,
+        )
+
+        linkability.evaluate()
+        linkability_risk = linkability.risk()
+
     print(f"\n=> Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%" \
         f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
         f" and {round(linkability_risk.ci[1]*100,3)}%")
@@ -1307,7 +1333,11 @@ def write_report(
 
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
-    output_path = Path("output") / f"version_{version_id}" / output_filename
+
+    output_dir = PROJECT_ROOT / "output" / f"version_{version_id}" / output_filename
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = output_dir / output_filename
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("# SYNTHETIC DATA GENERATION REPORT\n")

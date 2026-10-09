@@ -614,9 +614,10 @@ class DataGen:
 
         st.subheader("View syndat plots")
 
-        self.report.evaluate.plots = generate_plots_ui(
-            real_df=real_df, synth_df=synth_df, version_id=self.version_id,
-        )
+        with st.spinner("Loading plots..."):
+            self.report.evaluate.plots = generate_plots_ui(
+                real_df=real_df, synth_df=synth_df, version_id=self.version_id,
+            )
 
         st.write("---")
 

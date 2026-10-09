@@ -1,22 +1,31 @@
 from pathlib import Path
 import subprocess as sp
 from textwrap import dedent
+from typing import Any, Literal
 import json
 
 import pandas as pd
 
 from agentic_synth_data.strategies.base import GeneratorStrategy
+from agentic_synth_data.utils import PROJECT_ROOT
+
+
+COMPOSE_FILE = PROJECT_ROOT / "compose.yaml"
 
 
 class SyntheticDataReleaseStrategy(GeneratorStrategy):
     """For Synthetic Data Release models: CTGAN, PATEGAN, BayesianNet, and PrivBayes"""
-    def prepare_metadata(self, prep_path:Path, semantic_types:dict[str,str]):
+    def prepare_metadata(
+        self,
+        prep_path: Path,
+        semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    ):
         return self._write_metadata_json(prep_path=prep_path, semantic_types=semantic_types)
 
 
     def run(
-            self, n_samples:int, prep_path:Path, synth_path:Path, parameters:dict,
-        ) -> tuple[Path, pd.DataFrame]:
+        self, n_samples: int, prep_path: Path, synth_path: Path, parameters: dict[str, Any],
+    ) -> tuple[Path, pd.DataFrame]:
         self._run_generator(
             n_samples=n_samples,
             prep_path=prep_path,
@@ -36,7 +45,11 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
         return synth_path, synth_df
 
 
-    def _write_metadata_json(self, prep_path:Path, semantic_types:dict) -> Path:
+    def _write_metadata_json(
+        self,
+        prep_path: Path,
+        semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    ) -> Path:
         """Store information about the prepared dataset in JSON file format for use
         of the synthetic generator tool, incorporating the defined semantic types of the data.
 
@@ -44,13 +57,13 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
 
         Args:
             prep_path (Path): Path of the original dataset. This is used to name 
-                            the JSON.
-            semantic_types (dict): The defined semantic types of the dataset. This 
-                            is used to gather appropriate information in the JSON
-                            for each column.
+                the JSON.
+            semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
+                The defined semantic types of the dataset. This is used to gather appropriate 
+                information in the JSON for each column.
 
         Returns:
-            str: Path to the generated metadata JSON file.
+            Path: Path to the generated metadata JSON file.
         """
         df = pd.read_csv(prep_path)
         json_path = prep_path.parent / f"{prep_path.stem}.json"
@@ -98,29 +111,29 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
 
     # TODO: If run_generator fails, for example, plug the error message into the agent and try to have the agent repair the issue.
     def _run_generator(
-            self, n_samples:int, prep_path:Path, synth_path:Path, parameters:dict,
-        ) -> Path:
+        self, n_samples: int, prep_path: Path, synth_path: Path, parameters: dict[str, Any],
+    ) -> Path:
         mechanism = self.generator_name
-        parameters = ",".join(map(str, parameters.values()))
-        container_path = f"/workspace/output/{synth_path.name}"
+        parameter_value = ",".join(map(str, parameters.values()))
+
+        relative_synth_path = synth_path.relative_to(PROJECT_ROOT)
+        container_path = f"/workspace/{relative_synth_path.as_posix()}"
 
         print()
         print("-"*25+f"Running {mechanism}"+"-"*25)
 
         # NOTE: CTGAN does not allow for parameter updates (comma separation issue)
-        param_arg = "" if mechanism == "CTGAN" else f"-P {parameters}"
+        param_arg = "" if mechanism == "CTGAN" else f"-P {parameter_value}"
 
         command = dedent(f"""
-        podman run --rm \
-            --entrypoint /bin/bash -v "$PWD/..:/workspace:Z" \
-            docker.io/springepfl/synthetic-data:latest \
-            -c "cd /synthetic_data_release && python3 executables/generate_synthetic_dataset.py \
+            podman compose -f {COMPOSE_FILE} run --rm sdr \
+            executables/generate_synthetic_dataset.py \
             -D /workspace/data/{prep_path.stem} \
             -M {mechanism} \
             {param_arg} \
             -O {container_path} \
-            -N {n_samples}"
-            """)
+            -N {n_samples}
+        """)
 
         process = sp.Popen(
             command,
@@ -128,7 +141,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
             stdout=sp.PIPE,
             stderr=sp.STDOUT,
             text=True
-            )
+        )
 
         for line in process.stdout:
             print(line, end="")
@@ -138,5 +151,6 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
         # If process fails for a specific generator
         if process.returncode !=0:
             raise RuntimeError(f"{mechanism} failed. {command}")
+
         print(f"\n=> {mechanism}: {n_samples} synthetic samples successfully generated.")
         return synth_path

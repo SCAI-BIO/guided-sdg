@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -31,7 +32,7 @@ class GenerationReport(BaseModel):
     prep_path: str | None = None
     synth_path: str | None = None
     synth_shape: tuple[int, int] | None = None
-    params: str | None = None
+    params: dict[str, Any] | None = None
 
 
 class EvalReport(BaseModel):
