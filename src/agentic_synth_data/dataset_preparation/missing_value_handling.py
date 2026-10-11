@@ -455,11 +455,164 @@ def handle_missing_values_ui(
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 
+    # If prompted: Use the agent to suggest the missing value handling strategy.
+    if (
+        mode == "auto" or
+        impute.categorical_strategy == "auto" or
+        impute.numerical_strategy == "auto" or
+        "missing_plan" in st.session_state
+    ):
+        proportion_missing = (df.isna().sum() / df.shape[0]).round(4).to_dict()
+        rows_with_missing = int(df.isna().any(axis=1).sum())
+        total_rows = df.shape[0]
+
+        request_dict = synthesis_request.model_dump()
+
+        prompt = missing_value_prompt(
+            proportion_missing=proportion_missing,
+            rows_with_missing=rows_with_missing,
+            total_rows=total_rows,
+            synthesis_request=request_dict,
+            semantic_types=semantic_types,
+        )
+
+        if "missing_plan" not in st.session_state:
+            with st.spinner("Agent is coming up with a suggestion for missing value handling..."):
+                raw_plan = agent.invoke(
+                    {"messages": [{"role": "user", "content": prompt,}]},
+                    config=config,
+                )
+
+                plan = extract_output(raw_plan)
+
+                missing_plan = parse_json_ui(
+                    plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+                )
+
+                st.session_state.missing_plan = {
+                    "mode": missing_plan.mode,
+                    "imputation_method": missing_plan.imputation_method,
+                    "categorical_strategy": missing_plan.categorical_strategy, 
+                    "numerical_strategy": missing_plan.numerical_strategy,
+                    "set_threshold": missing_plan.set_threshold,
+                    "warning": missing_plan.warning,
+                    "rationale": missing_plan.rationale,
+                }
+
+        updated_plan = st.session_state.missing_plan
+
+        info_helper_message(
+            message="Agent has finished coming up with suggestion.",
+            context=(
+                "The agent suggested a missing value handling strategy based on:\n"
+                "- The proportion of missing values for each column.\n"
+                "- The number of rows with missing values.\n"
+                "- Total rows in the dataset.\n"
+                "- Your synthesis request.\n"
+                "- The semantic data types of each column present in the dataset."
+            ),
+            key="missing_handling_info",
+        )
+
+        st.write("Suggested plan:")
+        st.write(f"- Mode: {updated_plan['mode']}")
+
+        if updated_plan["set_threshold"] is not None:
+            st.write(f"- Threshold: {updated_plan['set_threshold']}")
+
+        if updated_plan["imputation_method"] is not None:
+            st.write(f"- Imputation method: {updated_plan['imputation_method']}")
+
+        if updated_plan["categorical_strategy"] is not None:
+            st.write(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
+
+        if updated_plan["numerical_strategy"]:
+            st.write(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
+
+        if len(updated_plan["warning"]) > 0:
+            st.warning(f"- Warning: {updated_plan['warning'][0]}")
+
+        st.write("Rationale behind the suggestion:")
+        st.write(updated_plan["rationale"])
+
+        if st.session_state.get("missing_handling_complete", False):
+            st.info("=> Missing value handling plan has been approved.")
+            synthesis_request = st.session_state.approved_missing_request
+
+        else:
+            if "missing_check_version" not in st.session_state:
+                st.session_state.missing_check_version = 0
+
+            confirm = st.selectbox(
+                "Would you like to proceed with the suggestion?",
+                ["yes", "no"],
+                index=None,
+                key=f"missing_handling_check_suggestion_{st.session_state.missing_check_version}",
+            )
+
+            if confirm == "yes":
+                # Update synthesis request with new specifications
+                synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
+
+                st.session_state.approved_missing_request = synthesis_request
+                st.session_state.missing_handling_complete = True
+
+                st.info("=> The missing value handing plan has been approved.")
+                st.rerun()
+
+            elif confirm == "no":
+                st.write(
+                    "Please describe how you would want missing values to be "
+                    "handled and what changes you would make to the suggested plan."
+                )
+
+                feedback = st.text_area(
+                    "Enter your feedback",
+                    key="missing_handling_feedback",
+                )
+
+                if st.button("Submit feedback", key="missing_handling_feedback_submit",):
+                    current_prompt = missing_feedback(prompt, feedback)
+
+                    with st.spinner("Agent is updating suggestion..."):
+                        raw_plan = agent.invoke(
+                            {"messages": [{"role": "user", "content": current_prompt,}]},
+                            config=config,
+                        )
+
+                        plan = extract_output(raw_plan)
+
+                        missing_plan = parse_json_ui(
+                            plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+                        )
+
+                    st.session_state.missing_plan = {
+                        "mode": missing_plan.mode,
+                        "imputation_method": missing_plan.imputation_method,
+                        "categorical_strategy": missing_plan.categorical_strategy, 
+                        "numerical_strategy": missing_plan.numerical_strategy,
+                        "set_threshold": missing_plan.set_threshold,
+                        "warning": missing_plan.warning,
+                        "rationale": missing_plan.rationale,
+                    }
+
+                    st.session_state.missing_check_version += 1
+                    st.rerun()
+
+                st.stop()
+
+            else:
+                st.stop()
+
+    # Refresh preferences after approval
+    mode = synthesis_request.missing_values.mode
+    impute = synthesis_request.missing_values.impute
+
     # 1. Remove all samples with NA columns.
     if mode == "remove":
         null_row_count = df.isna().any(axis=1).sum()
         st.warning(
-            f"\nWarning: {null_row_count} out of {df.shape[0]} rows ("
+            f"Warning: {null_row_count} out of {df.shape[0]} rows ("
             f"{null_row_count/df.shape[0]*100}%) will be removed from the dataset."
         )
         st.write("\nConfirm whether this should be done:\n")
@@ -476,16 +629,16 @@ def handle_missing_values_ui(
         if confirm == "yes":
             df = df.dropna()
             st.info(
-                "\n=> All samples with missing values have been removed. There are "
+                "=> All samples with missing values have been removed. There are "
                 f"{df.isna().sum().sum()} remaining missing values."
             )
             return df, synthesis_request
 
         # If this option is too harsh and the user wants to try another method.
         synthesis_request = update_missing_value_choice_ui(synthesis_request)
-        return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
+        return handle_missing_values_ui(df, synthesis_request, semantic_types, agent, config)
 
-    # 3. Perform imputation given there are decided categorical and numerical strategies.
+    # 2. Perform imputation given there are decided categorical and numerical strategies.
     if (
         mode == "impute" and
         impute.categorical_strategy != "auto" and
@@ -501,6 +654,7 @@ def handle_missing_values_ui(
 
         df = df.copy()
         st.write("\nReview of missing value handling results:")
+        
         # Categorical value imputation
         cat_strategy = synthesis_request.missing_values.impute.categorical_strategy
         if cat_cols:
@@ -552,143 +706,3 @@ def handle_missing_values_ui(
 
         st.write(f"\n=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
         return df, synthesis_request
-
-    # 4. Use the agent to suggest the missing value handling strategy.
-    if (
-        mode == "auto" or
-        impute.categorical_strategy == "auto" or
-        impute.numerical_strategy == "auto"
-    ):
-        proportion_missing = (df.isna().sum() / df.shape[0]).round(4).to_dict()
-        rows_with_missing = int(df.isna().any(axis=1).sum())
-        total_rows = df.shape[0]
-
-        request_dict = synthesis_request.model_dump()
-
-        prompt = missing_value_prompt(
-            proportion_missing=proportion_missing,
-            rows_with_missing=rows_with_missing,
-            total_rows=total_rows,
-            synthesis_request=request_dict,
-            semantic_types=semantic_types,
-        )
-
-        if "missing_plan" not in st.session_state:
-            with st.spinner("Agent is coming up with a suggestion for missing value handling..."):
-                raw_plan = agent.invoke(
-                    {"messages": [{"role": "user", "content": prompt,}]},
-                    config=config,
-                )
-
-                plan = extract_output(raw_plan)
-
-                missing_plan = parse_json_ui(
-                    plan=plan, model_cls=MissingHandling, agent=agent, config=config,
-                )
-
-
-                st.session_state.missing_plan = {
-                    "mode": missing_plan.mode,
-                    "imputation_method": missing_plan.imputation_method,
-                    "categorical_strategy": missing_plan.categorical_strategy, 
-                    "numerical_strategy": missing_plan.numerical_strategy,
-                    "set_threshold": missing_plan.set_threshold,
-                    "warning": missing_plan.warning,
-                    "rationale": missing_plan.rationale,
-                }
-
-
-            updated_plan = st.session_state.missing_plan
-
-            info_helper_message(
-                message="Agent has finished coming up with suggestion.",
-                context=(
-                    "The agent suggested a missing value handling strategy based on:\n"
-                    "- The proportion of missing values for each column.\n"
-                    "- The number of rows with missing values.\n"
-                    "- Total rows in the dataset.\n"
-                    "- Your synthesis request.\n"
-                    "- The semantic data types of each column present in the dataset."
-                ),
-                key="missing_handling_info",
-            )
-
-            st.write("Suggested plan:")
-            st.write(f"- Mode: {updated_plan['mode']}")
-
-            if updated_plan["set_threshold"] is not None:
-                st.write(f"- Threshold: {updated_plan['set_threshold']}")
-
-            if updated_plan["imputation_method"] is not None:
-                st.write(f"- Imputation method: {updated_plan['imputation_method']}")
-
-            if updated_plan["categorical_strategy"] is not None:
-                st.write(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
-
-            if updated_plan["numerical_strategy"]:
-                st.write(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
-
-            if len(updated_plan["warning"]) > 0:
-                st.warning(f"- Warning: {updated_plan['warning'][0]}")
-
-            st.write("Rationale behind the suggestion:")
-            st.write(updated_plan["rationale"])
-
-            confirm = st.selectbox(
-                "Would you like to proceed with the suggestion?",
-                ["yes", "no"],
-                index=None,
-                key="missing_handling_check_suggestion",
-            )
-
-            if confirm == "yes":
-                # Update synthesis request with new specifications
-                synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
-
-                st.subheader(
-                    "The missing value handling plan has been updated to the following:"
-                )
-                display_synthesis_request_st(synthesis_request)
-
-            elif confirm == "no":
-                st.write(
-                    "Please describe how you would want missing values to be "
-                    "handled and what changes you would make to the suggested plan."
-                )
-
-                feedback = st.text_area(
-                    "Enter your feedback",
-                    key="missing_handling_feedback",
-                )
-
-                if st.button("Submit feedback", key="missing_handling_feedback_submit",):
-                    current_prompt = missing_feedback(prompt, feedback)
-
-                    with st.spinner("Agent is updating suggestion..."):
-                        raw_plan = agent.invoke(
-                            {"messages": [{"role": "user", "content": current_prompt,}]},
-                            config=config,
-                        )
-
-                        plan = extract_output(raw_plan)
-
-                        missing_plan = parse_json_ui(
-                            plan=plan, model_cls=MissingHandling, agent=agent, config=config,
-                        )
-
-                    st.session_state.missing_plan = {
-                        "mode": missing_plan.mode,
-                        "imputation_method": missing_plan.imputation_method,
-                        "categorical_strategy": missing_plan.categorical_strategy, 
-                        "numerical_strategy": missing_plan.numerical_strategy,
-                        "set_threshold": missing_plan.set_threshold,
-                        "warning": missing_plan.warning,
-                        "rationale": missing_plan.rationale,
-                    }
-
-                st.session_state.missing_handling_check_suggestion = None
-                st.rerun()
-
-        # Update synthesis request with new specifications
-        synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
-        return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
