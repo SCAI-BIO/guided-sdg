@@ -72,6 +72,7 @@ class DataGen:
 
 
     def create_model(self) -> BaseChatModel:
+        """Initialize the selected large language model."""
         model = init_chat_model(
             "MiniMaxAI/MiniMax-M2.5",
             model_provider="openai",
@@ -80,7 +81,8 @@ class DataGen:
         return model
 
 
-    def create_agent(self):
+    def create_agent(self) -> CompiledStateGraph:
+        """Initialize agent with the desired model for use in the workflow."""
         agent = create_agent(
             model=self.model,
             checkpointer=self.checkpointer,
@@ -564,7 +566,6 @@ class DataGen:
 
     def evaluate_ui(self):
         """Step 6: Evaluate results"""
-        st.header("Evaluate synthetic data")
         synth_df = self.synthetic_df.copy()
         if self.norm_na_df is not None:
             real_df = self.norm_na_df.copy()
@@ -744,6 +745,7 @@ class DataGen:
 
 
     def run(self):
+        """Run all synthetic data generation workflow steps."""
         self.load_dataframe()
         self.apply_preferences()
 
@@ -760,26 +762,6 @@ class DataGen:
         # Evaluate results and make report
         self.evaluate()
         final_gen = self.post_evaluation_check()
-        return final_gen.synthetic_df
-
-
-    def run_ui(self):
-        self.load_dataframe()
-        self.apply_preferences_ui()
-
-        # Preprocessing and generator selection
-        self.preprocess_dtypes_ui()
-        self.generator_selection_ui()
-        self.preprocess_missing_vals_ui()
-
-        # Prepare for and run data synthesis tool
-        self.save_prepared_data_ui()
-        self.create_metadata()
-        self.run_synthesis_ui()
-
-        # Evaluate results and make report
-        self.evaluate_ui()
-        final_gen = self.post_evaluation_check_ui()
         return final_gen.synthetic_df
 
 
@@ -960,7 +942,7 @@ class DataGen:
 
 
     def _revision_scope(self, update_plan: dict) -> str:
-        """Indicates what has been selected for revision in _reset_from_selection"""
+        """Indicates what has been selected for revision in `_reset_from_selection`."""
         has_generator = "update_mech" in update_plan
         has_parameter = "update_params" in update_plan
         has_missing = "update_missing" in update_plan
@@ -1004,7 +986,8 @@ class DataGen:
             self.synthesis_request.missing_values.mode = option.mode
 
             if option.mode == "impute":
-                impute_setting = self.synthesis_request.missing_values.impute
-                impute_setting.method = option.imputation_method
-                impute_setting.categorical_strategy = option.categorical_strategy
-                impute_setting.numerical_strategy = option.numerical_strategy
+                self.synthesis_request.missing_values.impute = ImputationConfig(
+                    method=option.imputation_method,
+                    categorical_strategy=option.categorical_strategy,
+                    numerical_strategy=option.numerical_strategy,
+                )

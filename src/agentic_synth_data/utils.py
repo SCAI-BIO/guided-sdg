@@ -16,11 +16,22 @@ DEMO_DATA_DIR = PROJECT_ROOT / "demo_data"
 
 T = TypeVar("T", bound=BaseModel)
 
-def format_response(text: str):
+def format_response(text: str) -> None:
+    """Format response in CLI such that longer responses fit within the terminal without requiring
+    the user to scroll.
+
+    Args:
+        text (str): Any longer text which may require formatting to be easily viewable.
+    """
     print(textwrap.fill(text, width=100))
 
 
 def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
+    """Display the synthesis request after initial specification.
+    
+        Args:
+            synthesis_request (SynthesisRequest): User preferences for data synthesis.
+    """
     print(f"\nSample size mode: {synthesis_request.sample_size.mode}")
 
     if synthesis_request.sample_size.fixed_value is not None:
@@ -41,29 +52,12 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
-def page_navigation(back_page: str, next_page: str, next_disabled: bool=False,):
-    st.markdown("""
-        <style>
-        div[data-testid="stPageLink"] a {
-            border: 1px solid #D3D3D3;
-            border-radius: 8px;
-            padding: 0.6rem 1rem;
-            text-align: center;
-            display: block;
-            text-decoration: none;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.page_link(back_page, label="back", use_container_width=True,)
-
-    with col2:
-        st.page_link(next_page, label="continue", use_container_width=True, disabled=next_disabled,)
-
-
 def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
+    """Display the synthesis request after initial specification (UI).
+
+    Args:
+        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+    """
     st.write(f"\n**Sample size mode:** {synthesis_request.sample_size.mode}")
 
     if synthesis_request.sample_size.fixed_value is not None:
@@ -82,6 +76,40 @@ def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
             f"{synthesis_request.missing_values.impute.categorical_strategy}\n\n"
             "- **Numerical strategy:** "
             f"{synthesis_request.missing_values.impute.numerical_strategy}"
+        )
+
+
+def page_navigation(back_page: str, next_page: str, next_disabled: bool=False,):
+    """Page navigation buttons to either go back or forward in the workflow.
+
+    Args:
+        back_page (str): The previous page which can be revisited.
+        next_page (str): The next page which can be visited.
+        next_disabled (bool, optional): Disables ability to visit the next page. Defaults to False.
+    """
+    st.markdown("""
+        <style>
+        div[data-testid="stPageLink"] a {
+            border: 1px solid #D3D3D3;
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            text-align: center;
+            display: block;
+            text-decoration: none;
+        }
+        </style>
+    """, unsafe_allow_html=True,)
+
+    col1, _, _, col2 = st.columns(4)
+    with col1:
+        st.page_link(back_page, label="⟵", use_container_width=True,)
+
+    with col2:
+        st.page_link(
+            next_page,
+            label="\u00A0" * 40 + "⟶", # Non breaking spaces for arrow to be on rightward side.
+            use_container_width=True,
+            disabled=next_disabled,
         )
 
 
@@ -251,6 +279,7 @@ def extract_output(raw_message: dict) -> str:
     """
     response = raw_message["messages"][-1].content
 
+    # TODO: need to consider other models which do not use <think>
     if "</think>" in response:
         return response.split("</think>")[1].strip()
 

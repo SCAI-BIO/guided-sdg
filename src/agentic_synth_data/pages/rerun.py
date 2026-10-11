@@ -25,5 +25,9 @@ st.write(
 gen = st.session_state.gen
 gen.post_evaluation_check_ui()
 
-page_navigation(back_page="pages/synthetic_generation.py", next_page="pages/missing_handling.py", next_disabled=True,)
+page_navigation(
+    back_page="pages/synthetic_generation.py",
+    next_page="pages/missing_handling.py",
+    next_disabled=True,
+)
 # NOTE: next page is inaccurate for now, but is unused/disabled

@@ -25,4 +25,6 @@ request = gen.apply_preferences_ui()
 if request is not None:
     st.session_state.gen.synthesis_request = request
 
-page_navigation(back_page="pages/setup.py", next_page="pages/handle_dtypes.py", next_disabled=request is None,)
+page_navigation(
+    back_page="pages/setup.py", next_page="pages/handle_dtypes.py", next_disabled=request is None,
+)

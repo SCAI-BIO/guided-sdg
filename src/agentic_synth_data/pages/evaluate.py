@@ -9,7 +9,7 @@ st.write(
     "`✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ ✓ Missing values ─ ✓ Generate ─ ● Evaluate`"
 )
 
-st.header("Evaluation")
+st.header("Evaluate synthetic data")
 st.space("small")
 
 st.write("Evaluate whether the synthetic data is satisfactory.")

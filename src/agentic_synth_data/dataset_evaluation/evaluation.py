@@ -1318,6 +1318,7 @@ def evaluation_review_ui(
     return choice
 
 
+# possible TODO: move to a different file?
 def write_report(
     report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
 ) -> None:
@@ -1329,8 +1330,6 @@ def write_report(
         data_path (str): Initial path of the data (used for naming the report).
         version_id (int): Denotes the version of the workflow attempt.
     """
-    request_dict = synthesis_request.model_dump()
-
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
 
@@ -1427,35 +1426,17 @@ def write_report(
         if linkability_output:
             f.write(f"{linkability_output}")
 
-# class EvalReport(BaseModel):
-#     """Evaluation metrics with plots comparing real and synthetic data for report."""
-#     attack: AttackMetrics | None = None
-#     syndat: SyndatMetrics | None = None
-#     plots: dict[str, list[Path]] = Field(default_factory=dict)
+        f.write(f"# Plots: locations {report.evaluate.plots}")
 
-
-# class ReviewReport(BaseModel):
-#     # TODO: After splitting, as this is, it only has the same information as AgentEval. Possibly add more regarding user input in response.
-#     """Agent identified input for report."""
-#     problem_columns: list[str] = Field(default_factory=list)
-#     status: str | None = None
-#     recommendation: str | None = None
-#     rationale: str | None = None
-#     # user_decision - finish | revise
-#     # additional details...
-
+        f.write(f"\nAgent review:\n- Status:{report.review.status}\n- Recommendation: {report.review.recommendation}")
+        f.write(f"- Rationale behind the recommendation: {report.review.rationale}\n- Problem columns {report.review.problem_columns}")
 
         f.write("\n\n### Evaluation\n")
         f.write("```python\n")
         pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False)
         f.write("```\n")
 
-
-# class UpdatePlanReport(BaseModel):
-#     """The plan update that was selected for a subsequent run to be included in the current report.
-#     """
-#     selected_plan_updates: dict = Field(default_factory=dict)
-
+        pprint.pprint(report.update.selected_plan_updates)
 
         f.write("\nConclusion\n")
         f.write("```python\n")
