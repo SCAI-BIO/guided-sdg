@@ -343,8 +343,7 @@ def select_generator_ui(
     st.write(generation_plan.rationale)
 
     if len(generation_plan.warning) > 0:
-        st.subheader("Warning:")
-        st.write(generation_plan.warning[0])
+        st.warning(f"Warning: {generation_plan.warning[0]}")
 
     if st.session_state.get("generator_selection_complete", False,):
         st.info(f"=> {generation_plan.generator} has been approved.")

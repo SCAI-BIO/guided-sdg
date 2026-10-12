@@ -615,12 +615,11 @@ def handle_missing_values_ui(
             f"Warning: {null_row_count} out of {df.shape[0]} rows ("
             f"{null_row_count/df.shape[0]*100}%) will be removed from the dataset."
         )
-        st.write("\nConfirm whether this should be done:\n")
+
         confirm = st.selectbox(
-            "removal of missing values yes/no",
+            "Confirm whether this should be done:",
             ["yes", "no"],
             index=None,
-            label_visibility="hidden",
         )
 
         if confirm is None:
