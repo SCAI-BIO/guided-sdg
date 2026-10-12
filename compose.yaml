@@ -5,14 +5,20 @@ services:
       - "8080:8080"
     env_file:
       - .env
+    environment:
+      SDR_URL: http://sdr:8000
+      DATA_DIR: /workspace/data
+      OUTPUT_DIR: /workspace/output
     volumes:
       - ./data:/workspace/data:Z
       - ./output:/workspace/output:Z
 
   sdr:
-    image: docker.io/springepfl/synthetic-data:latest
-    working_dir: /synthetic_data_release
-    entrypoint: python3
+    build:
+      context: .
+      dockerfile: Dockerfile.sdr
+    environment:
+      SDR_WORKDIR: /synthetic_data_release
     volumes:
       - ./data:/workspace/data:Z
       - ./output:/workspace/output:Z

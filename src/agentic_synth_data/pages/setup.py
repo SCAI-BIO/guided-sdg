@@ -1,9 +1,8 @@
-from pathlib import Path
 import time
 
 import streamlit as st
 
-from agentic_synth_data.utils import DEMO_DATA_DIR
+from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR
 from agentic_synth_data.workflow import DataGen
 
 
@@ -91,7 +90,7 @@ if clicked:
         file_name = data_path.name
 
     else:
-        data_dir = Path("../data")
+        data_dir = DATA_DIR
         data_dir.mkdir(parents=True, exist_ok=True)
 
         data_path = data_dir / file.name

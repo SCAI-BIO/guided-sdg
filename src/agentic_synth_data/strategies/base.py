@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
-from agentic_synth_data.utils import PROJECT_ROOT
+from agentic_synth_data.utils import OUTPUT_DIR
 
 
 class GeneratorStrategy(ABC):
@@ -24,7 +24,7 @@ class GeneratorStrategy(ABC):
         """
         data_name = prep_path.stem.removesuffix("_prepared")
 
-        output_dir = PROJECT_ROOT / "output" / f"version_{version_id}"
+        output_dir = OUTPUT_DIR / f"version_{version_id}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         synth_path = f"synthetic_{data_name}_{self.generator_name.lower()}_v{version_id}.csv"
