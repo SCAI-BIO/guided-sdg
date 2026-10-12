@@ -15,8 +15,8 @@ services:
 
   sdr:
     build:
-      context: .
-      dockerfile: Dockerfile.sdr
+      context: ./sdr_service
+      dockerfile: Dockerfile
     environment:
       SDR_WORKDIR: /synthetic_data_release
     volumes:

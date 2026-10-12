@@ -28,7 +28,7 @@ uv run streamlit run src/agentic_synth_data/main.py  # run the UI (repo root)
 
 ## Generator execution (non-obvious)
 
-- Generators are **not** run in-process. `strategies/synthetic_data_release.py` POSTs to the always-on `sdr` sidecar (`SDR_URL`, default `http://localhost:8000`), a thin FastAPI wrapper (`sdr_service/app.py`, `Dockerfile.sdr`) around the `springepfl/synthetic-data` image that runs `executables/generate_synthetic_dataset.py` inside its own container. `compose.yaml` starts both services.
+- Generators are **not** run in-process. `strategies/synthetic_data_release.py` POSTs to the always-on `sdr` sidecar (`SDR_URL`, default `http://localhost:8000`), a thin FastAPI wrapper (`sdr_service/app.py`, built from `sdr_service/Dockerfile`) around the `springepfl/synthetic-data` image that runs `executables/generate_synthetic_dataset.py` inside its own container. `compose.yaml` starts both services.
 - All four generators (CTGAN, PATEGAN, BayesianNet, PrivBayes) use the `synthetic_data_release` backend (`strategies/factory.py`).
 - Output paths: `utils.DATA_DIR` (prepared CSV + co-located metadata JSON) and `utils.OUTPUT_DIR` (`version_<N>/` synthetic CSV and plots/report). Both default to `PROJECT_ROOT/{data,output}` and are overridable via `DATA_DIR`/`OUTPUT_DIR` env vars (set to `/workspace/...` in compose so the app and `sdr` agree on paths).
 

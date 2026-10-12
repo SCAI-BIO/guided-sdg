@@ -3,7 +3,7 @@ FROM docker.io/springepfl/synthetic-data:latest
 RUN python3 -m pip install --no-cache-dir fastapi "uvicorn[standard]"
 
 WORKDIR /sdr_service
-COPY sdr_service/app.py /sdr_service/app.py
+COPY app.py /sdr_service/app.py
 
 EXPOSE 8000
 
