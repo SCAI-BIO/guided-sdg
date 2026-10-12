@@ -34,5 +34,4 @@ uv run streamlit run src/agentic_synth_data/main.py  # run the UI (repo root)
 
 ## Known issues (verify before relying on these areas)
 
-- `main.py` registers `pages/report.py`, which does not exist (only the package-root `report.py`); the Reports nav entry is broken.
 - `notebooks/demo-workflow.ipynb` calls `gen.select_preferences()`, but that method no longer exists — it is now `DataGen.apply_preferences()`.
