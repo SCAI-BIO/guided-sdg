@@ -1,3 +1,4 @@
+import os
 import textwrap
 from typing import Any, Literal, Optional, Type, TypeVar
 from pathlib import Path
@@ -13,6 +14,14 @@ from agentic_synth_data.prompts.system_prompt import json_repair_prompt
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DATA_DIR = PROJECT_ROOT / "demo_data"
+
+# Shared data/output directories. Overridable so that the app and the
+# synthetic-data-release sidecar agree on a single path prefix (see compose.yaml).
+DATA_DIR = Path(os.environ.get("DATA_DIR", PROJECT_ROOT / "data"))
+OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", PROJECT_ROOT / "output"))
+
+# Base URL of the synthetic-data-release sidecar service.
+SDR_URL = os.environ.get("SDR_URL", "http://localhost:8000")
 
 T = TypeVar("T", bound=BaseModel)
 

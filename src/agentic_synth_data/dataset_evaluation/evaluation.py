@@ -17,7 +17,7 @@ from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
-from agentic_synth_data.utils import PROJECT_ROOT, df_formatter_st, format_response, extract_output, \
+from agentic_synth_data.utils import OUTPUT_DIR, df_formatter_st, format_response, extract_output, \
     info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
     eval_review_message, evaluation_prompt
@@ -802,7 +802,7 @@ def generate_plots(
         dict[str, list[Path]]: JSD plot images.
     """
     # TODO: verify whether path needs to be fixed here too
-    output_dir = Path("../output") / f"version_{version_id}" / "plots"
+    output_dir = OUTPUT_DIR / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     syndat.visualization.plot_distributions(
@@ -1019,7 +1019,7 @@ def generate_plots_ui(
     Returns:
         dict[str, list[Path]]: Cached plot images grouped by plot type.
     """
-    output_dir = Path("output") / f"version_{version_id}" / "plots"
+    output_dir = OUTPUT_DIR / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     paths_key = f"plot_paths_{version_id}"
@@ -1333,7 +1333,7 @@ def write_report(
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
 
-    output_dir = PROJECT_ROOT / "output" / f"version_{version_id}"
+    output_dir = OUTPUT_DIR / f"version_{version_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / output_filename

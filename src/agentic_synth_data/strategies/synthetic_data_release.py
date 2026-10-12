@@ -1,16 +1,12 @@
 from pathlib import Path
-import subprocess as sp
-from textwrap import dedent
 from typing import Any, Literal
 import json
 
 import pandas as pd
+import requests
 
 from agentic_synth_data.strategies.base import GeneratorStrategy
-from agentic_synth_data.utils import PROJECT_ROOT
-
-
-COMPOSE_FILE = PROJECT_ROOT / "compose.yaml"
+from agentic_synth_data.utils import SDR_URL
 
 
 class SyntheticDataReleaseStrategy(GeneratorStrategy):
@@ -116,41 +112,31 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
         mechanism = self.generator_name
         parameter_value = ",".join(map(str, parameters.values()))
 
-        relative_synth_path = synth_path.relative_to(PROJECT_ROOT)
-        container_path = f"/workspace/{relative_synth_path.as_posix()}"
-
         print()
         print("-"*25+f"Running {mechanism}"+"-"*25)
 
         # NOTE: CTGAN does not allow for parameter updates (comma separation issue)
-        param_arg = "" if mechanism == "CTGAN" else f"-P {parameter_value}"
+        param_arg = None if mechanism == "CTGAN" else parameter_value
 
-        command = dedent(f"""
-            podman compose -f {COMPOSE_FILE} run --rm sdr \
-            executables/generate_synthetic_dataset.py \
-            -D /workspace/data/{prep_path.stem} \
-            -M {mechanism} \
-            {param_arg} \
-            -O {container_path} \
-            -N {n_samples}
-        """)
+        # The generator CLI expects the datapath without an extension; the
+        # co-located <base>.csv and <base>.json are read by the generator.
+        payload = {
+            "mechanism": mechanism,
+            "datapath": str(prep_path.with_suffix("")),
+            "output_file": str(synth_path),
+            "sample_size": n_samples,
+            "parameters": param_arg,
+        }
 
-        process = sp.Popen(
-            command,
-            shell=True,
-            stdout=sp.PIPE,
-            stderr=sp.STDOUT,
-            text=True
-        )
+        response = requests.post(f"{SDR_URL}/generate", json=payload)
 
-        for line in process.stdout:
-            print(line, end="")
-
-        process.wait()
+        print(response.json().get("log", ""), end="")
 
         # If process fails for a specific generator
-        if process.returncode !=0:
-            raise RuntimeError(f"{mechanism} failed. {command}")
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"{mechanism} failed. {response.json().get('log', response.text)}"
+            )
 
         print(f"\n=> {mechanism}: {n_samples} synthetic samples successfully generated.")
         return synth_path

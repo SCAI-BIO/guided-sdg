@@ -33,7 +33,8 @@ from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
-from agentic_synth_data.utils import df_formatter_st, format_response, output_default_parameters
+from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, format_response, \
+    output_default_parameters
 
 
 class DataGen:
@@ -385,7 +386,7 @@ class DataGen:
 
         # The prepared data for generator tool input
         output_filename = f"{input_path.stem}_prepared.csv"
-        output_dir = Path("data")
+        output_dir = DATA_DIR
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self.prepared_path = output_dir / output_filename
@@ -465,7 +466,7 @@ class DataGen:
 
         else:
             generator = self.synthesis_request.generator.name
-            Path("output").mkdir(parents=True, exist_ok=True)
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             strategy = get_generator_strategy(generator_name=generator)
 
             # Set sample size
