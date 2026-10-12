@@ -27,13 +27,14 @@ from agentic_synth_data.preference_setup import select_preferences, SynthesisReq
     ImputationConfig, select_preferences_ui
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
-from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui, revision_tabs_ui
+from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
-from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, format_response
+from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, format_response \
+    output_default_parameters
 
 
 class DataGen:
@@ -49,6 +50,7 @@ class DataGen:
         self.semantic_types: dict[
             str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]
         ] | None = None
+        self.pending_revision_plan: dict | None = None
 
         self.source_df: pd.DataFrame | None = None # Original data
         self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
@@ -72,6 +74,7 @@ class DataGen:
 
 
     def create_model(self) -> BaseChatModel:
+        """Initialize the selected large language model."""
         model = init_chat_model(
             "MiniMaxAI/MiniMax-M2.5",
             model_provider="openai",
@@ -80,7 +83,8 @@ class DataGen:
         return model
 
 
-    def create_agent(self):
+    def create_agent(self) -> CompiledStateGraph:
+        """Initialize agent with the desired model for use in the workflow."""
         agent = create_agent(
             model=self.model,
             checkpointer=self.checkpointer,
@@ -564,7 +568,6 @@ class DataGen:
 
     def evaluate_ui(self):
         """Step 6: Evaluate results"""
-        st.header("Evaluate synthetic data")
         synth_df = self.synthetic_df.copy()
         if self.norm_na_df is not None:
             real_df = self.norm_na_df.copy()
@@ -679,34 +682,21 @@ class DataGen:
 
     def post_evaluation_check_ui(self):
         """Revise: Check in with user and possibly change the plan (UI)"""
-        st.header("Evaluate workflow")
-
         if "revision_versions" not in st.session_state:
             st.session_state.revision_versions = []
 
         if "revision_pending_from" not in st.session_state:
             st.session_state.revision_pending_from = None
 
-        #activate_tab = st.session_state.pop("_activate_revision_tab", None)
-
-        # if activate_tab is not None:
-        #     st.session_state["revision_tabs"] = activate_tab
-
-        revision_tabs = revision_tabs_ui()
-
         if st.session_state.revision_pending_from == self.version_id:
-            next_version = self.version_id + 1
-            tab = revision_tabs[next_version]
-
-            with tab:
-                selected_updates = plan_update_ui(
-                    synthesis_request=self.synthesis_request,
-                    agent_decision=self.agent_decision,
-                    report=self.report,
-                    agent=self.agent,
-                    config=self.config,
-                    version_id=self.version_id,
-                )
+            selected_updates = plan_update_ui(
+                synthesis_request=self.synthesis_request,
+                agent_decision=self.agent_decision,
+                report=self.report,
+                agent=self.agent,
+                config=self.config,
+                version_id=self.version_id,
+            )
 
             if selected_updates is not None:
                 for key, value in selected_updates.items():
@@ -717,9 +707,11 @@ class DataGen:
 
                 revised = self.create_revision_ui(selected_updates)
 
+                st.session_state.current_revision = revised
+                st.session_state.revision_history[revised.version_id] = revised
                 st.session_state.revision_pending_from = None
 
-                return revised
+                st.rerun()
 
             return self
 
@@ -737,6 +729,7 @@ class DataGen:
                 st.session_state.revision_versions.append(next_version)
 
             st.session_state.revision_pending_from = self.version_id
+            st.session_state.pending_active_revision_tab = f"Revision {next_version - 1}"
 
             st.rerun()
 
@@ -744,6 +737,7 @@ class DataGen:
 
 
     def run(self):
+        """Run all synthetic data generation workflow steps."""
         self.load_dataframe()
         self.apply_preferences()
 
@@ -760,26 +754,6 @@ class DataGen:
         # Evaluate results and make report
         self.evaluate()
         final_gen = self.post_evaluation_check()
-        return final_gen.synthetic_df
-
-
-    def run_ui(self):
-        self.load_dataframe()
-        self.apply_preferences_ui()
-
-        # Preprocessing and generator selection
-        self.preprocess_dtypes_ui()
-        self.generator_selection_ui()
-        self.preprocess_missing_vals_ui()
-
-        # Prepare for and run data synthesis tool
-        self.save_prepared_data_ui()
-        self.create_metadata()
-        self.run_synthesis_ui()
-
-        # Evaluate results and make report
-        self.evaluate_ui()
-        final_gen = self.post_evaluation_check_ui()
         return final_gen.synthetic_df
 
 
@@ -851,7 +825,8 @@ class DataGen:
 
         revised._apply_revision_plan(update_plan)
         revised._reset_from_selection(selection)
-        revised._rerun_selection_ui(update_plan)
+
+        revised.pending_revision_plan = update_plan
         return revised
 
 
@@ -889,10 +864,9 @@ class DataGen:
     def _rerun_selection_ui(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps (UI)."""
         if "update_mech" in update_plan:
-            st.write(
-                f"New generator: {update_plan['update_mech'].generator_name}\n"
-                "Reason:\n"
-            )
+            generator_name = update_plan['update_mech'].generator_name
+
+            st.write(f"New generator: {generator_name}\nReason:\n")
             st.write(update_plan['update_mech'].reason)
 
         if "update_params" in update_plan:
@@ -917,8 +891,8 @@ class DataGen:
         self.create_metadata()
         self.run_synthesis_ui()
         self.evaluate_ui()
-        final_gen = self.post_evaluation_check_ui()
-        return final_gen.synthetic_df
+
+        return self.synthetic_df
 
 
     def _reset_from_selection(self, selection:str) -> None:
@@ -960,7 +934,7 @@ class DataGen:
 
 
     def _revision_scope(self, update_plan: dict) -> str:
-        """Indicates what has been selected for revision in _reset_from_selection"""
+        """Indicates what has been selected for revision in `_reset_from_selection`."""
         has_generator = "update_mech" in update_plan
         has_parameter = "update_params" in update_plan
         has_missing = "update_missing" in update_plan
@@ -995,6 +969,9 @@ class DataGen:
         if "update_mech" in update_plan:
             option = update_plan["update_mech"]
             self.synthesis_request.generator.name = option.generator_name
+            self.synthesis_request.generator.parameters = output_default_parameters(
+                option.generator_name
+            )
 
         if "update_params" in update_plan:
             self.synthesis_request.generator.parameters = update_plan["update_params"]
@@ -1004,7 +981,11 @@ class DataGen:
             self.synthesis_request.missing_values.mode = option.mode
 
             if option.mode == "impute":
-                impute_setting = self.synthesis_request.missing_values.impute
-                impute_setting.method = option.imputation_method
-                impute_setting.categorical_strategy = option.categorical_strategy
-                impute_setting.numerical_strategy = option.numerical_strategy
+                self.synthesis_request.missing_values.impute = ImputationConfig(
+                    method=option.imputation_method,
+                    categorical_strategy=option.categorical_strategy,
+                    numerical_strategy=option.numerical_strategy,
+                )
+
+            else:
+                self.synthesis_request.missing_values.impute = ImputationConfig()

@@ -10,8 +10,8 @@ from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
     parameter_revision_message
-from agentic_synth_data.utils import parse_json, parse_json_ui, extract_output, \
-    newline_every_n_words 
+from agentic_synth_data.utils import info_helper_message, parse_json, parse_json_ui, \
+    extract_output, newline_every_n_words
 
 
 PENDING = "pending"
@@ -114,12 +114,12 @@ def plan_update(
 
 
 def plan_update_ui(
-    synthesis_request:SynthesisRequest,
-    agent_decision:AgentEval,
-    report:Report,
-    agent:Optional[CompiledStateGraph],
-    config:dict,
-    version_id:int,
+    synthesis_request: SynthesisRequest,
+    agent_decision: AgentEval,
+    report: Report,
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+    version_id: int,
 ) -> dict | None:
     """Agent suggests possible retroactive changes, which the user can select from (UI).
     
@@ -132,7 +132,7 @@ def plan_update_ui(
         agent_decision (dict[str, Any]): Agent decision based on results.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
-                        synthesis plan.
+            synthesis plan.
         config (dict): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.
 
@@ -153,7 +153,7 @@ def plan_update_ui(
         effective_generator = synthesis_request.generator.name
 
     # Update generator parameters
-    update_params = parameter_update_ui(effective_generator, agent, config,)
+    update_params = parameter_update_ui(effective_generator, agent, config, version_id,)
 
     if update_params == PENDING:
         st.stop()
@@ -239,12 +239,12 @@ def generator_update(
 
 
 def generator_update_ui(
-    synthesis_request:SynthesisRequest,
-    agent_decision:AgentEval,
-    report:Report,
-    agent:Optional[CompiledStateGraph],
-    config:dict,
-    version_id:int,
+    synthesis_request: SynthesisRequest,
+    agent_decision: AgentEval,
+    report: Report,
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+    version_id: int,
 ) -> GeneratorRevisionOption | None | Literal["pending"]:
     """Ask agent for for possible generator revision options and returns the option selected by 
     the user (UI).
@@ -252,7 +252,7 @@ def generator_update_ui(
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
         agent_decision (AgentEval): Agent decision on results: satisfactory | not_satisfactory |
-                                    needs_review.
+            needs_review.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (dict): Configuration passed to the agent during invocation.
@@ -263,8 +263,15 @@ def generator_update_ui(
                                 if cancelled. Literal["pending"] if nothing has been selected yet
                                 from the selectbox.
     """
+    plan_key = f"generator_revision_plan_{version_id}"
+    choice_key = f"generator_revision_choice_{version_id}"
+
+    if choice_key in st.session_state:
+        return st.session_state[choice_key]
+
     st.subheader("Select a generator revision option")
-    if f"generator_revision_plan_{version_id}" not in st.session_state:
+
+    if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with a generator revision options..."):
             prompt = revision_message(synthesis_request, report, agent_decision)
             raw_response = agent.invoke(
@@ -275,12 +282,24 @@ def generator_update_ui(
             plan = extract_output(raw_response)
             revision_plan = parse_json_ui(plan, GeneratorRevisionPlan, agent, config)
 
-        st.session_state.generator_revision_plan = revision_plan
+        st.session_state[plan_key] = revision_plan
 
     else:
-        revision_plan = st.session_state.generator_revision_plan
+        revision_plan = st.session_state[plan_key]
 
-    # TODO: add an info box that discusses what was input into the revision message
+    info_helper_message(
+        message="The agent has finished evaluating generator options.",
+        context=(
+            "The agent evaluated the synthetic dataset based on:\n"
+            "- Your preferences.\n"
+            "- The agent's evaluation of the current results.\n"
+            "- Information gathered throughout the workflow.\n"
+            "   - Synthetic data quality and fidelity metrics.\n"
+            "   - Privacy evaluation from Anonymeter.\n"
+            "- The current generator configuration."
+        ),
+        key=f"generator_revision_info_{version_id}",
+    )
 
     menu_options = {}
 
@@ -298,14 +317,19 @@ def generator_update_ui(
     if choice is None:
         return PENDING
 
-    if choice == "Cancel": # TODO maybe remove cancel for ui?
+    # TODO Possibly change the name to keep default (but then should show default selection...)
+    if choice == "Cancel":
+        st.session_state[choice_key] = None
         st.info(
             "=> No revision has been selected for generator choice, continuing to "
             "missing value handling."
         )
         return None
 
-    return menu_options[choice]
+    selected_option = menu_options[choice]
+    st.session_state[choice_key] = selected_option
+
+    return selected_option
 
 
 def parameter_update(
@@ -319,6 +343,7 @@ def parameter_update(
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (dict): Configuration passed to the agent during invocation.
+        version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
@@ -369,9 +394,10 @@ def parameter_update(
 
 
 def parameter_update_ui(
-    selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"],
-    agent:Optional[CompiledStateGraph],
-    config:dict,
+    selected_mechanism: Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"],
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+    version_id: int,
 ) -> str | None | Literal["pending"]:
     """Ask agent for possible parameter revision (UI).
 
@@ -379,6 +405,7 @@ def parameter_update_ui(
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (dict): Configuration passed to the agent during invocation.
+        version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
@@ -403,6 +430,15 @@ def parameter_update_ui(
         param_revision = parse_json_ui(raw_params, CONFIG_MAP[selected_mechanism], agent, config)
 
     changed_params = param_revision.model_dump(exclude_defaults=True) # TODO? move to indent?
+
+    info_helper_message(
+        message="The agent has finished determining parameter options.",
+        context=(
+            "The agent investigated parameter choices based on:\n"
+            "- Available parameter options for the selected generator."
+        ),
+        key=f"parameter_revision_info_{version_id}",
+    )
 
     if not changed_params:
         st.info("=> Default parameters retained.")
@@ -486,10 +522,10 @@ def missing_update(
 
 
 def missing_update_ui(
-    synthesis_request:SynthesisRequest,
-    agent:Optional[CompiledStateGraph],
-    config:dict,
-    version_id:int,
+    synthesis_request: SynthesisRequest,
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+    version_id: int,
 ) -> MissingRevisionOption | None | Literal["pending"]:
     """
     Ask agent for possible generator revision options and returns the option selected by the 
@@ -498,7 +534,7 @@ def missing_update_ui(
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a strategy for 
-                                              missing values.
+            missing values.
         config (dict): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.
 
@@ -525,6 +561,15 @@ def missing_update_ui(
     else:
         revision_plan = st.session_state[plan_key]
 
+    info_helper_message(
+        message="The agent has finished determining parameter options.",
+        context=(
+            "The agent investigated parameter choices based on:\n"
+            "- Your preferences."
+        ),
+        key=f"missing_revision_info_{version_id}",
+    )
+
     menu_options = {}
 
     for option in revision_plan.options:
@@ -540,12 +585,10 @@ def missing_update_ui(
 
         menu_options[label] = option
 
-    st.write("Select a missing value revision option:")
     choice = st.selectbox(
-        "selecting a revision option",
+        "Select a missing value revision option:",
         list(menu_options.keys()) + ["Cancel"],
         index=None,
-        label_visibility="hidden",
     )
 
     if choice is None:
@@ -562,7 +605,7 @@ def missing_update_ui(
 
 
 def revision_tabs_ui() -> dict:
-    """Create a new tab for each revision (UI).
+    """Create a new tab for each revision and select the latest revision (UI).
 
     Returns:
         dict: Versions and the tabs attributed to each version.
@@ -572,6 +615,8 @@ def revision_tabs_ui() -> dict:
     if not versions:
         return {}
 
-    tabs = st.tabs([f"Revision {i}" for i, _ in enumerate(versions, start=1)])
+    labels = [f"Revision {version - 1}" for version in versions]
+
+    tabs = st.tabs(labels, key="active_revision_tab", on_change="rerun",)
 
     return dict(zip(versions, tabs))

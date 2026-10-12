@@ -43,6 +43,8 @@ anonymeter_metric_descriptions = {
 
 @dataclass
 class AnonymeterInput:
+    """Contains prepared real and synthetic dataframe copies with missing value markers applied for 
+    compatibility with Anonymeter functions, which do not accept null values."""
     train_df:pd.DataFrame
     test_df:pd.DataFrame
     synthetic_df:pd.DataFrame
@@ -389,8 +391,6 @@ def calculate_attack_metrics(
         inference=inference_risk_output.buffer or None,
         linkability=link_risk_output.buffer or None,
     )
-
-    # TODO: include in report
 
     return AttackMetrics(
         singling_out= singling_out_risk,
@@ -1263,36 +1263,36 @@ def evaluation_review_ui(
         st.stop()
 
     if confirm == "yes":
-        for item in st.session_state.evaluation_review_history:
-            with st.chat_message("user"):
-                st.write(item["question"])
+        st.caption("Questions about the evaluation")
+        with st.container(border=True, height=350):
+            for item in st.session_state.evaluation_review_history:
+                with st.chat_message("user"):
+                    st.write(item["question"])
 
-            with st.chat_message("assistant"):
-                st.write(item["answer"])
+                with st.chat_message("assistant"):
+                    st.write(item["answer"])
 
-        new_question = st.chat_input(
-            "Enter your question/concern.",
-            key=f"evaluation_review_input_{version_id}",
-        )
+            new_question = st.chat_input(
+                "Enter your question/concern.",
+                key=f"evaluation_review_input_{version_id}",
+            )
 
-        answer = ""
+            if new_question:
+                with st.spinner("\nAgent is preparing its response..."):
+                    prompt = eval_review_message(agent_decision, new_question)
+                    raw_response = agent.invoke(
+                        {"messages": [{"role": "user", "content": prompt,}]},
+                        config=config,
+                    )
 
-        if new_question:
-            with st.spinner("\nAgent is preparing its response..."):
-                prompt = eval_review_message(agent_decision, new_question)
-                raw_response = agent.invoke(
-                    {"messages": [{"role": "user", "content": prompt,}]},
-                    config=config,
-                )
+                    answer = extract_output(raw_response)
 
-            answer = st.write(extract_output(raw_response))
+                st.session_state.evaluation_review_history.append({
+                    "question": new_question,
+                    "answer": answer,
+                })
 
-        st.session_state.evaluation_review_history.append({
-            "question": new_question,
-            "answer": answer,
-        })
-
-        st.rerun()
+                st.rerun()
 
         finished = st.button(
             "Done asking questions",
@@ -1318,6 +1318,7 @@ def evaluation_review_ui(
     return choice
 
 
+# possible TODO: move to a different file?
 def write_report(
     report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
 ) -> None:
@@ -1329,12 +1330,10 @@ def write_report(
         data_path (str): Initial path of the data (used for naming the report).
         version_id (int): Denotes the version of the workflow attempt.
     """
-    request_dict = synthesis_request.model_dump()
-
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
 
-    output_dir = OUTPUT_DIR / f"version_{version_id}" / output_filename
+    output_dir = OUTPUT_DIR / f"version_{version_id}" /
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / output_filename
@@ -1427,35 +1426,17 @@ def write_report(
         if linkability_output:
             f.write(f"{linkability_output}")
 
-# class EvalReport(BaseModel):
-#     """Evaluation metrics with plots comparing real and synthetic data for report."""
-#     attack: AttackMetrics | None = None
-#     syndat: SyndatMetrics | None = None
-#     plots: dict[str, list[Path]] = Field(default_factory=dict)
+        f.write(f"# Plots: locations {report.evaluate.plots}")
 
-
-# class ReviewReport(BaseModel):
-#     # TODO: After splitting, as this is, it only has the same information as AgentEval. Possibly add more regarding user input in response.
-#     """Agent identified input for report."""
-#     problem_columns: list[str] = Field(default_factory=list)
-#     status: str | None = None
-#     recommendation: str | None = None
-#     rationale: str | None = None
-#     # user_decision - finish | revise
-#     # additional details...
-
+        f.write(f"\nAgent review:\n- Status:{report.review.status}\n- Recommendation: {report.review.recommendation}")
+        f.write(f"- Rationale behind the recommendation: {report.review.rationale}\n- Problem columns {report.review.problem_columns}")
 
         f.write("\n\n### Evaluation\n")
         f.write("```python\n")
         pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False)
         f.write("```\n")
 
-
-# class UpdatePlanReport(BaseModel):
-#     """The plan update that was selected for a subsequent run to be included in the current report.
-#     """
-#     selected_plan_updates: dict = Field(default_factory=dict)
-
+        pprint.pprint(report.update.selected_plan_updates)
 
         f.write("\nConclusion\n")
         f.write("```python\n")

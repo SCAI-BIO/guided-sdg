@@ -91,6 +91,9 @@ def missing_feedback(prompt:str, feedback:str) -> str:
     The user rejected the previous plan and gave this feedback:
     {feedback}
 
+    Instructions:
+    - If the user asks a question, answer it and explain the reasoning behind a choice.
+
     Revise the missing-value handling plan according to this feedback.
     Return exactly one valid JSON object.
     """)
