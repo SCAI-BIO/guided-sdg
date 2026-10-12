@@ -1333,7 +1333,7 @@ def write_report(
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
 
-    output_dir = OUTPUT_DIR / f"version_{version_id}" /
+    output_dir = OUTPUT_DIR / f"version_{version_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / output_filename

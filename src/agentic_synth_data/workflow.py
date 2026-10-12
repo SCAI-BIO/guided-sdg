@@ -33,7 +33,7 @@ from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
-from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, format_response \
+from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, format_response, \
     output_default_parameters
 
 
