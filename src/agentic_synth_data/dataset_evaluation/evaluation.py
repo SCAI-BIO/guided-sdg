@@ -43,6 +43,8 @@ anonymeter_metric_descriptions = {
 
 @dataclass
 class AnonymeterInput:
+    """Contains prepared real and synthetic dataframe copies with missing value markers applied for 
+    compatibility with Anonymeter functions, which do not accept null values."""
     train_df:pd.DataFrame
     test_df:pd.DataFrame
     synthetic_df:pd.DataFrame
@@ -389,8 +391,6 @@ def calculate_attack_metrics(
         inference=inference_risk_output.buffer or None,
         linkability=link_risk_output.buffer or None,
     )
-
-    # TODO: include in report
 
     return AttackMetrics(
         singling_out= singling_out_risk,
@@ -1263,36 +1263,36 @@ def evaluation_review_ui(
         st.stop()
 
     if confirm == "yes":
-        for item in st.session_state.evaluation_review_history:
-            with st.chat_message("user"):
-                st.write(item["question"])
+        st.caption("Questions about the evaluation")
+        with st.container(border=True, height=350):
+            for item in st.session_state.evaluation_review_history:
+                with st.chat_message("user"):
+                    st.write(item["question"])
 
-            with st.chat_message("assistant"):
-                st.write(item["answer"])
+                with st.chat_message("assistant"):
+                    st.write(item["answer"])
 
-        new_question = st.chat_input(
-            "Enter your question/concern.",
-            key=f"evaluation_review_input_{version_id}",
-        )
+            new_question = st.chat_input(
+                "Enter your question/concern.",
+                key=f"evaluation_review_input_{version_id}",
+            )
 
-        answer = ""
+            if new_question:
+                with st.spinner("\nAgent is preparing its response..."):
+                    prompt = eval_review_message(agent_decision, new_question)
+                    raw_response = agent.invoke(
+                        {"messages": [{"role": "user", "content": prompt,}]},
+                        config=config,
+                    )
 
-        if new_question:
-            with st.spinner("\nAgent is preparing its response..."):
-                prompt = eval_review_message(agent_decision, new_question)
-                raw_response = agent.invoke(
-                    {"messages": [{"role": "user", "content": prompt,}]},
-                    config=config,
-                )
+                    answer = extract_output(raw_response)
 
-            answer = st.write(extract_output(raw_response))
+                st.session_state.evaluation_review_history.append({
+                    "question": new_question,
+                    "answer": answer,
+                })
 
-        st.session_state.evaluation_review_history.append({
-            "question": new_question,
-            "answer": answer,
-        })
-
-        st.rerun()
+                st.rerun()
 
         finished = st.button(
             "Done asking questions",
@@ -1333,7 +1333,7 @@ def write_report(
     data_name = Path(data_path).stem
     output_filename = f"report_{data_name}_v{version_id}.md"
 
-    output_dir = PROJECT_ROOT / "output" / f"version_{version_id}" / output_filename
+    output_dir = PROJECT_ROOT / "output" / f"version_{version_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / output_filename

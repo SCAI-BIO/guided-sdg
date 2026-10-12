@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 from sklearn.impute import SimpleImputer
 import streamlit as st
 
-from agentic_synth_data.utils import display_synthesis_request_st, format_response, \
-    extract_output, info_helper_message, parse_json, display_synthesis_request, parse_json_ui
+from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
+    parse_json, parse_json_ui, display_synthesis_request
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 from agentic_synth_data.preference_setup import SynthesisRequest, ImputationConfig
 
@@ -84,7 +84,7 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
     return synthesis_request
 
 
-def update_missing_value_choice_ui(synthesis_request:SynthesisRequest) -> SynthesisRequest:
+def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> SynthesisRequest:
     """Update missing value handling choice in the case that either the remove all or
     threshold setting for null values is too harsh (UI).
 
@@ -654,7 +654,7 @@ def handle_missing_values_ui(
 
         df = df.copy()
         st.write("\nReview of missing value handling results:")
-        
+
         # Categorical value imputation
         cat_strategy = synthesis_request.missing_values.impute.categorical_strategy
         if cat_cols:
