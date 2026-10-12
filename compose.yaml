@@ -10,8 +10,8 @@ services:
       DATA_DIR: /workspace/data
       OUTPUT_DIR: /workspace/output
     volumes:
-      - ./data:/workspace/data:Z
-      - ./output:/workspace/output:Z
+      - ./data:/workspace/data:z
+      - ./output:/workspace/output:z
 
   sdr:
     build:
@@ -20,5 +20,5 @@ services:
     environment:
       SDR_WORKDIR: /synthetic_data_release
     volumes:
-      - ./data:/workspace/data:Z
-      - ./output:/workspace/output:Z
+      - ./data:/workspace/data:z
+      - ./output:/workspace/output:z
