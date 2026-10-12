@@ -34,7 +34,7 @@ class GenerateRequest(BaseModel):
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health():
     return {"status": "ok"}
 
 
