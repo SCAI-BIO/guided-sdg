@@ -1,7 +1,7 @@
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Any
+from typing import Optional
 import pprint
 
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
@@ -17,8 +17,8 @@ from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
-from agentic_synth_data.utils import OUTPUT_DIR, df_formatter_st, format_response, extract_output, \
-    info_helper_message, parse_json, parse_json_ui
+from agentic_synth_data.utils import OUTPUT_DIR, SemanticTypes, df_formatter_st, format_response, \
+    extract_output, info_helper_message, parse_json, parse_json_ui
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message, \
     eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
@@ -271,7 +271,7 @@ def calculate_attack_metrics(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    semantic_types: SemanticTypes,
     dtypes: dict[str, str],
     agent: Optional[CompiledStateGraph] | None = None,
     config: dict | None = None,
@@ -282,8 +282,7 @@ def calculate_attack_metrics(
         train_df (pd.DataFrame): Training portion of the real dataset.
         test_df (pd.DataFrame): Test portion of the real dataset.
         synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
-            Semantic types assigned to each column.
+        semantic_types (SemanticTypes): Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
             variables privacy metric calculation. Defaults to None.
@@ -405,7 +404,7 @@ def calculate_attack_metrics_ui(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    semantic_types: SemanticTypes,
     dtypes: dict[str, str],
     agent: Optional[CompiledStateGraph] | None = None,
     config: dict | None = None,
@@ -416,8 +415,7 @@ def calculate_attack_metrics_ui(
         train_df (pd.DataFrame): Training portion of the real dataset.
         test_df (pd.DataFrame): Test portion of the real dataset.
         synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]): 
-            Semantic types assigned to each column.
+        semantic_types (SemanticTypes): Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
             variables privacy metric calculation. Defaults to None.
@@ -731,7 +729,7 @@ def prepare_anonymeter_input(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    semantic_types: SemanticTypes,
     dtypes: dict[str, str],
 ) -> AnonymeterInput:
     """Prepare copies of train, test, and synthetic dataframes for Anonymeter evaluation
@@ -742,8 +740,7 @@ def prepare_anonymeter_input(
         train_df (pd.DataFrame): Training portion of the real dataset.
         test_df (pd.DataFrame): Test portion of the real dataset.
         synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
-            Semantic types assigned to each column.
+        semantic_types (SemanticTypes): Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
 
     Returns:
@@ -1148,7 +1145,9 @@ def evaluation_ui(
         AgentEval: The decision plan based on the agent's assessment.
     """
     prompt = evaluation_prompt(
-        synthesis_request=synthesis_request, syndat_metrics=syndat_metrics, attack_metrics=attack_metrics,
+        synthesis_request=synthesis_request,
+        syndat_metrics=syndat_metrics,
+        attack_metrics=attack_metrics,
     )
 
     if "agent_evaluation" not in st.session_state:
@@ -1379,7 +1378,7 @@ def write_report(
         f.write("Before:")
         f.write("```python\n")
         pprint.pprint(report.prep.missing_before, stream=f, sort_dicts=False,)
-        f.write("```\n")
+        f.write("```\n\n")
         f.write("After:")
         f.write("```python\n")
         pprint.pprint(report.prep.missing_after, stream=f, sort_dicts=False,)
@@ -1436,7 +1435,9 @@ def write_report(
         pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False)
         f.write("```\n")
 
+        f.write("```python\n")
         pprint.pprint(report.update.selected_plan_updates)
+        f.write("```\n")
 
         f.write("\nConclusion\n")
         f.write("```python\n")

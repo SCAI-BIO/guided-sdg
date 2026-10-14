@@ -1,5 +1,8 @@
 from textwrap import dedent
-from typing import Any, Hashable, Literal
+from typing import Any
+from collections.abc import Hashable
+
+from agentic_synth_data.utils import SemanticTypes
 
 
 def missing_value_prompt(
@@ -7,7 +10,7 @@ def missing_value_prompt(
     rows_with_missing: int,
     total_rows: int,
     synthesis_request: dict[str, Any],
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    semantic_types: SemanticTypes,
 ) -> str:
     return dedent(f"""
     Current workflow step: missing value handling only.

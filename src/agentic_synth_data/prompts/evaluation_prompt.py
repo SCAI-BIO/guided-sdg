@@ -1,11 +1,11 @@
 from textwrap import dedent
-from typing import Literal
 
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.schemas.models import AgentEval
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics
+from agentic_synth_data.utils import SemanticTypes
 
 
 def evaluation_prompt(
@@ -164,9 +164,7 @@ def eval_review_message(agent_decision:AgentEval, response:str):
     """)
 
 
-def attack_column_selection_message(
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
-) -> str:
+def attack_column_selection_message(semantic_types: SemanticTypes,) -> str:
     return dedent(f"""
     You need to come up with appropriate auxiliary columns and secret arguments for 
     both linkability and inference risks. The columns selected will be used for 

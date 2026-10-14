@@ -8,8 +8,8 @@ import streamlit as st
 
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, \
     generator_review_message
-from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
-    output_default_parameters, parse_json, parse_json_ui
+from agentic_synth_data.utils import SemanticTypes, format_response, extract_output, \
+    info_helper_message, output_default_parameters, parse_json, parse_json_ui
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -159,7 +159,7 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
 # TODO: Expand to parameter selection.
 def select_generator(
     synthesis_request: SynthesisRequest,
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    semantic_types: SemanticTypes,
     profile: dict[str, Any],
     agent: CompiledStateGraph,
     config: dict[str, dict[str, Any]],
@@ -169,8 +169,7 @@ def select_generator(
 
     Args:
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
-            The semantic dtypes for each column in the dataset.
+        semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
 
@@ -259,7 +258,7 @@ def select_generator(
 
 def select_generator_ui(
     synthesis_request: SynthesisRequest,
-    semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
+    semantic_types: SemanticTypes,
     profile: dict[str, Any],
     agent: CompiledStateGraph,
     config: dict[str, dict[str, Any]],
@@ -269,8 +268,7 @@ def select_generator_ui(
 
     Args:
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (dict[str, Literal['Float', 'Integer', 'Boolean', 'Categorical', 'Ordinal']]):
-            The semantic dtypes for each column in the dataset.
+        semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
 

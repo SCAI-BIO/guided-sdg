@@ -1,7 +1,8 @@
 import copy
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any, Hashable, Literal
+from typing import Any
+from collections.abc import Hashable
 import os
 
 import pandas as pd
@@ -33,8 +34,8 @@ from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
-from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, format_response, \
-    output_default_parameters
+from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, SemanticTypes, df_formatter_st, \
+    format_response, output_default_parameters
 
 
 class DataGen:
@@ -47,9 +48,7 @@ class DataGen:
 
         self.synthesis_request: SynthesisRequest | None = None
         self.python_dtypes: dict[Hashable, str] | None = None
-        self.semantic_types: dict[
-            str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]
-        ] | None = None
+        self.semantic_types: SemanticTypes | None = None
         self.pending_revision_plan: dict | None = None
 
         self.source_df: pd.DataFrame | None = None # Original data
@@ -989,3 +988,26 @@ class DataGen:
 
             else:
                 self.synthesis_request.missing_values.impute = ImputationConfig()
+
+
+    def display_revision_summary_ui(self) -> None:
+        """Display previously selected revision changes (UI)."""
+        updates = self.report.update.selected_plan_updates
+
+        if not updates:
+            return
+
+        st.subheader("Revision summary")
+
+        if "update_mech" in updates:
+            option = updates["update_mech"]
+            st.write(f"Generator: {option['generator_name']}")
+            st.write(f"Reason: {option['reason']}")
+
+        if "update_params" in updates:
+            st.write(f"Updated parameters: {updates['update_params']}")
+
+        if "update_missing" in updates:
+            option = updates["update_missing"]
+            st.write(f"Missing value handling: {option['mode']}")
+            st.write(f"Reason: {option['reason']}")

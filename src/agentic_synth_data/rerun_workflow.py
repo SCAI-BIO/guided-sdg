@@ -10,8 +10,8 @@ from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
     parameter_revision_message
-from agentic_synth_data.utils import info_helper_message, parse_json, parse_json_ui, \
-    extract_output, newline_every_n_words
+from agentic_synth_data.utils import GeneratorName, info_helper_message, parse_json, \
+    parse_json_ui, extract_output, newline_every_n_words
 
 
 PENDING = "pending"
@@ -333,17 +333,14 @@ def generator_update_ui(
 
 
 def parameter_update(
-        selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"],
-        agent:Optional[CompiledStateGraph],
-        config:dict,
-    ) -> str | None:
+    selected_mechanism: GeneratorName, agent: Optional[CompiledStateGraph], config: dict,
+) -> str | None:
     """Ask agent for possible parameter revision.
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        selected_mechanism (GeneratorName): The selected mechanism.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (dict): Configuration passed to the agent during invocation.
-        version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
@@ -394,7 +391,7 @@ def parameter_update(
 
 
 def parameter_update_ui(
-    selected_mechanism: Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"],
+    selected_mechanism: GeneratorName,
     agent: Optional[CompiledStateGraph],
     config: dict,
     version_id: int,
@@ -402,7 +399,7 @@ def parameter_update_ui(
     """Ask agent for possible parameter revision (UI).
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        selected_mechanism (GeneratorName): The selected mechanism.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (dict): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.

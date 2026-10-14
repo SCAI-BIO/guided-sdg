@@ -25,6 +25,16 @@ SDR_URL = os.environ.get("SDR_URL", "http://localhost:8000")
 
 T = TypeVar("T", bound=BaseModel)
 
+type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]
+
+type SemanticTypes = dict[str, SemanticType]
+
+# Automatic (agent-assisted) selection is supported.
+type GeneratorNameAuto = Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]
+
+type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"]
+
+
 def format_response(text: str) -> None:
     """Format response in CLI such that longer responses fit within the terminal without requiring
     the user to scroll.
@@ -109,14 +119,14 @@ def page_navigation(back_page: str, next_page: str, next_disabled: bool=False,):
         </style>
     """, unsafe_allow_html=True,)
 
-    col1, _, _, col2 = st.columns(4)
+    col1, _, _, _, _, _, col2 = st.columns(7)
     with col1:
         st.page_link(back_page, label="⟵", use_container_width=True,)
 
     with col2:
         st.page_link(
             next_page,
-            label="\u00A0" * 40 + "⟶", # Non breaking spaces for arrow to be on rightward side.
+            label="⟶",
             use_container_width=True,
             disabled=next_disabled,
         )
@@ -315,14 +325,12 @@ def newline_every_n_words(option: str, n: int) -> str:
     return "\n".join(lines)
 
 
-def output_default_parameters(
-    generator_name: Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]
-) -> dict[str, Any] | None:
+def output_default_parameters(generator_name: GeneratorNameAuto) -> dict[str, Any] | None:
     """Takes in generator name and outputs its default parameters. Used in select preferences
     and other instances where parameters are set to default.
 
     Args:
-        generator_name (Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]): Selected.
+        generator_name (GeneratorNameAuto): Selected generator.
 
     Returns:
         str | None: 

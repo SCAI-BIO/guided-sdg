@@ -1,8 +1,9 @@
 from textwrap import dedent
-from typing import Literal
+
 from agentic_synth_data.report import Report
 from agentic_synth_data.schemas.models import AgentEval
 from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.utils import GeneratorName
 
 
 def revision_message(
@@ -103,7 +104,7 @@ def revision_message(
     """)
 
 
-def parameter_revision_message(selected_mechanism:Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"]) -> str:
+def parameter_revision_message(selected_mechanism: GeneratorName) -> str:
     return dedent(f"""
     The following generator has been selected {selected_mechanism}.
 

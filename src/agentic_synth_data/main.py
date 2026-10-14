@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import streamlit as st
 
+
 load_dotenv()
 
 setup = st.Page("pages/setup.py", title="0. Setup")
@@ -11,6 +12,7 @@ missing_handling = st.Page("pages/missing_handling.py", title="4. Missing value 
 generation = st.Page("pages/generate.py", title="5. Synthetic generation")
 evaluation = st.Page("pages/evaluate.py", title="6. Evaluation")
 rerun = st.Page("pages/rerun.py", title="Rerun workflow")
+reports = st.Page("pages/report.py", title="Reports")
 
 st.navigation(
     [
@@ -22,6 +24,7 @@ st.navigation(
         generation,
         evaluation,
         rerun,
+        reports,
     ]
 ).run()
 
