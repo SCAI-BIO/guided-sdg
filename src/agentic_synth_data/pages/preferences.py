@@ -13,9 +13,9 @@ st.header("Select preferences")
 st.space("small")
 
 st.write(
-    "Your initial preprocessing and generation preferences are important as they can be used to "
-    "indicate how to best proceed in generating synthetic data. This is just a starting point and "
-    "your preferences will be updated throughout the workflow if you decide to change anything."
+    "Your preferences help guide data preparation and synthetic data generation based on your "
+    "priorities and requirements. These initial preferences serve as a starting point and can be "
+    "reviewed and modified throughout the workflow."
 )
 
 # Render preference settings

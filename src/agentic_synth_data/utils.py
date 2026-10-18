@@ -1,6 +1,6 @@
 import os
 import textwrap
-from typing import Any, Literal, Optional, Type, TypeVar
+from typing import Any, Literal, Optional, TypeVar
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +12,7 @@ import streamlit as st
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
 
 
+# Configuration
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DATA_DIR = PROJECT_ROOT / "demo_data"
 
@@ -23,6 +24,8 @@ OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", PROJECT_ROOT / "output"))
 # Base URL of the synthetic-data-release sidecar service.
 SDR_URL = os.environ.get("SDR_URL", "http://localhost:8000")
 
+
+# Type aliases
 T = TypeVar("T", bound=BaseModel)
 
 type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]
@@ -30,11 +33,12 @@ type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordin
 type SemanticTypes = dict[str, SemanticType]
 
 # Automatic (agent-assisted) selection is supported.
-type GeneratorNameAuto = Literal["PATEGAN", "BayesianNet", "PrivBayes", "CTGAN", "auto"]
+type GeneratorNameAuto = Literal["auto", "PATEGAN", "BayesianNet", "PrivBayes", "CTGAN",]
 
 type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"]
 
 
+# CLI helpers
 def format_response(text: str) -> None:
     """Format response in CLI such that longer responses fit within the terminal without requiring
     the user to scroll.
@@ -43,6 +47,26 @@ def format_response(text: str) -> None:
         text (str): Any longer text which may require formatting to be easily viewable.
     """
     print(textwrap.fill(text, width=100))
+
+
+def newline_every_n_words(option: str, n: int) -> str:
+    """Format the options output by the agent to improve the readability of pyinputplus's 
+    choice menu.
+
+    Args:
+        option (str): The option output by the agent.
+        n (int): The number of words allowed before a newline is added.
+
+    Returns:
+        str: The option output by agent with a newline every n words.
+    """
+    words = option.split()
+    lines = []
+
+    for i in range(0, len(words), n):
+        lines.append(" ".join(words[i:i+n]))
+
+    return "\n".join(lines)
 
 
 def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
@@ -71,6 +95,7 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
+# Streamlit helpers
 def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
     """Display the synthesis request after initial specification (UI).
 
@@ -173,19 +198,20 @@ def info_helper_message(message: str, context: str, key: str,) -> None:
         )
 
 
+# Agent helpers
 def parse_json(
-        plan:str,
-        model_cls:Type[BaseModel],
-        agent:Optional[CompiledStateGraph],
-        config:dict,
-        root:bool=False
+        plan: str,
+        model_cls: type[T],
+        agent: Optional[CompiledStateGraph],
+        config: dict,
+        root: bool=False,
     ) -> T:
     """If agent fails to correctly format JSON response, prompts to 
     try again.
 
     Args:
         plan (str): The agent output.
-        model_cls (Type[BaseModel]): Pydantic model class used to validate JSON response.
+        model_cls (type[T]): Pydantic model class used to validate JSON response.
         agent (Optional[CompiledStateGraph]): LangGraph agent.
         config (dict): Configuration passed to the agent during invocation.
         root (bool, optional): Indicates whether in semantic_type_handling (True) or not. 
@@ -232,7 +258,7 @@ def parse_json(
 
 def parse_json_ui(
     plan: str,
-    model_cls: Type[BaseModel],
+    model_cls: type[T],
     agent: Optional[CompiledStateGraph],
     config: dict,
     root: bool=False,
@@ -242,7 +268,7 @@ def parse_json_ui(
 
     Args:
         plan (str): The agent output.
-        model_cls (Type[BaseModel]): Pydantic model class used to validate JSON response.
+        model_cls (type[T]): Pydantic model class used to validate JSON response.
         agent (Optional[CompiledStateGraph]): LangGraph agent.
         config (dict): Configuration passed to the agent during invocation.
         root (bool, optional): Indicates whether in semantic_type_handling (True) or not. 
@@ -305,26 +331,7 @@ def extract_output(raw_message: dict) -> str:
     return response.strip()
 
 
-def newline_every_n_words(option: str, n: int) -> str:
-    """Format the options output by the agent to improve the readability of pyinputplus's 
-    choice menu.
-
-    Args:
-        option (str): The option output by the agent.
-        n (int): The number of words allowed before a newline is added.
-
-    Returns:
-        str: The option output by agent with a newline every n words.
-    """
-    words = option.split()
-    lines = []
-
-    for i in range(0, len(words), n):
-        lines.append(" ".join(words[i:i+n]))
-
-    return "\n".join(lines)
-
-
+# Generator helpers
 def output_default_parameters(generator_name: GeneratorNameAuto) -> dict[str, Any] | None:
     """Takes in generator name and outputs its default parameters. Used in select preferences
     and other instances where parameters are set to default.

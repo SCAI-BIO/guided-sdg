@@ -1,8 +1,8 @@
 from textwrap import dedent
 
 from agentic_synth_data.report import Report
-from agentic_synth_data.schemas.models import AgentEval
-from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.schemas.eval_model import AgentEval
+from agentic_synth_data.schemas.models import SynthesisRequest
 from agentic_synth_data.utils import GeneratorName
 
 

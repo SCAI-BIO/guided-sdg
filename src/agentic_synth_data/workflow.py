@@ -24,12 +24,12 @@ from agentic_synth_data.dataset_preparation.semantic_type_handling import handle
     handle_semantic_types_ui, prepare_for_syndat
 from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values, \
     handle_missing_values_ui
-from agentic_synth_data.preference_setup import select_preferences, SynthesisRequest, \
-    ImputationConfig, select_preferences_ui
+from agentic_synth_data.preference_setup import select_preferences, select_preferences_ui
 from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
 from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui
-from agentic_synth_data.schemas.models import AgentEval
+from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
+from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
 from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \

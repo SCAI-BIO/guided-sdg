@@ -1,12 +1,14 @@
-from typing import Any, Literal, Optional
+from typing import Literal, Optional
 
 from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
-from pydantic import BaseModel, Field
 import streamlit as st
 
 from agentic_synth_data.report import Report
-from agentic_synth_data.schemas.models import AgentEval
+from agentic_synth_data.schemas.eval_model import AgentEval
+from agentic_synth_data.schemas.generator_model import GeneratorRevisionOption, \
+    GeneratorRevisionPlan, PATEGANConfig, PrivBayesConfig
+from agentic_synth_data.schemas.missing_model import MissingRevisionOption, MissingRevisionPlan
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
     parameter_revision_message
@@ -16,51 +18,19 @@ from agentic_synth_data.utils import GeneratorName, info_helper_message, parse_j
 
 PENDING = "pending"
 
-class GeneratorRevisionOption(BaseModel):
-    id: str
-    generator_name: Literal["CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"]
-    parameters: dict[str, Any] = Field(default_factory=dict)
-    reason: str
-
-
-class GeneratorRevisionPlan(BaseModel):
-    options: list[GeneratorRevisionOption]
-
-
-class PATEGANConfig(BaseModel):
-    eps: int = Field(default=1, ge=0, le=7)
-
-
-class PrivBayesConfig(BaseModel):
-    epsilon: float = Field(default=0.1, ge=0.0, le=1.0)
-
-
 CONFIG_MAP = {
    "PATEGAN": PATEGANConfig,
    "PrivBayes": PrivBayesConfig,
 }
 
 
-class MissingRevisionOption(BaseModel):
-    id: str
-    mode: Literal["remove", "impute",]
-    imputation_method: Literal["SimpleImputer"] | None = None
-    categorical_strategy: Literal["most_frequent", "constant"] | None = None
-    numerical_strategy: Literal["mean", "median", "most_frequent"] | None = None
-    reason: str
-
-
-class MissingRevisionPlan(BaseModel):
-    options: list[MissingRevisionOption]
-
-
 def plan_update(
-        synthesis_request:SynthesisRequest,
-        agent_decision:AgentEval,
-        report:Report,
-        agent:Optional[CompiledStateGraph],
-        config:dict,
-    ) -> dict | None:
+    synthesis_request: SynthesisRequest,
+    agent_decision: AgentEval,
+    report: Report,
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+) -> dict | None:
     """Agent suggests possible retroactive changes, which the user can select from.
     
     Steps that can be updated:
@@ -69,7 +39,7 @@ def plan_update(
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        agent_decision (dict[str, Any]): Agent decision based on results.
+        agent_decision (AgentEval): Agent decision based on results.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
                         synthesis plan.
@@ -129,7 +99,7 @@ def plan_update_ui(
 
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
-        agent_decision (dict[str, Any]): Agent decision based on results.
+        agent_decision (AgentEval): Agent decision based on results.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
             synthesis plan.

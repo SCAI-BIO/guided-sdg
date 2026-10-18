@@ -1,13 +1,16 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import pandas as pd
 
-from agentic_synth_data.utils import OUTPUT_DIR
+from agentic_synth_data.utils import OUTPUT_DIR, SemanticTypes
 
 
 class GeneratorStrategy(ABC):
+    """Abstract base class for synthetic data generation strategies. Defines a common interface
+    for preparing metadata and generating synthetic data using different generator implementations.
+    """
     def __init__(self, generator_name: str,):
         self.generator_name = generator_name
 
@@ -42,11 +45,7 @@ class GeneratorStrategy(ABC):
 
 
     @abstractmethod
-    def prepare_metadata(
-        self,
-        prep_path: Path,
-        semantic_types: dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]],
-    ) -> Path:
+    def prepare_metadata(self, prep_path: Path, semantic_types: SemanticTypes,) -> Path:
         """Prepare metadata for tool use.
 
         Args:
@@ -67,7 +66,8 @@ class GeneratorStrategy(ABC):
         Args:
             n_samples (int): Number of samples to generate.
             prep_path (Path): Prepared dataset path.
-            synth_path (Path): Synthetic dataset path
+            synth_path (Path): Synthetic dataset path.
+            parameters (dict[str, Any]): Parameter configuration.
 
         Returns:
             tuple[Path, pd.DataFrame]: Synthetic path and dataframe.

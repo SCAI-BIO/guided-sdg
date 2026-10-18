@@ -13,13 +13,12 @@ st.header("Prepare dataset: Generator selection")
 st.space("small")
 
 st.write(
-    "Different data generators may create better synthetic data with particular datasets, "
-    "depending on their characteristics. Additionally, different data generators may have a "
-    "greater focus on privacy preservation than others. In this step, the summary statistics and "
-    "correlations of the dataset are recorded to inform the LLM agent about the dataset. Whether "
-    "the data generator has been selected or a suggestion has been requested, the agent will "
-    "assess the chosen data generator to determine if it has a greater likelihood of producing "
-    "usable data that has high fidelity, utility, and preserves privacy."
+    "Synthetic data generators differ in their ability to preserve data fidelity, utility, and "
+    "privacy, depending on the characteristics of the original dataset. In this step, dataset "
+    "summary statistics and correlations are collected to inform the LLM agent's assessment. Based "
+    "on these characteristics and your preferences, the agent can recommend a suitable generator "
+    "or evaluate your selected generator. You can then review and revise the recommendation "
+    "before proceeding."
 )
 
 # Generator selection

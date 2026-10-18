@@ -1,58 +1,18 @@
-from typing import Any, Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, Field
 import pyinputplus as pyip
 import streamlit as st
 
-from agentic_synth_data.utils import display_synthesis_request, display_synthesis_request_st, \
-    format_response, output_default_parameters
-
-
-class SampleSizeConfig(BaseModel):
-    """Synthesis request sample size configuration."""
-    mode: Literal["fixed_value", "same_as_original"] | None = None
-    fixed_value: int | None = None
-
-
-class PrivacyConfig(BaseModel):
-    """Synthesis request privacy configuration."""
-    mode: Literal["standard", "differential_privacy"] = "standard"
-    sensitive_columns: list[str] = Field(default_factory=list)
-
-
-class GeneratorConfig(BaseModel):
-    """Synthesis request generator configuration."""
-    name: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"] | None = None
-    parameters: dict[str, Any] | None = None
-
-
-class ImputationConfig(BaseModel):
-    """Synthesis request imputation configuration."""
-    method: Literal["SimpleImputer"] | None = None
-    categorical_strategy: Literal["auto", "most_frequent", "constant"] | None = None
-    numerical_strategy: Literal["auto", "mean", "median", "most_frequent"] | None = None
-
-
-class MissingValueConfig(BaseModel):
-    """Synthesis request missing value handling configuration."""
-    mode: Literal["auto", "impute", "threshold", "remove"] | None = None
-    impute: ImputationConfig = Field(default_factory=ImputationConfig)
-    threshold: int | None = None
-
-
-class SynthesisRequest(BaseModel):
-    """Configured synthesis request."""
-    sample_size: SampleSizeConfig = Field(default_factory=SampleSizeConfig)
-    privacy: PrivacyConfig = Field(default_factory=PrivacyConfig)
-    generator: GeneratorConfig = Field(default_factory=GeneratorConfig)
-    missing_values: MissingValueConfig = Field(default_factory=MissingValueConfig)
+from agentic_synth_data.schemas.models import SynthesisRequest
+from agentic_synth_data.utils import GeneratorNameAuto, display_synthesis_request, \
+    display_synthesis_request_st, format_response, output_default_parameters
 
 
 def build_synthesis_request(
     sample_size: Literal["fixed_value", "same_as_original"],
     fixed_value: int,
     privacy: Literal["standard", "differential_privacy"],
-    generator: Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"],
+    generator: GeneratorNameAuto,
     missing_values: Literal["auto", "impute", "threshold", "remove"],
     impute_method: Literal["SimpleImputer"] | None=None,
     categorical_strategy: Literal["auto", "most_frequent", "constant"] | None=None,
@@ -64,8 +24,7 @@ def build_synthesis_request(
         sample_size (Literal["fixed_value", "same_as_original"]): Sample size configuration mode.
         fixed_value (int): Fixed sample size when using `fixed_value` mode.
         privacy (Literal["standard", "differential_privacy"]): Privacy configuration mode.
-        generator (Literal["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"]): Synthetic data 
-            generator to use.
+        generator (GeneratorNameAuto): Synthetic data generator to use.
         missing_values (Literal["auto", "impute", "threshold", "remove"]): Missing value handling 
             mode.
         impute_method (Literal["SimpleImputer"] | None, optional): Imputation method. Defaults to 
@@ -146,9 +105,9 @@ def select_preferences() -> SynthesisRequest:
         "Is there a specific data generator that you want to use on your data? Select " \
         "'auto' if you would like a suggestion."
     )
-    generator = pyip.inputMenu(
-        ["auto", "CTGAN", "PATEGAN", "BayesianNet", "PrivBayes"], numbered=True
-    )
+
+    generator = pyip.inputMenu(list(get_args(GeneratorNameAuto.__value__)), numbered=True,)
+
     if generator == "auto":
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
         request.generator.name = generator
@@ -234,9 +193,12 @@ def select_preferences_ui() -> SynthesisRequest:
     numerical_strategy = None
 
     # Sample size
-    st.subheader(
-        "Would you like to generate the same amount of samples as the dataset or a fixed "
-        "number of samples?"
+    st.subheader("How many synthetic samples would you like to generate?")
+
+    st.write(
+        "Choose whether to generate the same number of records as your original dataset or specify "
+        "a different number (fixed value). The number of synthetic samples does not need to match "
+        "the original dataset."
     )
 
     sample_size = st.selectbox(
@@ -253,10 +215,20 @@ def select_preferences_ui() -> SynthesisRequest:
 
         st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
 
+    if sample_size == "same as original": 
+            st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
+
     st.write("---")
 
     # Privacy
-    st.subheader("Are you interested in differential privacy?")
+    st.subheader("Is privacy preservation important in your use case?")
+
+    st.write(
+        "Your selection determines how much the LLM agent prioritizes privacy when recommending "
+        "and evaluating synthetic data generators, relative to data fidelity and utility. Privacy "
+        "risks are evaluated regardless of your selection."
+    )
+
     privacy = st.selectbox(
         "privacy specification", 
         ["yes", "no"],
@@ -276,22 +248,14 @@ def select_preferences_ui() -> SynthesisRequest:
 
     generator = st.selectbox(
         "data generator",
-        [
-            "auto",
-            "PATEGAN",
-            "BayesianNet",
-            "PrivBayes",
-            "CTGAN",
-        ],
+        list(get_args(GeneratorNameAuto.__value__)),
         label_visibility="hidden",
         index=None,
         key="preferences_generator_choice",
     )
 
     if generator == "auto":
-        st.info(
-            "=> You will receive a recommendation from the agent."
-        )
+        st.info("=> You will receive a recommendation from the agent.")
 
     else:
         if generator is not None:
@@ -301,7 +265,11 @@ def select_preferences_ui() -> SynthesisRequest:
 
     # Missing values
     st.subheader("How would you like missing values to be handled?")
-    st.write("Select 'auto' if you would like a suggestion from the agent.")
+    st.write(
+        "Some synthetic data generators cannot handle missing values and require them to be "
+        "removed or imputed before generation. Select 'auto' to receive a recommendation from "
+        "the LLM agent based on your dataset."
+    )
 
     missing_values = st.selectbox(
         "missing strategy", 
@@ -312,9 +280,7 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     if missing_values == "auto":
-        st.info(
-            "=> You will receive a recommendation based on the dataset's characteristics."
-        )
+        st.info("=> You will receive a recommendation based on the dataset's characteristics.")
 
     elif missing_values == "impute":
         st.write(
@@ -324,8 +290,10 @@ def select_preferences_ui() -> SynthesisRequest:
         st.info("=> Your missing data will be imputed by SimpleImputer.")
 
         # Categorical handling
-        st.write("#### How would you like to handle missing categorical values?")
-        st.write("Select 'auto' if you would like a suggestion from the agent.")
+        st.write(
+            "#### How would you like to handle missing categorical values?\n"
+            "Select 'auto' if you would like a suggestion from the agent."
+        )
 
         categorical_strategy = st.selectbox(
             "categorical strategy",
@@ -339,9 +307,7 @@ def select_preferences_ui() -> SynthesisRequest:
             st.stop()
 
         if categorical_strategy == "auto":
-            st.info(
-                "=> You will receive a recommendation based on the dataset's characteristics."
-            )
+            st.info("=> You will receive a recommendation based on the dataset's characteristics.")
 
         elif categorical_strategy is not None:
             st.info(
@@ -350,8 +316,10 @@ def select_preferences_ui() -> SynthesisRequest:
             )
 
         # Numerical handling
-        st.write("#### How would you like to handle missing numerical values?")
-        st.write("Select 'auto' if you would like a suggestion from the agent.")
+        st.write(
+            "#### How would you like to handle missing numerical values?\n"
+            "Select 'auto' if you would like a suggestion from the agent."
+        )
 
         numerical_strategy = st.selectbox(
             "numerical strategy", 
@@ -385,9 +353,9 @@ def select_preferences_ui() -> SynthesisRequest:
 
     if missing_values == "impute":
         complete = (
-            complete
-            and categorical_strategy is not None
-            and numerical_strategy is not None
+            complete and
+            categorical_strategy is not None and
+            numerical_strategy is not None
         )
 
     if not complete:

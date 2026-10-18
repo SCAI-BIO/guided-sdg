@@ -14,7 +14,7 @@ import streamlit as st
 import syndat
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
-from agentic_synth_data.schemas.models import AgentEval
+from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
 from agentic_synth_data.utils import OUTPUT_DIR, SemanticTypes, df_formatter_st, format_response, \

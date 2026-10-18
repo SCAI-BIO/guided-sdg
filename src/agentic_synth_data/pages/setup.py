@@ -14,13 +14,18 @@ st.write(
 
 st.header("About GuidedSDG")
 st.write(
-    "GuidedSDG is an agentic workflow for Synthetic Data Generation (SDG) "
-    "where a Large Language Model (LLM) agent will assist you with generating "
-    "usable synthetic data, based on the characteristics of your original dataset. "
+    "GuidedSDG is an agentic decision-support workflow for Synthetic Data "
+    "Generation (SDG). A Large Language Model (LLM) agent assists users in "
+    "preparing datasets, selecting suitable generators, and evaluating "
+    "synthetic data based on the characteristics of the original dataset "
+    "and user preferences."
 )
+
 st.write(
-    "This tool follows a set workflow where you can load your dataset, "
-    "which will be prepared for synthetic data generation."
+    "The application follows a structured workflow with human-in-the-loop "
+    "interactions, allowing you to review and revise agent recommendations. "
+    "Start by loading your dataset, which will be prepared for synthetic "
+    "data generation."
 )
 
 drawer = st.popover("Click to view workflow outline", on_change="rerun")
@@ -45,7 +50,7 @@ with drawer:
             "| | b) | Generate metadata for generator input. | |\n"
             "| 5 | | Run the selected synthetic data generator. | |\n"
             "| 6 | | Evaluate synthetic data against the original dataset. | ✓ |\n"
-            "| 7 | | Generate a workflow report. | ✓ |\n"
+            "| 7 | | Generate a workflow report. | |\n"
         )
 
 st.header("Load data and configuration")

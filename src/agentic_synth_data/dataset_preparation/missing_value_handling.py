@@ -4,24 +4,14 @@ import pandas as pd
 import numpy as np
 import pyinputplus as pyip
 from langgraph.graph.state import CompiledStateGraph
-from pydantic import BaseModel, Field
 from sklearn.impute import SimpleImputer
 import streamlit as st
 
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
     parse_json, parse_json_ui, display_synthesis_request, SemanticTypes
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
-from agentic_synth_data.preference_setup import SynthesisRequest, ImputationConfig
-
-
-class MissingHandling(BaseModel):
-    mode: str
-    set_threshold: int | None = None
-    imputation_method: str | None = None
-    categorical_strategy: str | None = None
-    numerical_strategy: str | None = None
-    warning: list[str] = Field(default_factory=list)
-    rationale: str
+from agentic_synth_data.schemas.missing_model import MissingHandling
+from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
 
 
 def update_missing_value_choice(synthesis_request:SynthesisRequest) -> SynthesisRequest:

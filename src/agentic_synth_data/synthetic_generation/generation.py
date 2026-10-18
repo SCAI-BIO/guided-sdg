@@ -1,24 +1,16 @@
-from typing import Literal, Any
+from typing import Any, get_args
 
 from langgraph.graph.state import CompiledStateGraph
 import pandas as pd
 import pyinputplus as pyip
-from pydantic import BaseModel
 import streamlit as st
 
 from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, \
     generator_review_message
-from agentic_synth_data.utils import SemanticTypes, format_response, extract_output, \
-    info_helper_message, output_default_parameters, parse_json, parse_json_ui
+from agentic_synth_data.schemas.generator_model import SelectGenerator
+from agentic_synth_data.utils import GeneratorName, SemanticTypes, format_response, \
+    extract_output, info_helper_message, output_default_parameters, parse_json, parse_json_ui
 from agentic_synth_data.preference_setup import SynthesisRequest
-
-
-class SelectGenerator(BaseModel):
-    generator: Literal["PrivBayes", "CTGAN", "PATEGAN", "BayesianNet"]
-    pros: str
-    cons: str
-    rationale: str
-    warning: list[str]
 
 
 def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
@@ -240,7 +232,7 @@ def select_generator(
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",],
+                list(get_args(GeneratorName.__value__)),
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
                 )
@@ -374,7 +366,7 @@ def select_generator_ui(
         st.write("Enter generator to evaluate:")
         selected_mechanism = st.selectbox(
             "select another mechanism",
-            ["PATEGAN", "CTGAN", "BayesianNet", "PrivBayes",],
+            list(get_args(GeneratorName.__value__)),
             index=None,
             label_visibility="hidden",
         )
