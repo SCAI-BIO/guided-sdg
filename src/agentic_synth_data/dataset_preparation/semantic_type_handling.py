@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, get_args
 
 import pandas as pd
 import numpy as np
@@ -8,8 +8,8 @@ from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
-from agentic_synth_data.utils import df_formatter_st, extract_output, info_helper_message, \
-    parse_json, parse_json_ui, SemanticTypes
+from agentic_synth_data.utils import SemanticType, df_formatter_st, extract_output, \
+    info_helper_message, parse_json, parse_json_ui, SemanticTypes
 
 
 class STypeInference(RootModel[SemanticTypes]):
@@ -41,7 +41,7 @@ def semantic_type_profile(df:pd.DataFrame) -> dict[str, dict[str, Any]]:
     return profiles
 
 # Semantic type dict type channge to literal
-def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> dict[str, Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]]:
+def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> SemanticTypes:
     """Determine the semantic type of each column in a dataframe by:
     1. Making a profile for each column (dtype, unique non null values and 
        their counts, and total number of non null unique values).
@@ -55,7 +55,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
         config (dict): Configuration passed to the agent during invocation.
 
     Returns:
-        dict[str, str]: Semantic types (value) assigned to each column (key).
+        SemanticTypes: Semantic types (value) assigned to each column (key).
     """
     # 1. Make a profile of the semantic types of each column.
     profiles = semantic_type_profile(df)
@@ -74,7 +74,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     plan = extract_output(raw_inference)
 
     semantic_types = parse_json(
-        plan=plan, 
+        plan=plan,
         model_cls=STypeInference,
         agent=agent,
         config=config,
@@ -113,10 +113,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
                 " to?"
             )
 
-            choice = pyip.inputMenu(
-                ["Integer", "Float", "Boolean", "Categorical", "Ordinal"],
-                numbered=True
-            )
+            choice = pyip.inputMenu(list(get_args(SemanticType.__value__)), numbered=True,)
 
             semantic_types[col] = choice
 
@@ -242,7 +239,7 @@ def handle_semantic_types_ui(
 
         with st.form("semantic_type_correction_form"):
             semantic_type_choices = {}
-            options = ["Integer", "Float", "Boolean", "Categorical", "Ordinal",]
+            options = list(get_args(SemanticType.__value__))
 
             for col in df.columns:
                 current_type = semantic_types[col]

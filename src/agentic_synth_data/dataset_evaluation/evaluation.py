@@ -1,5 +1,4 @@
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 import pprint
@@ -14,7 +13,7 @@ import streamlit as st
 import syndat
 import plotly.graph_objects as go
 
-from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
+from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetrics, AttackColumns, AttackOutputs
 from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
@@ -40,16 +39,6 @@ anonymeter_metric_descriptions = {
         "attribute values in the original dataset using known attributes and the synthetic data."
     ),
 }
-
-
-@dataclass
-class AnonymeterInput:
-    """Contains prepared real and synthetic dataframe copies with missing value markers applied for 
-    compatibility with Anonymeter functions, which do not accept null values."""
-    train_df:pd.DataFrame
-    test_df:pd.DataFrame
-    synthetic_df:pd.DataFrame
-    missing_markers:dict[str, str | int | float]
 
 
 def _calculate_metrics(
