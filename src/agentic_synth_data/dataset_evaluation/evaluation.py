@@ -27,15 +27,15 @@ from agentic_synth_data.report import Report
 
 anonymeter_metric_descriptions = {
     "singling_out": (
-        "Singling out risk measures whether an attacker can uniquely identify an individual "
+        "Measures whether an attacker can uniquely identify an individual "
         "record in the original dataset using information from the synthetic data."
     ),
     "linkability": (
-        "Linkability risk measures whether an attacker can link information about the same "
+        "Measures whether an attacker can link information about the same "
         "individual across different sets of attributes using the synthetic data."
     ),
     "inference": (
-        "Inference risk measures whether an attacker can predict sensitive or unknown "
+        "Measures whether an attacker can predict sensitive or unknown "
         "attribute values in the original dataset using known attributes and the synthetic data."
     ),
 }
@@ -237,7 +237,7 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
         "positive and the other negative."
     )
 
-    st.write(f"{norm_corr_diff}")
+    st.write(f"{metrics.norm_corr_diff}")
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
@@ -255,7 +255,7 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
             "to distinguish between."
         )
 
-        st.write(f"{discrim_auc}")
+        st.write(f"{metrics.discrim_auc}")
 
         if metrics.output_messages.discrim_auc:
             with st.expander(
@@ -460,6 +460,22 @@ def display_privacy_risk_ui(
     st.plotly_chart(fig, width="stretch", key=f"privacy_risk_{label}",)
 
     st.caption(f"95% confidence interval: {ci_lower:.1%} – {ci_upper:.1%}")
+
+
+def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:str,) -> None:
+    """Display privacy metric information.
+
+    Args:
+        metric_name (str): Name of the metric (for display).
+        metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
+        description (str): Basic explanation of the metric for a quick overview.
+    """
+    st.write(
+        f"#### {metric_name} risk:\n"
+        f"{description}\n"
+    )
+
+    display_privacy_risk_ui(metric_name, metric.value, metric.ci[0], metric.ci[1])
 
 
 def calculate_attack_metrics_ui(
@@ -681,24 +697,6 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
 
     if outputs.linkability:
         show_anonymeter_warning(outputs.linkability)
-
-def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:str,) -> None:
-    """Display privacy metric information.
-
-    Args:
-        metric_name (str): Name of the metric (for display).
-        metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
-        description (str): Basic explanation of the metric for a quick overview.
-    """
-    st.write(
-        f"#### {metric_name} risk:\n"
-        f"{description}\n"
-        f"- Value: {round(metric.value*100, 3)}%\n"
-        f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
-        f"{round(metric.ci[1]*100,3)}%"
-    )
-    st.write("---")
-    display_privacy_risk_ui(metric_name, metric.value, metric.ci[0], metric.ci[1])
 
 
 def value_exists(candidate: object, *dfs: pd.DataFrame) -> bool:

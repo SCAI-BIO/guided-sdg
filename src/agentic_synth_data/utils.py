@@ -33,9 +33,9 @@ type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordin
 type SemanticTypes = dict[str, SemanticType]
 
 # Automatic (agent-assisted) selection is supported.
-type GeneratorNameAuto = Literal["auto", "PATEGAN", "BayesianNet", "PrivBayes", "CTGAN",]
+type GeneratorNameAuto = Literal["auto", "PATEGAN", "CTGAN", "PrivBayes", "BayesianNet",]
 
-type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet"]
+type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet",]
 
 
 # CLI helpers
