@@ -865,7 +865,7 @@ class DataGen:
         if "update_mech" in update_plan:
             generator_name = update_plan['update_mech'].generator_name
 
-            st.write(f"New generator: {generator_name}\nReason:\n")
+            st.write(f"New generator: {generator_name}\n\nReason:\n")
             st.write(update_plan['update_mech'].reason)
 
         if "update_params" in update_plan:

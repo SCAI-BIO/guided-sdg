@@ -177,6 +177,7 @@ def generator_update(
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
     """
+    print(f"Current generator: {synthesis_request.generator.name}")
     print("\nAgent is coming up with a generator revision options...")
     prompt = revision_message(synthesis_request, report, agent_decision)
     raw_response = agent.invoke(
@@ -230,8 +231,7 @@ def generator_update_ui(
 
     Returns:
         GeneratorRevisionOption | None | Literal["pending"]: Selected generator revision, or None 
-                                if cancelled. Literal["pending"] if nothing has been selected yet
-                                from the selectbox.
+            if cancelled. Literal["pending"] if nothing has been selected yet from the selectbox.
     """
     plan_key = f"generator_revision_plan_{version_id}"
     choice_key = f"generator_revision_choice_{version_id}"
@@ -240,6 +240,8 @@ def generator_update_ui(
         return st.session_state[choice_key]
 
     st.subheader("Select a generator revision option")
+
+    st.write(f"Current generator: {synthesis_request.generator.name}")
 
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with a generator revision options..."):
@@ -450,6 +452,7 @@ def missing_update(
     Returns:
         MissingRevisionOption | None: Selected generator revision, or None if cancelled.
     """
+    print(f"Current missing handling method: {synthesis_request.generator.name}")
     print("\nAgent is coming up with missing value handling options...")
     prompt = missing_revision_message(synthesis_request)
     raw_response = agent.invoke(
@@ -546,9 +549,11 @@ def missing_update_ui(
 
         if option.mode == "impute":
             st.write(f"- {option.mode}: {option.reason}")
-            label = f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, " \
-            f"Categorical strategy: {option.categorical_strategy}\n- " \
-            f"{newline_every_n_words(option.reason, 12)}"
+            label = (
+                f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, "
+                f"Categorical strategy: {option.categorical_strategy}\n"
+                f"- {newline_every_n_words(option.reason, 12)}"
+            )
 
         menu_options[label] = option
 

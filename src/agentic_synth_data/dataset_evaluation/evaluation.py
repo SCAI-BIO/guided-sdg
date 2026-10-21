@@ -12,6 +12,7 @@ import pandas as pd
 import pyinputplus as pyip
 import streamlit as st
 import syndat
+import plotly.graph_objects as go
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics, AttackColumns, AttackOutputs
 from agentic_synth_data.schemas.eval_model import AgentEval
@@ -27,16 +28,16 @@ from agentic_synth_data.report import Report
 
 anonymeter_metric_descriptions = {
     "singling_out": (
-        "Singling out risk, when it is possible to determine a single data record inside the "
-        "original dataset."
+        "Singling out risk measures whether an attacker can uniquely identify an individual "
+        "record in the original dataset using information from the synthetic data."
     ),
     "linkability": (
-        "Linkability risk, when it is possible to link two or more records within the same dataset "
-        "or in different ones."
+        "Linkability risk measures whether an attacker can link information about the same "
+        "individual across different sets of attributes using the synthetic data."
     ),
     "inference": (
-        "Inference risk, when an attacker can confidently infer the value of an unknown variable "
-        "and its value of the original data."
+        "Inference risk measures whether an attacker can predict sensitive or unknown "
+        "attribute values in the original dataset using known attributes and the synthetic data."
     ),
 }
 
@@ -51,11 +52,13 @@ class AnonymeterInput:
     missing_markers:dict[str, str | int | float]
 
 
-def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
-    """Calculate metrics comparing the original dataframe (optionally, with missing value markers
-     removed) with the synthetic dataframe.
+def _calculate_metrics(
+    real_df: pd.DataFrame, synthetic_df: pd.DataFrame, ui: bool=False,
+) -> SyndatMetrics:
+    """Calculate and round syndat metrics for evaluation of the synthetic data compared to the
+    original dataframe (optionally, with missing value markers removed).
 
-    Calculates SYNDAT metrics:
+    Calculates metrics:
     - Jensen-Shannon Distance
     - Normalized Correlation Difference
     - Discriminator AUC
@@ -64,38 +67,48 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
                                 missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+        ui (bool): Whether the metrics are calculated for the UI or CLI. Defaults to False (CLI).
 
     Returns:
-        dict: The decision plan based on the agent's assessment.
+        SyndatMetrics: Calculated metrics and captured output messages.
     """
-    jsd_output = CapturedOutput()
-    norm_corr_diff_output = CapturedOutput()
-    discrim_auc_output = CapturedOutput()
+    if ui:
+        jsd_output = StreamlitOutput(live=False)
+        norm_corr_diff_output = StreamlitOutput(live=False)
+        discrim_auc_output = StreamlitOutput(live=False)
 
+    else:
+        jsd_output = CapturedOutput()
+        norm_corr_diff_output = CapturedOutput()
+        discrim_auc_output = CapturedOutput()
+
+    # Jensen-Shannon Distances:
     with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
         jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
-    print("\nJensen-Shannon Distances:")
-    for col, jsd_score in jsd_results.items():
-        print(col, round(jsd_score, 4))
+    jsd_results = {
+        col: round(float(jsd_score), 4)
+        for col, jsd_score in jsd_results.items()
+    }
 
+    # Normalized correlation difference:
     with redirect_stdout(norm_corr_diff_output), redirect_stderr(norm_corr_diff_output):
         norm_corr_diff = syndat.metrics.normalized_correlation_difference(
             real=real_df, synthetic=synthetic_df, ignore_cat=True,
         )
 
-    print(f"\nNormalized correlation difference: {round(norm_corr_diff, 4)}")
+    norm_corr_diff = round(norm_corr_diff, 4)
 
-    if len(synthetic_df) < 2:
-        print("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
-        discrim_auc = None
+    # Discriminator AUC:
+    discrim_auc = None
 
-    else:
+    if len(synthetic_df) >= 2:
         with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
             discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df,)
-        print(f"\nDiscriminator AUC: {round(discrim_auc, 4)}")
+
+        discrim_auc = round(discrim_auc, 4)
 
     syndat_outputs = SyndatOutputs(
         jsd=jsd_output.buffer or None,
@@ -111,20 +124,40 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
     )
 
 
-def show_anonymeter_warning(output:str) -> None:
-    """Show Anonymeter UserWarning initially and add an expandable box to allow for more information
-    to be visible.
+def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
+    """Calculate and display syndat metrics.
+
+    Calculates metrics:
+    - Jensen-Shannon Distance
+    - Normalized Correlation Difference
+    - Discriminator AUC
 
     Args:
-        output (str): Function output warning message.
+        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+            missing value markers replaced with nan (norm_na_df).
+        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+
+    Returns:
+        SyndatMetrics: Calculated metrics and captured output messages.
     """
-    start = output.find("UserWarning:")
+    metrics = _calculate_metrics(real_df, synthetic_df,)
 
-    if start != -1:
-        warning_summary = output[start:]
+    # Jensen-Shannon Distances:
+    for col, score in metrics.jsd.items():
+        print(col, score)
 
-        with st.expander(warning_summary):
-            st.warning(output)
+    # Normalized correlation difference:
+    print(f"\nNormalized correlation difference: {metrics.norm_corr_diff}")
+
+    # Discriminator AUC:
+    if metrics.discrim_auc is None:
+        print("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
+
+    else:
+        print(f"\nDiscriminator AUC: {metrics.discrim_auc}")
+
+    return metrics
+
 
 
 def style_status(value: str) -> str:
@@ -146,21 +179,20 @@ def style_status(value: str) -> str:
 
 
 def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
-    """Calculate metrics comparing the original dataframe (optionally, with missing value markers
-     removed) with the synthetic dataframe (UI).
+    """Calculate and display syndat metrics (UI).
 
-    Calculates SYNDAT metrics:
+    Calculates metrics:
     - Jensen-Shannon Distance
     - Normalized Correlation Difference
     - Discriminator AUC
 
     Args:
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
 
     Returns:
-        dict: The decision plan based on the agent's assessment.
+        SyndatMetrics: Calculated metrics and captured output messages.
     """
     st.subheader("Fidelity and utility metrics")
     st.write(
@@ -172,15 +204,9 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
         "All of these metrics output a value between 0 and 1."
     )
 
-    jsd_output = StreamlitOutput(live=False)
-    norm_corr_diff_output = StreamlitOutput(live=False)
-    discrim_auc_output = StreamlitOutput(live=False)
+    metrics = _calculate_metrics(real_df, synthetic_df, True)
 
-    with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
-        jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df,)
-
-    jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
-
+    # Jensen-Shannon Distances:
     st.write("#### Jensen-Shannon Distance:")
     st.write(
         "Jensen-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
@@ -190,8 +216,8 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
     )
 
     jsd_table = pd.DataFrame({
-        "Column": jsd_results.keys(),
-        "JSD": jsd_results.values(),
+        "Column": metrics.jsd.keys(),
+        "JSD": metrics.jsd.values(),
     })
 
     jsd_table["Status"] = jsd_table["JSD"].apply(
@@ -208,15 +234,11 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
 
     df_formatter_st(styled_jsd_table)
 
-    if jsd_output.buffer:
+    if metrics.output_messages.jsd:
         with st.expander("UserWarning: Some variables may have been excluded for computation."):
-            st.warning(jsd_output.buffer)
+            st.warning(metrics.output_messages.jsd)
 
-    with redirect_stdout(norm_corr_diff_output), redirect_stderr(norm_corr_diff_output):
-        norm_corr_diff = syndat.metrics.normalized_correlation_difference(
-            real=real_df, synthetic=synthetic_df, ignore_cat=True,
-        )
-
+    # Normalized correlation difference:
     st.write("#### Normalized correlation difference:")
     st.write(
         "Normalized correlation difference calculates the correlation similarity between real and "
@@ -225,46 +247,34 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
         "\n- Note: It is possible for the norm to exceed 1 when one dataset's correlations is "
         "positive and the other negative."
     )
-    st.write(f"{round(norm_corr_diff, 4)}")
 
-    if norm_corr_diff_output.buffer:
+    st.write(f"{norm_corr_diff}")
+
+    if metrics.output_messages.norm_corr_diff:
         with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
-            st.warning(norm_corr_diff_output.buffer)
+            st.warning(metrics.output_messages.norm_corr_diff)
 
-    if len(synthetic_df) < 2:
+    # Discriminator AUC:
+    if metrics.discrim_auc is None:
         st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
-        discrim_auc = None
 
     else:
-        with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
-            discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df,)
-
         st.write("#### Discriminator AUC:")
         st.write(
             "Discriminator Area Under the Curve (AUC) is a value between 0 and 1. An AUC near 0.5 "
             "is preferable, whereas one near 1 indicates that real and synthetic datasets are easy "
             "to distinguish between."
         )
-        st.write(f"{round(discrim_auc, 4)}")
 
-        if discrim_auc_output.buffer:
+        st.write(f"{discrim_auc}")
+
+        if metrics.output_messages.discrim_auc:
             with st.expander(
                 "UserWarning: A message has been output by syndat discrimination AUC tool"
             ):
-                st.warning(discrim_auc_output.buffer)
+                st.warning(metrics.output_messages.discrim_auc)
 
-    syndat_outputs = SyndatOutputs(
-        jsd=jsd_output.buffer or None,
-        norm_corr_diff=norm_corr_diff_output.buffer or None,
-        discrim_auc=discrim_auc_output.buffer or None,
-    )
-
-    return SyndatMetrics(
-        jsd=jsd_results,
-        norm_corr_diff=norm_corr_diff,
-        discrim_auc=discrim_auc,
-        output_messages=syndat_outputs,
-    )
+    return metrics
 
 
 def calculate_attack_metrics(
@@ -398,6 +408,69 @@ def calculate_attack_metrics(
         selected_cols=selected_cols,
         output_messages=outputs,
     )
+
+
+def show_anonymeter_warning(output:str) -> None:
+    """Show Anonymeter UserWarning initially and add an expandable box to allow for more information
+    to be visible.
+
+    Args:
+        output (str): Function output warning message.
+    """
+    start = output.find("UserWarning:")
+
+    if start != -1:
+        warning_summary = output[start:]
+
+        with st.expander(warning_summary):
+            st.warning(output)
+
+
+def display_privacy_risk_ui(
+    label: str, value: float, ci_lower: float, ci_upper: float,
+) -> None:
+    """Display a privacy risk estimate and its confidence interval (UI).
+
+    Args:
+        label (str): Type of privacy risk metric.
+        value (float): Resulting value.
+        ci_lower (float): Lower confidence interval.
+        ci_upper (float): Upper confidence interval.
+    """
+    st.metric(label=label, value=f"{value:.2%}",) # TODO: Can add change between versions
+
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=[value * 100],
+            y=[0],
+            mode="markers",
+            marker={"size": 12},
+            error_x={
+                "type": "data",
+                "symmetric": False,
+                "visible": True,
+                "array": [(ci_upper - value) * 100],
+                "arrayminus": [(value - ci_lower) * 100],
+                "thickness": 3,
+                "width": 8,
+            },
+            hovertemplate="Risk: %{x:.1f}%<extra></extra>",
+        )
+    )
+
+    fig.update_layout(
+        height=160,
+        margin={"l": 10, "r": 20, "t": 10, "b":35,},
+        showlegend=False,
+        xaxis={"title": "Privacy risk (%)", "range": [0, 100]},
+        yaxis={"visible": False, "range":[-1, 1],},
+    )
+
+    st.plotly_chart(fig, width="stretch", key=f"privacy_risk_{label}",)
+
+    st.caption(f"95% confidence interval: {ci_lower:.1%} – {ci_upper:.1%}")
 
 
 def calculate_attack_metrics_ui(
@@ -562,7 +635,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
 
     Args:
         attack_metrics (AttackMetrics): Stores information regarding privacy metrics to be 
-                                        displayed.
+            displayed.
         description (dict[str, str]): Quick overview of attack metrics.
     """
     st.subheader("Privacy metrics")
@@ -635,6 +708,8 @@ def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:st
         f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
         f"{round(metric.ci[1]*100,3)}%"
     )
+    st.write("---")
+    display_privacy_risk_ui(metric_name, metric.value, metric.ci[0], metric.ci[1])
 
 
 def value_exists(candidate: object, *dfs: pd.DataFrame) -> bool:
@@ -791,35 +866,28 @@ def generate_plots(
 
     Args:
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                        missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synth_df (pd.DataFrame): The synthetically generated dataframe.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
         dict[str, list[Path]]: JSD plot images.
     """
-    # TODO: verify whether path needs to be fixed here too
     output_dir = OUTPUT_DIR / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    syndat.visualization.plot_distributions(
-        real=real_df, synthetic=synth_df, store_destination=str(output_dir),
+    plot_paths = _generate_plots(
+        real_df=real_df, synth_df=synth_df, output_dir=output_dir,
     )
 
-    png_files = sorted(output_dir.glob("*.png"))
+    for plot_type, paths in plot_paths.items():
+        if paths:
+            print(f"\n{plot_type.capitalize()} plot: {paths[0].name}")
+            display(Image(filename=str(paths[0])))
 
-    print(f"\nDistribution plot for: {png_files[0].name}")
-    display(Image(filename=str(png_files[0])))
+        print(f"=> {plot_type.capitalize()} plots saved to: {output_dir / plot_type}")
 
-    print(f"\n=> Distribution plots for all features saved to: {output_dir}")
-    
-    # TODO: add remaining plots
-
-    return {
-        "distributions": sorted((output_dir / "distributions").glob("*.png")),
-        #"correlations": sorted((output_dir / "correlations").glob("*.png")),
-        #"shap": sorted((output_dir / "shap").glob("*.png")),
-    }
+    return plot_paths
 
 
 def encode_for_correlation(
@@ -1318,6 +1386,7 @@ def evaluation_review_ui(
 
 
 # possible TODO: move to a different file?
+# possible TODO: break into section pieces, but first determine what the report should look like/sections should look like...
 def write_report(
     report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
 ) -> None:
@@ -1337,109 +1406,219 @@ def write_report(
 
     output_path = output_dir / output_filename
 
+    parent = (
+        f"; parent_version_{report.input.parent_version}"
+        if report.input.parent_version else ""
+    )
+
+    def display_plots(paths: list[Path]) -> str:
+        return "\n\n".join(
+            f"![{path.stem}]({path.relative_to(output_dir).as_posix()})"
+            for path in paths
+        )
+
+    # Distribution plots
+    distribution_paths = report.evaluate.plots.get("distributions", [])
+    top_plots = display_plots(distribution_paths[:3])
+    remaining_distributions = display_plots(distribution_paths[3:])
+
+    # Correlation plots
+    correlation_paths = report.evaluate.plots.get("correlations", [])
+
+    original_correlations = display_plots([
+        path for path in correlation_paths
+        if "real" in path.stem.lower() or "original" in path.stem.lower()
+    ])
+
+    synthetic_correlations = display_plots([
+        path for path in correlation_paths
+        if "synthetic" in path.stem.lower() or "synth" in path.stem.lower()
+    ])
+
+    # SHAP plots
+    shap_plots = display_plots(report.evaluate.plots.get("shap", []))
+
+
+    def fmt(value):
+        return pprint.pformat(value, sort_dicts=False)
+
+    missing_markers = ""
+    if report.prep.missing_markers_detected:
+        missing_markers = f"""
+Missing value marker detection
+
+Detected markers:
+```python
+{fmt(report.prep.missing_markers_detected)}
+```
+
+Replaced markers:
+```python
+{fmt(report.prep.missing_markers_replaced)}
+```
+"""
+
+    jsd_output = (
+        f"- Output (Jensen-Shannon Distance): {report.evaluate.syndat.output_messages.jsd}"
+        if report.evaluate.syndat.output_messages.jsd else ""
+    )
+    norm_corr_diff_output = (
+        f"- Output (Normalized correlation difference): {
+            report.evaluate.syndat.output_messages.norm_corr_diff
+        }"
+        if report.evaluate.syndat.output_messages.norm_corr_diff else ""
+    )
+    discrim_auc_output = (
+        f"- Output (Discriminator AUC): {report.evaluate.syndat.output_messages.discrim_auc}"
+        if report.evaluate.syndat.output_messages.discrim_auc else ""
+    )
+    singling_out_output = (
+        f"- Output (Singling out risk): {report.evaluate.attack.output_messages.singling_out}"
+        if report.evaluate.attack.output_messages.singling_out else ""
+    )
+    inference_output = (
+        f"- Output (Inference risk): {report.evaluate.attack.output_messages.inference}"
+        if report.evaluate.attack.output_messages.inference else ""
+    )
+    linkability_output = (
+        f"- Output (Linkability risk): {report.evaluate.attack.output_messages.linkability}"
+        if report.evaluate.attack.output_messages.linkability else ""
+    )
+
+    content = f"""# SYNTHETIC DATA GENERATION REPORT
+(version_{version_id}{parent})
+
+### Information about the original (input) dataset:
+- Location (path): `{report.input.path}`
+
+- Original shape: {report.input.original_shape[0]} rows, {report.input.original_shape[1]} columns.
+
+## Preprocessing:
+{missing_markers}
+
+### Python data types
+```python
+{fmt(report.prep.dtypes)}
+```
+
+### Semantic data types
+```python
+{fmt(report.prep.stypes)}
+```
+
+### Profile
+
+This information was gathered to inform the generator choice by viewing the characteristics of the original dataset before imputation.
+- Shape of the original dataframe (before missing handling) after an 80% train 20% test split: {
+    report.prep.profile['shape'][0]
+} rows and {report.prep.profile['shape'][1]} columns.
+
+The number of unique values per feature (cardinality):
+```python
+{fmt(report.prep.profile['col_nunique'])}
+```
+
+Summary statistics for numeric values:
+```python
+{fmt(report.prep.profile['num_summary'])}
+```
+
+{report.prep.profile['corr_method'].capitalize()}'s correlation for numeric features:
+```python
+{fmt(report.prep.profile['num_corr'])}
+```
+
+### Missing Value Handling
+- Number of missing values found before missing value handling was applied: {
+    report.prep.missing_before
+}
+
+- Number of missing values after missing value handling was applied: {report.prep.missing_after}
+
+- Prepared dataset shape (this is input to the generator model for synthetic generation): {
+    report.input.prepared_shape[0]
+} rows, {report.input.prepared_shape[1]} columns.
+
+### Generation:
+Chosen generator: {synthesis_request.generator.name}
+
+Parameters: {report.gen.params}
+
+Prepared dataset path: `{report.gen.prep_path}`
+
+Synthetic dataset path: `{report.gen.synth_path}`
+
+Synthetic shape: {report.gen.synth_shape[0]} rows, {report.gen.synth_shape[1]} columns.
+
+### Results:
+Jensen-Shannon Distance:
+```python
+{fmt(report.evaluate.syndat.jsd)}
+```
+{jsd_output}
+
+Normalized correlation difference: {report.evaluate.syndat.norm_corr_diff}
+
+{norm_corr_diff_output}
+
+Discriminator AUC: {report.evaluate.syndat.discrim_auc}
+
+{discrim_auc_output}
+
+### Plots
+
+Generated plots are stored in:
+`{output_dir / "plots"}`
+
+The first three plots are displayed below. All additional plots are available at the end of this report.
+
+{top_plots}
+
+---
+
+Singling out risk: {report.evaluate.attack.singling_out}
+
+{singling_out_output}
+
+Inference risk: {report.evaluate.attack.inference}
+
+{inference_output}
+
+Linkability risk: {report.evaluate.attack.linkability}
+
+{linkability_output}
+
+### Agent review:
+
+- Status: {report.review.status}
+
+- Recommendation: {report.review.recommendation}
+
+- Rationale behind the recommendation: {report.review.rationale}
+
+- Problem columns: {report.review.problem_columns}
+
+---
+
+## Additional plots
+
+### Distributions
+
+{remaining_distributions or "No additional distribution plots."}
+
+### Correlations
+
+#### Original dataset
+
+{original_correlations or "No original correlation plots."}
+
+#### Synthetic dataset
+
+{synthetic_correlations or "No synthetic correlation plots."}
+
+### SHAP discrimination
+
+{shap_plots or "No SHAP plots."}
+"""
     with open(output_path, "w", encoding="utf-8") as f:
-        parent = f"; parent_version_{report.input.parent_version}" if report.input.parent_version else ""
-        f.write(f"# SYNTHETIC DATA GENERATION REPORT (version_{version_id}{parent})\n")
-
-        f.write("## Input dataset:\n")
-        f.write(f"- Path: {report.input.path}\n")
-        f.write(f"- Original shape: {report.input.original_shape[0]} rows, {report.input.original_shape[1]} columns.\n")
-        f.write(f"- Prepared shape: {report.input.prepared_shape[0]} rows, {report.input.prepared_shape[1]} columns.\n")
-        f.write(f"- Synthetic shape: {report.gen.synth_shape[0]} rows, {report.gen.synth_shape[1]} columns.\n\n")
-
-        f.write("## Preprocessing:\n")
-        if report.prep.missing_markers_detected:
-            f.write("Missing value marker detection\n")
-            f.write("Detected markers:\n")
-            f.write("```python\n")
-            pprint.pprint(report.prep.missing_markers_detected, stream=f, sort_dicts=False,)
-
-            f.write("\n Replaced markers:\n")
-            f.write("```python\n")
-            pprint.pprint(report.prep.missing_markers_replaced, stream=f, sort_dicts=False,)
-            f.write("```\n")
-
-        f.write("\n\n### Python data types\n")
-        f.write("```python\n")
-        pprint.pprint(report.prep.dtypes, stream=f, sort_dicts=False)
-        f.write("```\n")
-
-        f.write("\n\n### Semantic data types\n")
-        f.write("```python\n")
-        pprint.pprint(report.prep.stypes, stream=f, sort_dicts=False)
-        f.write("```\n")
-
-        f.write("\n\n### Profile\n")
-        f.write("```python\n")
-        pprint.pprint(report.prep.profile, stream=f, sort_dicts=False)
-        f.write("```\n")
-
-        f.write("\n\n### Missing Value Handling\n")
-        f.write("Before:")
-        f.write("```python\n")
-        pprint.pprint(report.prep.missing_before, stream=f, sort_dicts=False,)
-        f.write("```\n\n")
-        f.write("After:")
-        f.write("```python\n")
-        pprint.pprint(report.prep.missing_after, stream=f, sort_dicts=False,)
-        f.write("```\n")
-
-        f.write("\n\n### Generation:\n")
-        f.write(f"Chosen generator: {synthesis_request.generator.name}\n")
-        f.write(f"Parameters: {report.gen.params}\n")
-        f.write(f"Prepared dataset path: {report.gen.prep_path}\n")
-        f.write(f"Synthetic dataset path: {report.gen.synth_path}\n")
-        f.write(f"Synthetic shape: {report.gen.synth_shape}\n")
-
-        # Metric results
-        f.write("\n\n### Results:\n")
-        f.write("Jensen-Shannon Distance:\n")
-        pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False,)
-        jsd_output = f"- Output: {report.evaluate.syndat.output_messages.jsd}" if report.evaluate.syndat.output_messages.jsd else None
-        if jsd_output:
-            f.write(f"{jsd_output}")
-
-        f.write(f"Normalized correlation difference: {report.evaluate.syndat.norm_corr_diff}\n")
-        norm_corr_diff_output = f"- Output: {report.evaluate.syndat.output_messages.norm_corr_diff}" if report.evaluate.syndat.output_messages.norm_corr_diff else None
-        if norm_corr_diff_output:
-            f.write(f"{norm_corr_diff_output}")
-
-        f.write(f"Discriminator AUC: {report.evaluate.syndat.discrim_auc}\n")
-        discrim_auc_output = f"- Output: {report.evaluate.syndat.output_messages.discrim_auc}" if report.evaluate.syndat.output_messages.discrim_auc else None
-        if discrim_auc_output:
-            f.write(f"{discrim_auc_output}")
-
-        f.write("---\n")
-        f.write(f"Singling out risk: {report.evaluate.attack.singling_out}\n")
-        singling_out_output = f"- Output: {report.evaluate.attack.output_messages.singling_out}" if report.evaluate.attack.output_messages.singling_out else None
-        if singling_out_output:
-            f.write(f"{singling_out_output}")
-
-        f.write(f"Inference risk: {report.evaluate.attack.inference}\n")
-        inference_output = f"- Output: {report.evaluate.attack.output_messages.inference}" if report.evaluate.attack.output_messages.inference else None
-        if inference_output:
-            f.write(f"{inference_output}")
-
-        f.write(f"Linkability risk: {report.evaluate.attack.linkability}\n")
-        linkability_output = f"- Output: {report.evaluate.attack.output_messages.linkability}" if report.evaluate.attack.output_messages.linkability else None
-        if linkability_output:
-            f.write(f"{linkability_output}")
-
-        f.write(f"# Plots: locations {report.evaluate.plots}")
-
-        f.write(f"\nAgent review:\n- Status:{report.review.status}\n- Recommendation: {report.review.recommendation}")
-        f.write(f"- Rationale behind the recommendation: {report.review.rationale}\n- Problem columns {report.review.problem_columns}")
-
-        f.write("\n\n### Evaluation\n")
-        f.write("```python\n")
-        pprint.pprint(report.evaluate.syndat.jsd, stream=f, sort_dicts=False)
-        f.write("```\n")
-
-        f.write("```python\n")
-        pprint.pprint(report.update.selected_plan_updates)
-        f.write("```\n")
-
-        f.write("\nConclusion\n")
-        f.write("```python\n")
-        pprint.pprint(report.review.recommendation, stream=f, sort_dicts=False,)
-        f.write("```\n")
+        f.write(content)

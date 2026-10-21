@@ -49,7 +49,7 @@ docker compose version
 Create a `.env` file with the necessary API credentials for the configured language model.
 - Note: OpenAI compatible APIs are currently permitted.
 
-```bash
+```python
 OPENAI_API_KEY="your-key-here"
 BASE_URL="https://your-openai-compatible-endpoint/v1"
 ```
