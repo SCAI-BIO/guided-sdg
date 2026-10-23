@@ -15,8 +15,9 @@ from agentic_synth_data.utils import OUTPUT_DIR, df_formatter_st
 # ============================================================================
 # SYNDAT metric calculation
 # ============================================================================
+
 def _calculate_metrics(
-    real_df: pd.DataFrame, synthetic_df: pd.DataFrame, ui: bool=False,
+    real: pd.DataFrame, synth: pd.DataFrame, ui: bool = False,
 ) -> SyndatMetrics:
     """Calculate and round syndat metrics for evaluation of the synthetic data compared to the
     original dataframe (optionally, with missing value markers removed).
@@ -27,9 +28,9 @@ def _calculate_metrics(
     - Discriminator AUC
 
     Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
                                 missing value markers replaced with nan (norm_na_df).
-        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+        synth (pd.DataFrame): The synthetically generated dataframe.
         ui (bool): Whether the metrics are calculated for the UI or CLI. Defaults to False (CLI).
 
     Returns:
@@ -47,7 +48,7 @@ def _calculate_metrics(
 
     # Jensen-Shannon Distances:
     with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
-        jsd_results = syndat.metrics.jensen_shannon_distance(real=real_df, synthetic=synthetic_df)
+        jsd_results = syndat.metrics.jensen_shannon_distance(real=real, synthetic=synth)
 
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
@@ -59,7 +60,7 @@ def _calculate_metrics(
     # Normalized correlation difference:
     with redirect_stdout(norm_corr_diff_output), redirect_stderr(norm_corr_diff_output):
         norm_corr_diff = syndat.metrics.normalized_correlation_difference(
-            real=real_df, synthetic=synthetic_df, ignore_cat=True,
+            real=real, synthetic=synth, ignore_cat=True,
         )
 
     norm_corr_diff = round(norm_corr_diff, 4)
@@ -67,9 +68,9 @@ def _calculate_metrics(
     # Discriminator AUC:
     discrim_auc = None
 
-    if len(synthetic_df) >= 2:
+    if len(synth) >= 2:
         with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
-            discrim_auc = syndat.metrics.discriminator_auc(real=real_df, synthetic=synthetic_df,)
+            discrim_auc = syndat.metrics.discriminator_auc(real=real, synthetic=synth,)
 
         discrim_auc = round(discrim_auc, 4)
 
@@ -86,10 +87,12 @@ def _calculate_metrics(
         output_messages=syndat_outputs,
     )
 
+
 # ============================================================================
-# SYNDAT metric display
+# SYNDAT metric display (CLI and UI)
 # ============================================================================
-def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
+
+def calculate_metrics(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetrics:
     """Calculate and display syndat metrics.
 
     Calculates metrics:
@@ -98,14 +101,14 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
     - Discriminator AUC
 
     Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
             missing value markers replaced with nan (norm_na_df).
-        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+        synth (pd.DataFrame): The synthetically generated dataframe.
 
     Returns:
         SyndatMetrics: Calculated metrics and captured output messages.
     """
-    metrics = _calculate_metrics(real_df, synthetic_df,)
+    metrics = _calculate_metrics(real, synth,)
 
     # Jensen-Shannon Distances:
     for col, score in metrics.jsd.items():
@@ -124,7 +127,7 @@ def calculate_metrics(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> Syn
     return metrics
 
 
-def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> SyndatMetrics:
+def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetrics:
     """Calculate and display syndat metrics (UI).
 
     Calculates metrics:
@@ -133,9 +136,9 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
     - Discriminator AUC
 
     Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
             missing value markers replaced with nan (norm_na_df).
-        synthetic_df (pd.DataFrame): The synthetically generated dataframe.
+        synth (pd.DataFrame): The synthetically generated dataframe.
 
     Returns:
         SyndatMetrics: Calculated metrics and captured output messages.
@@ -150,7 +153,7 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
         "All of these metrics output a value between 0 and 1."
     )
 
-    metrics = _calculate_metrics(real_df, synthetic_df, True)
+    metrics = _calculate_metrics(real, synth, True)
 
     # Jensen-Shannon Distances:
     st.write("#### Jensen-Shannon Distance:")
@@ -224,8 +227,128 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
 
 
 # ============================================================================
-# UI helpers
+# Plot data preparation
 # ============================================================================
+
+def encode_for_correlation(
+    real: pd.DataFrame, synth: pd.DataFrame, max_categories: int = 10,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Encode categorical features for correlation analysis while limiting feature expansion.
+
+    Args:
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synth (pd.DataFrame): The synthetically generated dataframe.
+        max_categories (int, optional): _description_. Defaults to 10.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: _description_
+    """
+    n_real = len(real)
+    combined = pd.concat([real, synth], ignore_index=True,)
+    combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
+
+    categorical_cols = combined.select_dtypes(
+        include=["object", "str", "category"]
+    ).columns
+
+    low_cardinality = [
+        col for col in categorical_cols if combined[col].nunique(dropna=True) <= max_categories
+    ]
+    high_cardinality = [col for col in categorical_cols if col not in low_cardinality]
+
+    # One-hot only manageable categorical variables
+    encoded = pd.get_dummies(combined, columns=low_cardinality, dtype=int,)
+
+    # Exclude high-cardinality categoricals from Pearson correlation
+    encoded = encoded.drop(columns=high_cardinality)
+
+    # TODO: add a limit to the encoding (perhaps preferring first to encode smaller card. cols first)
+
+    return (encoded.iloc[:n_real], encoded.iloc[n_real:],)
+
+
+def encode_for_shap(real: pd.DataFrame, synth: pd.DataFrame,) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Encode categorical features numerically for SHAP discrimination analysis.
+
+    Args:
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synth (pd.DataFrame): The synthetically generated dataframe.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: _description_
+    """
+    n_real = len(real)
+    combined = pd.concat([real, synth], ignore_index=True,)
+    combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
+
+    categorical_cols = combined.select_dtypes(include=["object", "str", "category"]).columns
+
+    for col in categorical_cols:
+        combined[col], _ = pd.factorize(combined[col])
+
+    return (combined.iloc[:n_real], combined.iloc[n_real:],)
+
+
+# ============================================================================
+# Plot generation
+# ============================================================================
+
+def _generate_plots(
+    real: pd.DataFrame, synth: pd.DataFrame, output_dir: Path,
+) -> dict[str, list[Path]]:
+    """Generate distribution, correlation, and SHAP plots.
+
+    Args:
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+                                missing value markers replaced with nan (norm_na_df).
+        synth (pd.DataFrame): The synthetically generated dataframe.
+        output_dir (Path): Directory for storing generated plots.
+
+    Returns:
+        dict[str, list[Path]]: Paths to generated plot images grouped by plot type.
+    """
+    distribution_dir = output_dir / "distributions"
+    correlation_dir = output_dir / "correlations"
+    shap_dir = output_dir / "shap"
+
+    for directory in [distribution_dir, correlation_dir, shap_dir]:
+        directory.mkdir(parents=True, exist_ok=True)
+
+    # Distribution plots
+    syndat.visualization.plot_distributions(
+        real=real,
+        synthetic=synth,
+        store_destination=str(distribution_dir),
+    )
+
+    # Correlation plots
+    real_corr, syn_corr = encode_for_correlation(real=real, synth=synth,)
+    syndat.visualization.plot_correlations(
+        real=real_corr, synthetic=syn_corr, store_destination=str(correlation_dir),
+    )
+
+    # SHAP discrimination plot
+    real_shap, syn_shap = encode_for_shap(real, synth)
+    shap_path = shap_dir / "shap_discrimination.png"
+
+    syndat.visualization.plot_shap_discrimination(
+        real=real_shap, synthetic=syn_shap, save_path=str(shap_path),
+    )
+
+    return {
+        "distributions": sorted(distribution_dir.glob("*.png")),
+        "correlations": sorted(correlation_dir.glob("*.png")),
+        "shap": sorted(shap_dir.glob("*.png")),
+    }
+
+
+
+# ============================================================================
+# Plot display helpers (UI)
+# ============================================================================
+
 def style_status(value: str) -> str:
     """Attribute cell status marker for Jensen-Shannon Distance (JSD) to a specific color. 
 
@@ -242,6 +365,20 @@ def style_status(value: str) -> str:
     if value == "Low":
         return "background-color:#dcfce7; color:#166534; font-weight:600;"
     return ""
+
+
+def _cache_pngs(paths: list[Path]) -> list[dict]:
+    """Load PNG files from a directory into memory
+
+    Args:
+        paths (Path): Directory containing PNG files.
+
+    Returns:
+        list[dict]: Cached PNG data and filenames.
+    """
+    return [
+        {"name": path.name, "data": path.read_bytes()} for path in paths
+    ]
 
 
 @st.fragment
@@ -298,146 +435,19 @@ def plot_viewer(images, plot_type: str, version_id: int, show_filename: bool = F
     st.image(images[idx]["data"], width="stretch")
 
 
-def _cache_pngs(paths: list[Path]) -> list[dict]:
-    """Load PNG files from a directory into memory
-
-    Args:
-        paths (Path): Directory containing PNG files.
-
-    Returns:
-        list[dict]: Cached PNG data and filenames.
-    """
-    return [
-        {"name": path.name, "data": path.read_bytes()} for path in paths
-    ]
-
-
 # ============================================================================
-# Generating plots
+# Plot generation and display (CLI and UI)
 # ============================================================================
-def encode_for_correlation(
-    real_df: pd.DataFrame, synth_df: pd.DataFrame, max_categories: int = 10,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Encode categorical features for correlation analysis while limiting feature expansion.
 
-    Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
-        synth_df (pd.DataFrame): The synthetically generated dataframe.
-        max_categories (int, optional): _description_. Defaults to 10.
-
-    Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: _description_
-    """
-    n_real = len(real_df)
-    combined = pd.concat([real_df, synth_df], ignore_index=True,)
-    combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
-
-    categorical_cols = combined.select_dtypes(
-        include=["object", "str", "category"]
-    ).columns
-
-    low_cardinality = [
-        col for col in categorical_cols if combined[col].nunique(dropna=True) <= max_categories
-    ]
-    high_cardinality = [col for col in categorical_cols if col not in low_cardinality]
-
-    # One-hot only manageable categorical variables
-    encoded = pd.get_dummies(combined, columns=low_cardinality, dtype=int,)
-
-    # Exclude high-cardinality categoricals from Pearson correlation
-    encoded = encoded.drop(columns=high_cardinality)
-
-    # TODO: add a limit to the encoding (perhaps preferring first to encode smaller card. cols first)
-
-    return (encoded.iloc[:n_real], encoded.iloc[n_real:],)
-
-
-def encode_for_shap(
-    real_df: pd.DataFrame, synth_df: pd.DataFrame,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Encode categorical features numerically for SHAP discrimination analysis.
-
-    Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
-        synth_df (pd.DataFrame): The synthetically generated dataframe.
-
-    Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: _description_
-    """
-    n_real = len(real_df)
-    combined = pd.concat([real_df, synth_df], ignore_index=True,)
-    combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
-
-    categorical_cols = combined.select_dtypes(include=["object", "str", "category"]).columns
-
-    for col in categorical_cols:
-        combined[col], _ = pd.factorize(combined[col])
-
-    return (combined.iloc[:n_real], combined.iloc[n_real:],)
-
-
-def _generate_plots(
-    real_df: pd.DataFrame, synth_df: pd.DataFrame, output_dir: Path,
-) -> dict[str, list[Path]]:
-    """Generate distribution, correlation, and SHAP plots.
-
-    Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
-        synth_df (pd.DataFrame): The synthetically generated dataframe.
-        output_dir (Path): Directory for storing generated plots.
-
-    Returns:
-        dict[str, list[Path]]: Paths to generated plot images grouped by plot type.
-    """
-    distribution_dir = output_dir / "distributions"
-    correlation_dir = output_dir / "correlations"
-    shap_dir = output_dir / "shap"
-
-    for directory in [distribution_dir, correlation_dir, shap_dir]:
-        directory.mkdir(parents=True, exist_ok=True)
-
-    # Distribution plots
-    syndat.visualization.plot_distributions(
-        real=real_df,
-        synthetic=synth_df,
-        store_destination=str(distribution_dir),
-    )
-
-    # Correlation plots
-    real_corr, syn_corr = encode_for_correlation(real_df=real_df, synth_df=synth_df,)
-    syndat.visualization.plot_correlations(
-        real=real_corr, synthetic=syn_corr, store_destination=str(correlation_dir),
-    )
-
-    # SHAP discrimination plot
-    real_shap, syn_shap = encode_for_shap(real_df, synth_df)
-    shap_path = shap_dir / "shap_discrimination.png"
-
-    syndat.visualization.plot_shap_discrimination(
-        real=real_shap, synthetic=syn_shap, save_path=str(shap_path),
-    )
-
-    return {
-        "distributions": sorted(distribution_dir.glob("*.png")),
-        "correlations": sorted(correlation_dir.glob("*.png")),
-        "shap": sorted(shap_dir.glob("*.png")),
-    }
-
-# ============================================================================
-# Display generated plots
-# ============================================================================
 def generate_plots(
-    real_df: pd.DataFrame, synth_df: pd.DataFrame, version_id: int,
+    real: pd.DataFrame, synth: pd.DataFrame, version_id: int,
 ) -> dict[str, list[Path]]:
     """Plot feature distributions and store files.
 
     Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
             missing value markers replaced with nan (norm_na_df).
-        synth_df (pd.DataFrame): The synthetically generated dataframe.
+        synth (pd.DataFrame): The synthetically generated dataframe.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
@@ -447,7 +457,7 @@ def generate_plots(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     plot_paths = _generate_plots(
-        real_df=real_df, synth_df=synth_df, output_dir=output_dir,
+        real=real, synth=synth, output_dir=output_dir,
     )
 
     for plot_type, paths in plot_paths.items():
@@ -461,14 +471,14 @@ def generate_plots(
 
 
 def generate_plots_ui(
-    real_df: pd.DataFrame, synth_df: pd.DataFrame, version_id: int,
+    real: pd.DataFrame, synth: pd.DataFrame, version_id: int,
 ) -> dict[str, list[Path]]:
     """Generate, cache, store, and display distribution, correlation, and SHAP plots (UI).
 
     Args:
-        real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
+        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
                         missing value markers replaced with nan (norm_na_df).
-        synth_df (pd.DataFrame): The synthetically generated dataframe.
+        synth (pd.DataFrame): The synthetically generated dataframe.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
@@ -482,7 +492,7 @@ def generate_plots_ui(
 
     if paths_key not in st.session_state:
         st.session_state[paths_key] = _generate_plots(
-            real_df=real_df, synth_df=synth_df, output_dir=output_dir,
+            real=real, synth=synth, output_dir=output_dir,
         )
 
     plot_paths = st.session_state[paths_key]

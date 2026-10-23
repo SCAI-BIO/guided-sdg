@@ -13,13 +13,13 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import calculate_attack_metrics_ui, \
-    display_attack_metrics_ui, evaluation, evaluation_review_ui, \
-    evaluation_ui, calculate_attack_metrics, \
-    evaluation_review, anonymeter_metric_descriptions
+from agentic_synth_data.dataset_evaluation.evaluation import evaluation, evaluation_ui, \
+    evaluation_review_ui, evaluation_review
+from agentic_synth_data.dataset_evaluation.attack_metrics import calculate_attack_metrics, \
+    calculate_attack_metrics_ui, display_attack_metrics_ui, ANONYMETER_METRIC_DESCRIPTION
 from agentic_synth_data.report import write_report
-from agentic_synth_data.dataset_evaluation.syndat_metrics import calculate_metrics, calculate_metrics_ui, \
-    generate_plots, generate_plots_ui
+from agentic_synth_data.dataset_evaluation.syndat_metrics import calculate_metrics, \
+    calculate_metrics_ui, generate_plots, generate_plots_ui
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
@@ -513,26 +513,26 @@ class DataGen:
         """Step 6: Evaluate results"""
         print("\n\n")
         print("="*25+"[STEP: Evaluate synthetic data]"+"="*25)
-        synth_df = self.synthetic_df.copy()
+        synth = self.synthetic_df.copy()
         if self.norm_na_df is not None:
-            real_df = self.norm_na_df.copy()
+            real = self.norm_na_df.copy()
         else:
-            real_df = self.source_df.copy()
+            real = self.source_df.copy()
 
-        real_df, synth_df = prepare_for_syndat(
-            real_df=real_df,
-            synthetic_df=synth_df,
-            semantic_types=self.semantic_types,
+        real, synth = prepare_for_syndat(
+            real=real,
+            synth=synth,
+            stypes=self.semantic_types,
         )
 
-        syndat_metrics = calculate_metrics(real_df=real_df, synthetic_df=synth_df,)
+        syndat_metrics = calculate_metrics(real=real, synth=synth,)
 
         self.report.evaluate.syndat = syndat_metrics
 
         attack_metrics = calculate_attack_metrics(
             train=self.train_df,
             test=self.test_df,
-            synth=synth_df,
+            synth=synth,
             stypes=self.semantic_types,
             dtypes=self.python_dtypes,
             agent=self.agent,
@@ -541,9 +541,7 @@ class DataGen:
 
         self.report.evaluate.attack = attack_metrics
 
-        self.report.evaluate.plots = generate_plots(
-            real_df=real_df, synth_df=synth_df, version_id=self.version_id,
-        )
+        self.report.evaluate.plots = generate_plots(real=real, synth=synth, version_id=self.version_id,)
 
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
@@ -570,21 +568,17 @@ class DataGen:
 
     def evaluate_ui(self):
         """Step 6: Evaluate results"""
-        synth_df = self.synthetic_df.copy()
+        synth = self.synthetic_df.copy()
         if self.norm_na_df is not None:
-            real_df = self.norm_na_df.copy()
+            real = self.norm_na_df.copy()
         else:
-            real_df = self.source_df.copy()
+            real = self.source_df.copy()
 
-        real_df, synth_df = prepare_for_syndat(
-            real_df=real_df,
-            synthetic_df=synth_df,
-            semantic_types=self.semantic_types,
-        )
+        real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.semantic_types,)
 
         col1, col2 = st.columns(2)
         with col1:
-            syndat_metrics = calculate_metrics_ui(real_df=real_df, synthetic_df=synth_df,)
+            syndat_metrics = calculate_metrics_ui(real=real, synth=synth,)
 
             self.report.evaluate.syndat = syndat_metrics
 
@@ -596,7 +590,7 @@ class DataGen:
                 attack_metrics = calculate_attack_metrics_ui(
                     train=self.train_df,
                     test=self.test_df,
-                    synth=synth_df,
+                    synth=synth,
                     stypes=self.semantic_types,
                     dtypes=self.python_dtypes,
                     agent=self.agent,
@@ -610,7 +604,7 @@ class DataGen:
 
                 display_attack_metrics_ui(
                     attack_metrics=attack_metrics,
-                    description=anonymeter_metric_descriptions,
+                    description=ANONYMETER_METRIC_DESCRIPTION,
                 )
 
         self.report.evaluate.attack = attack_metrics
@@ -621,7 +615,7 @@ class DataGen:
 
         with st.spinner("Loading plots..."):
             self.report.evaluate.plots = generate_plots_ui(
-                real_df=real_df, synth_df=synth_df, version_id=self.version_id,
+                real=real, synth=synth, version_id=self.version_id,
             )
 
         st.write("---")
