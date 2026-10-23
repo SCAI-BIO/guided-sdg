@@ -1,10 +1,13 @@
 from pathlib import Path
+import pprint
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics
+from agentic_synth_data.schemas.models import SynthesisRequest
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics
+from agentic_synth_data.utils import OUTPUT_DIR
 
 
 class InputReport(BaseModel):
@@ -68,3 +71,241 @@ class Report(BaseModel):
     review: ReviewReport = Field(default_factory=ReviewReport)
     update: UpdatePlanReport = Field(default_factory=UpdatePlanReport)
     revisions: list = Field(default_factory=list)
+
+
+# possible TODO: break into section pieces, but first determine what the report should look like/sections should look like...
+def write_report(
+    report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
+) -> None:
+    """Write a workflow report based on decisions made during the synthetic data generation process.
+
+    Args:
+        report (Report): Dictionary containing information gathered throughout the workflow steps.
+        synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
+        data_path (str): Initial path of the data (used for naming the report).
+        version_id (int): Denotes the version of the workflow attempt.
+    """
+    data_name = Path(data_path).stem
+    output_filename = f"report_{data_name}_v{version_id}.md"
+
+    output_dir = OUTPUT_DIR / f"version_{version_id}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = output_dir / output_filename
+
+    parent = (
+        f"; parent_version_{report.input.parent_version}"
+        if report.input.parent_version else ""
+    )
+
+    def display_plots(paths: list[Path]) -> str:
+        return "\n\n".join(
+            f"![{path.stem}]({path.relative_to(output_dir).as_posix()})"
+            for path in paths
+        )
+
+    # Distribution plots
+    distribution_paths = report.evaluate.plots.get("distributions", [])
+    top_plots = display_plots(distribution_paths[:3])
+    remaining_distributions = display_plots(distribution_paths[3:])
+
+    # Correlation plots
+    correlation_paths = report.evaluate.plots.get("correlations", [])
+
+    original_correlations = display_plots([
+        path for path in correlation_paths
+        if "real" in path.stem.lower() or "original" in path.stem.lower()
+    ])
+
+    synthetic_correlations = display_plots([
+        path for path in correlation_paths
+        if "synthetic" in path.stem.lower() or "synth" in path.stem.lower()
+    ])
+
+    # SHAP plots
+    shap_plots = display_plots(report.evaluate.plots.get("shap", []))
+
+
+    def fmt(value):
+        return pprint.pformat(value, sort_dicts=False)
+
+    missing_markers = ""
+    if report.prep.missing_markers_detected:
+        missing_markers = f"""
+Missing value marker detection
+
+Detected markers:
+```python
+{fmt(report.prep.missing_markers_detected)}
+```
+
+Replaced markers:
+```python
+{fmt(report.prep.missing_markers_replaced)}
+```
+"""
+
+    jsd_output = (
+        f"- Output (Jensen-Shannon Distance): {report.evaluate.syndat.output_messages.jsd}"
+        if report.evaluate.syndat.output_messages.jsd else ""
+    )
+    norm_corr_diff_output = (
+        f"- Output (Normalized correlation difference): {
+            report.evaluate.syndat.output_messages.norm_corr_diff
+        }"
+        if report.evaluate.syndat.output_messages.norm_corr_diff else ""
+    )
+    discrim_auc_output = (
+        f"- Output (Discriminator AUC): {report.evaluate.syndat.output_messages.discrim_auc}"
+        if report.evaluate.syndat.output_messages.discrim_auc else ""
+    )
+    singling_out_output = (
+        f"- Output (Singling out risk): {report.evaluate.attack.output_messages.singling_out}"
+        if report.evaluate.attack.output_messages.singling_out else ""
+    )
+    inference_output = (
+        f"- Output (Inference risk): {report.evaluate.attack.output_messages.inference}"
+        if report.evaluate.attack.output_messages.inference else ""
+    )
+    linkability_output = (
+        f"- Output (Linkability risk): {report.evaluate.attack.output_messages.linkability}"
+        if report.evaluate.attack.output_messages.linkability else ""
+    )
+
+    content = f"""# SYNTHETIC DATA GENERATION REPORT
+(version_{version_id}{parent})
+
+### Information about the original (input) dataset:
+- Location (path): `{report.input.path}`
+
+- Original shape: {report.input.original_shape[0]} rows, {report.input.original_shape[1]} columns.
+
+## Preprocessing:
+{missing_markers}
+
+### Python data types
+```python
+{fmt(report.prep.dtypes)}
+```
+
+### Semantic data types
+```python
+{fmt(report.prep.stypes)}
+```
+
+### Profile
+
+This information was gathered to inform the generator choice by viewing the characteristics of the original dataset before imputation.
+- Shape of the original dataframe (before missing handling) after an 80% train 20% test split: {
+    report.prep.profile['shape'][0]
+} rows and {report.prep.profile['shape'][1]} columns.
+
+The number of unique values per feature (cardinality):
+```python
+{fmt(report.prep.profile['col_nunique'])}
+```
+
+Summary statistics for numeric values:
+```python
+{fmt(report.prep.profile['num_summary'])}
+```
+
+{report.prep.profile['corr_method'].capitalize()}'s correlation for numeric features:
+```python
+{fmt(report.prep.profile['num_corr'])}
+```
+
+### Missing Value Handling
+- Number of missing values found before missing value handling was applied: {
+    report.prep.missing_before
+}
+
+- Number of missing values after missing value handling was applied: {report.prep.missing_after}
+
+- Prepared dataset shape (this is input to the generator model for synthetic generation): {
+    report.input.prepared_shape[0]
+} rows, {report.input.prepared_shape[1]} columns.
+
+### Generation:
+Chosen generator: {synthesis_request.generator.name}
+
+Parameters: {report.gen.params}
+
+Prepared dataset path: `{report.gen.prep_path}`
+
+Synthetic dataset path: `{report.gen.synth_path}`
+
+Synthetic shape: {report.gen.synth_shape[0]} rows, {report.gen.synth_shape[1]} columns.
+
+### Results:
+Jensen-Shannon Distance:
+```python
+{fmt(report.evaluate.syndat.jsd)}
+```
+{jsd_output}
+
+Normalized correlation difference: {report.evaluate.syndat.norm_corr_diff}
+
+{norm_corr_diff_output}
+
+Discriminator AUC: {report.evaluate.syndat.discrim_auc}
+
+{discrim_auc_output}
+
+### Plots
+
+Generated plots are stored in:
+`{output_dir / "plots"}`
+
+The first three plots are displayed below. All additional plots are available at the end of this report.
+
+{top_plots}
+
+---
+
+Singling out risk: {report.evaluate.attack.singling_out}
+
+{singling_out_output}
+
+Inference risk: {report.evaluate.attack.inference}
+
+{inference_output}
+
+Linkability risk: {report.evaluate.attack.linkability}
+
+{linkability_output}
+
+### Agent review:
+
+- Status: {report.review.status}
+
+- Recommendation: {report.review.recommendation}
+
+- Rationale behind the recommendation: {report.review.rationale}
+
+- Problem columns: {report.review.problem_columns}
+
+---
+
+## Additional plots
+
+### Distributions
+
+{remaining_distributions or "No additional distribution plots."}
+
+### Correlations
+
+#### Original dataset
+
+{original_correlations or "No original correlation plots."}
+
+#### Synthetic dataset
+
+{synthetic_correlations or "No synthetic correlation plots."}
+
+### SHAP discrimination
+
+{shap_plots or "No SHAP plots."}
+"""
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(content)
