@@ -164,14 +164,14 @@ def eval_review_message(agent_decision:AgentEval, response:str):
     """)
 
 
-def attack_column_selection_message(semantic_types: SemanticTypes,) -> str:
+def attack_column_selection_message(stypes: SemanticTypes,) -> str:
     return dedent(f"""
     You need to come up with appropriate auxiliary columns and secret arguments for 
     both linkability and inference risks. The columns selected will be used for 
     their calculation.
 
     The dataset has the following column names and semantic types:
-    {semantic_types}
+    {stypes}
 
     Rules:
     - Only use columns that are present in the dataset.

@@ -266,11 +266,26 @@ def calculate_metrics_ui(real_df: pd.DataFrame, synthetic_df: pd.DataFrame,) -> 
     return metrics
 
 
+def write_attack_metric(metric_name: str, metric: "PrivacyRisk",) -> None:
+    """Display privacy metric information.
+
+    Args:
+        metric_name (str): Name of the metric (for display).
+        metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
+    """
+    print(
+        f"\n=> {metric_name} risk:\n  "
+        f"- Value: {round(metric.value*100, 3)}%\n  "
+        f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
+        f"{round(metric.ci[1]*100,3)}%"
+    )
+
+
 def calculate_attack_metrics(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    synthetic_df: pd.DataFrame,
-    semantic_types: SemanticTypes,
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    synth: pd.DataFrame,
+    stypes: SemanticTypes,
     dtypes: dict[str, str],
     agent: Optional[CompiledStateGraph] | None = None,
     config: dict | None = None,
@@ -278,10 +293,10 @@ def calculate_attack_metrics(
     """Calculate Anonymeter metrics with agent assistance for column selection.
     
     Args:
-        train_df (pd.DataFrame): Training portion of the real dataset.
-        test_df (pd.DataFrame): Test portion of the real dataset.
-        synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (SemanticTypes): Semantic types assigned to each column.
+        train (pd.DataFrame): Training portion of the real dataset.
+        test (pd.DataFrame): Test portion of the real dataset.
+        synth (pd.DataFrame): Synthetically generated dataset.
+        stypes (SemanticTypes): Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
             variables privacy metric calculation. Defaults to None.
@@ -292,43 +307,30 @@ def calculate_attack_metrics(
         AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
             inference risk).
     """
-    so_risk_output = CapturedOutput()
-    inference_risk_output = CapturedOutput()
-    link_risk_output = CapturedOutput()
-
-    has_missing = train_df.isna().any().any() or test_df.isna().any().any()
+    has_missing = train.isna().any().any() or test.isna().any().any()
 
     if has_missing: # Temporarily encode missing values as a unique marker.
         anonymeter_input = prepare_anonymeter_input(
-            train_df=train_df,
-            test_df=test_df,
-            synthetic_df=synthetic_df,
-            semantic_types=semantic_types,
+            train=train,
+            test=test,
+            synth=synth,
+            stypes=stypes,
             dtypes=dtypes,
         )
 
-        train_df = anonymeter_input.train_df
-        test_df = anonymeter_input.test_df
-        synthetic_df = anonymeter_input.synthetic_df
+        train = anonymeter_input.train
+        test = anonymeter_input.test
+        synth = anonymeter_input.synth
 
+    # Calculate singling out risk:
     print("\nEvaluating singling out risk...")
 
-    with redirect_stdout(so_risk_output), redirect_stderr(so_risk_output):
-        singling_out = SinglingOutEvaluator(
-            ori=train_df,
-            syn=synthetic_df,
-            max_attempts=1_000,
-            control=test_df,
-        )
+    so_risk, so_risk_output = _calculate_singling_out(train, test, synth,)
 
-        singling_out.evaluate()
-        singling_out_risk = singling_out.risk()
+    write_attack_metric(metric_name="Singling out", metric=so_risk,)
 
-    print(f"\n=> Singling out risk:\n  - Value: {round(singling_out_risk.value*100, 3)}%" \
-        f"\n  - Confidence interval between: {round(singling_out_risk.ci[0]*100,3)}%" \
-        f" and {round(singling_out_risk.ci[1]*100,3)}%")
-
-    prompt = attack_column_selection_message(semantic_types=semantic_types)
+    # Select columns for inference and linkability risk:
+    prompt = attack_column_selection_message(stypes=stypes)
     print("\nAgent is selecting columns for the following privacy metrics to be assessed:" \
         "\n- Inference risk\n- Linkability risk")
 
@@ -339,62 +341,39 @@ def calculate_attack_metrics(
 
     plan = extract_output(raw_response)
 
-    selected_cols = parse_json(plan, AttackColumns, agent, config)
+    cols = parse_json(plan, AttackColumns, agent, config)
 
     print(f"\nSelected columns:\n- Linkability:\n  - Auxiliary columns: " \
-        f"{selected_cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary" \
-        f" columns: {selected_cols.inference_aux_cols}\n  - Secret " \
-        f"column: {selected_cols.secret}\n\nRationale:")
-    format_response(selected_cols.rationale)
+        f"{cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary" \
+        f" columns: {cols.inference_aux_cols}\n  - Secret " \
+        f"column: {cols.secret}\n\nRationale:")
+    format_response(cols.rationale)
 
+    # Calculate inference risk:
     print("\nEvaluating inference risk...")
 
-    with redirect_stdout(inference_risk_output), redirect_stderr(inference_risk_output):
-        inference = InferenceEvaluator(
-            ori=train_df,
-            syn=synthetic_df,
-            aux_cols=selected_cols.inference_aux_cols,
-            secret=selected_cols.secret,
-            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-            control=test_df,
-        )
+    inference_risk, inference_risk_output = _calculate_inference(train, test, synth, cols,)
 
-        inference.evaluate()
-        inference_risk = inference.risk()
+    write_attack_metric(metric_name="Inference", metric=inference_risk,)
 
-    print(f"\n=> Inference out risk:\n  - Value: {round(inference_risk.value*100, 3)}%" \
-        f"\n  - Confidence interval: between {round(inference_risk.ci[0]*100,3)}%" \
-        f" and {round(inference_risk.ci[1]*100,3)}%")
-
+    # Calculate linkability risk:
     print("\nEvaluating linkability risk...")
 
-    with redirect_stdout(link_risk_output), redirect_stderr(link_risk_output):
-        linkability = LinkabilityEvaluator(
-            ori=train_df,
-            syn=synthetic_df,
-            aux_cols=selected_cols.linkability_aux_cols,
-            n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-            control=test_df,
-        )
+    linkability_risk, link_risk_output = _calculate_inference(train, test, synth, cols,)
 
-        linkability.evaluate()
-        linkability_risk = linkability.risk()
-
-    print(f"\n=> Linkability risk:\n  - Value: {round(linkability_risk.value*100, 3)}%" \
-        f"\n  - Confidence interval: between {round(linkability_risk.ci[0]*100,3)}%" \
-        f" and {round(linkability_risk.ci[1]*100,3)}%")
+    write_attack_metric(metric_name="Linkability", metric=linkability_risk,)
 
     outputs = AttackOutputs(
-        singling_out=so_risk_output.buffer or None,
-        inference=inference_risk_output.buffer or None,
-        linkability=link_risk_output.buffer or None,
+        singling_out=so_risk_output or None,
+        inference=inference_risk_output or None,
+        linkability=link_risk_output or None,
     )
 
     return AttackMetrics(
-        singling_out= singling_out_risk,
+        singling_out= so_risk,
         inference=inference_risk,
         linkability=linkability_risk,
-        selected_cols=selected_cols,
+        cols=cols,
         output_messages=outputs,
     )
 
@@ -478,11 +457,92 @@ def write_attack_metric_ui(metric_name:str, metric:"PrivacyRisk", description:st
     display_privacy_risk_ui(metric_name, metric.value, metric.ci[0], metric.ci[1])
 
 
+# Unified way to calculate anonymeter metrics for UI and CLI (excluding visual output)
+def _calculate_singling_out(
+    train: pd.DataFrame,test: pd.DataFrame,synth: pd.DataFrame,ui: bool = False,
+) -> tuple["PrivacyRisk", str | None]:
+    """Calculate singling out risk and capture output messages.
+
+    Returns:
+        tuple[PrivacyRisk, str | None]: Calculated privacy risk and any captured output messages.
+    """
+    output = StreamlitOutput(live=False) if ui else CapturedOutput()
+
+    with redirect_stdout(output), redirect_stderr(output):
+        evaluator = SinglingOutEvaluator(
+            ori=train, syn=synth, max_attempts=1_000, control=test,
+        )
+
+        evaluator.evaluate()
+        risk = evaluator.risk()
+
+    return risk, output.buffer or None
+
+
+def _calculate_inference(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    synth: pd.DataFrame,
+    cols: AttackColumns,
+    ui: bool = False,
+) -> tuple["PrivacyRisk", str | None]:
+    """Calculate inference risk and capture output messages.
+
+    Returns:
+        tuple[PrivacyRisk, str | None]: Calculated privacy risk and any captured output messages.
+    """
+    output = StreamlitOutput(live=False) if ui else CapturedOutput()
+
+    with redirect_stdout(output), redirect_stderr(output):
+        evaluator = InferenceEvaluator(
+            ori=train,
+            syn=synth,
+            aux_cols=cols.inference_aux_cols,
+            secret=cols.secret,
+            n_attacks=min(500, len(train), len(test), len(synth),),
+            control=test,
+        )
+
+        evaluator.evaluate()
+        risk = evaluator.risk()
+
+    return risk, output.buffer or None
+
+
+def _calculate_linkability(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    synth: pd.DataFrame,
+    cols: AttackColumns,
+    ui: bool = False,
+) -> tuple["PrivacyRisk", str | None]:
+    """Calculate linkability risk and capture output messages.
+
+    Returns:
+        tuple[PrivacyRisk, str | None]: Calculated privacy risk and any captured output messages.
+    """
+    output = StreamlitOutput(live=False) if ui else CapturedOutput()
+
+    with redirect_stdout(output), redirect_stderr(output):
+        evaluator = LinkabilityEvaluator(
+            ori=train,
+            syn=synth,
+            aux_cols=cols.linkability_aux_cols,
+            n_attacks=min(500, len(train), len(test), len(synth),),
+            control=test,
+        )
+
+        evaluator.evaluate()
+        risk = evaluator.risk()
+
+    return risk, output.buffer or None
+
+
 def calculate_attack_metrics_ui(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    synthetic_df: pd.DataFrame,
-    semantic_types: SemanticTypes,
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    synth: pd.DataFrame,
+    stypes: SemanticTypes,
     dtypes: dict[str, str],
     agent: Optional[CompiledStateGraph] | None = None,
     config: dict | None = None,
@@ -490,10 +550,10 @@ def calculate_attack_metrics_ui(
     """Calculate Anonymeter metrics with agent assistance for column selection (UI).
 
     Args:
-        train_df (pd.DataFrame): Training portion of the real dataset.
-        test_df (pd.DataFrame): Test portion of the real dataset.
-        synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (SemanticTypes): Semantic types assigned to each column.
+        train (pd.DataFrame): Training portion of the real dataset.
+        test (pd.DataFrame): Test portion of the real dataset.
+        synth (pd.DataFrame): Synthetically generated dataset.
+        stypes (SemanticTypes): Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
             variables privacy metric calculation. Defaults to None.
@@ -512,40 +572,32 @@ def calculate_attack_metrics_ui(
     )
 
     anonymeter_input = prepare_anonymeter_input(
-        train_df=train_df,
-        test_df=test_df,
-        synthetic_df=synthetic_df,
-        semantic_types=semantic_types,
+        train=train,
+        test=test,
+        synth=synth,
+        stypes=stypes,
         dtypes=dtypes,
     )
 
-    train_df = anonymeter_input.train_df
-    test_df = anonymeter_input.test_df
-    synthetic_df = anonymeter_input.synthetic_df
+    train = anonymeter_input.train
+    test = anonymeter_input.test
+    synth = anonymeter_input.synth
 
-    so_risk_output = StreamlitOutput(live=False)
-    link_risk_output = StreamlitOutput(live=False)
-    inference_risk_output = StreamlitOutput(live=False)
-
+    # Calculate singling out risk:
     with st.spinner("Evaluating singling out risk..."):
-        with redirect_stdout(so_risk_output), redirect_stderr(so_risk_output):
-            singling_out = SinglingOutEvaluator(
-                ori=train_df, syn=synthetic_df, max_attempts=1_000, control=test_df,
-            )
-
-            singling_out.evaluate()
-            singling_out_risk = singling_out.risk()
+        so_risk, so_risk_output = _calculate_singling_out(train, test, synth, True,)
 
     write_attack_metric_ui(
         metric_name="Singling out",
-        metric=singling_out_risk,
+        metric=so_risk,
         description=anonymeter_metric_descriptions["singling_out"],
     )
 
-    if so_risk_output.buffer:
-        show_anonymeter_warning(so_risk_output.buffer)
+    if so_risk_output:
+        show_anonymeter_warning(so_risk_output)
 
-    prompt = attack_column_selection_message(semantic_types=semantic_types)
+    # Select columns for inference and linkability risk:
+    prompt = attack_column_selection_message(stypes=stypes)
     with st.spinner("Agent is selecting columns to calculate metrics..."):
         raw_response = agent.invoke(
             {"messages": [{"role": "user", "content": prompt,}]},
@@ -554,7 +606,7 @@ def calculate_attack_metrics_ui(
 
         plan = extract_output(raw_response)
 
-        selected_cols = parse_json_ui(plan, AttackColumns, agent, config,)
+        cols = parse_json_ui(plan, AttackColumns, agent, config,)
 
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",
@@ -565,27 +617,17 @@ def calculate_attack_metrics_ui(
     st.write(
         "\nSelected columns:\n"
         "- Linkability:\n"
-        f"  - Auxiliary columns: {selected_cols.linkability_aux_cols}\n"
+        f"  - Auxiliary columns: {cols.linkability_aux_cols}\n"
         "- Inference:\n"
-        f"  - Auxiliary columns: {selected_cols.inference_aux_cols}\n"
-        f"  - Secret column: {selected_cols.secret}\n\n"
+        f"  - Auxiliary columns: {cols.inference_aux_cols}\n"
+        f"  - Secret column: {cols.secret}\n\n"
         "Rationale:"
     )
-    st.write(selected_cols.rationale)
+    st.write(cols.rationale)
 
+    # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
-        with redirect_stdout(inference_risk_output), redirect_stderr(inference_risk_output):
-            inference = InferenceEvaluator(
-                ori=train_df,
-                syn=synthetic_df,
-                aux_cols=selected_cols.inference_aux_cols,
-                secret=selected_cols.secret,
-                n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-                control=test_df,
-            )
-
-            inference.evaluate()
-            inference_risk = inference.risk()
+        inference_risk, inference_risk_output = _calculate_inference(train, test, synth, cols, True)
 
     write_attack_metric_ui(
         metric_name="Inference",
@@ -593,21 +635,12 @@ def calculate_attack_metrics_ui(
         description=anonymeter_metric_descriptions["inference"]
     )
 
-    if inference_risk_output.buffer:
-        show_anonymeter_warning(inference_risk_output.buffer)
+    if inference_risk_output:
+        show_anonymeter_warning(inference_risk_output)
 
+    # Calculate linkability risk:
     with st.spinner("Evaluating linkability risk..."):
-        with redirect_stdout(link_risk_output), redirect_stderr(link_risk_output):
-            linkability = LinkabilityEvaluator(
-                ori=train_df,
-                syn=synthetic_df,
-                aux_cols=selected_cols.linkability_aux_cols,
-                n_attacks=min(500, len(train_df), len(test_df), len(synthetic_df),),
-                control=test_df,
-            )
-
-            linkability.evaluate()
-            linkability_risk = linkability.risk()
+        linkability_risk, link_risk_output = _calculate_linkability(train, test, synth, cols, True)
 
     write_attack_metric_ui(
         metric_name="Linkability",
@@ -615,20 +648,20 @@ def calculate_attack_metrics_ui(
         description=anonymeter_metric_descriptions["linkability"],
     )
 
-    if link_risk_output.buffer:
-        show_anonymeter_warning(link_risk_output.buffer)
+    if link_risk_output:
+        show_anonymeter_warning(link_risk_output)
 
     outputs = AttackOutputs(
-        singling_out=so_risk_output.buffer or None,
-        inference=inference_risk_output.buffer or None,
-        linkability=link_risk_output.buffer or None,
+        singling_out=so_risk_output or None,
+        inference=inference_risk_output or None,
+        linkability=link_risk_output or None,
     )
 
     return AttackMetrics(
-        singling_out= singling_out_risk,
+        singling_out= so_risk,
         inference=inference_risk,
         linkability=linkability_risk,
-        selected_cols=selected_cols,
+        cols=cols,
         output_messages=outputs,
     )
 
@@ -653,7 +686,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
     singling_out_risk = attack_metrics.singling_out
     inference_risk = attack_metrics.inference
     linkability_risk = attack_metrics.linkability
-    selected_cols = attack_metrics.selected_cols
+    cols = attack_metrics.cols
 
     outputs = attack_metrics.output_messages
 
@@ -675,14 +708,14 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
     st.write(
         "\nSelected columns:\n"
         "- Linkability:\n"
-        f"  - Auxiliary columns: {selected_cols.linkability_aux_cols}\n"
+        f"  - Auxiliary columns: {cols.linkability_aux_cols}\n"
         "- Inference:\n"
-        f"  - Auxiliary columns: {selected_cols.inference_aux_cols}\n"
-        f"  - Secret column: {selected_cols.secret}\n\n"
+        f"  - Auxiliary columns: {cols.inference_aux_cols}\n"
+        f"  - Secret column: {cols.secret}\n\n"
         "Rationale:"
     )
 
-    st.write(selected_cols.rationale)
+    st.write(cols.rationale)
 
     write_attack_metric_ui(
         metric_name="Inference", metric=inference_risk, description=description["inference"],
@@ -788,10 +821,10 @@ def select_missing_marker(
 
 
 def prepare_anonymeter_input(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    synthetic_df: pd.DataFrame,
-    semantic_types: SemanticTypes,
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+    synth: pd.DataFrame,
+    stypes: SemanticTypes,
     dtypes: dict[str, str],
 ) -> AnonymeterInput:
     """Prepare copies of train, test, and synthetic dataframes for Anonymeter evaluation
@@ -799,24 +832,24 @@ def prepare_anonymeter_input(
     with unique markers that are compatible with each column's data type.
 
     Args:
-        train_df (pd.DataFrame): Training portion of the real dataset.
-        test_df (pd.DataFrame): Test portion of the real dataset.
-        synthetic_df (pd.DataFrame): Synthetically generated dataset.
-        semantic_types (SemanticTypes): Semantic types assigned to each column.
+        train (pd.DataFrame): Training portion of the real dataset.
+        test (pd.DataFrame): Test portion of the real dataset.
+        synth (pd.DataFrame): Synthetically generated dataset.
+        stypes (SemanticTypes): Semantic types assigned to each column.
         dtypes (dict[str, str]): Python storage dtypes for each column.
 
     Returns:
         AnonymeterInput: Prepared dataframe copies and the missing value markers applied to
         each column.
     """
-    train = train_df.copy()
-    test = test_df.copy()
-    synthetic = synthetic_df.copy()
+    train = train.copy()
+    test = test.copy()
+    synth = synth.copy()
 
-    frames = (train, test, synthetic)
+    frames = (train, test, synth)
     markers:dict[str, str | int | float] = {}
 
-    for col, semantic_type in semantic_types.items():
+    for col, semantic_type in stypes.items():
         if any(df[col].isna().any() for df in frames):
             marker = select_missing_marker(semantic_type, dtypes[col], *frames,)
             markers[col] = marker
@@ -826,7 +859,7 @@ def prepare_anonymeter_input(
 
     for col, dtype in dtypes.items():
         for df in frames:
-            if semantic_types[col] == "Boolean":
+            if stypes[col] == "Boolean":
                 df[col] = df[col].astype(str)
 
             elif dtype in {"Int64", "int64"}:
@@ -838,12 +871,7 @@ def prepare_anonymeter_input(
             elif dtype in {"string", "object"}:
                 df[col] = df[col].astype(str)
 
-    return AnonymeterInput(
-        train_df=train,
-        test_df=test,
-        synthetic_df=synthetic,
-        missing_markers=markers,
-    )
+    return AnonymeterInput(train=train, test=test, synth=synth, missing_markers=markers,)
 
 
 def generate_plots(

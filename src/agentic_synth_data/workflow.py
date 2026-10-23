@@ -527,10 +527,10 @@ class DataGen:
         self.report.evaluate.syndat = syndat_metrics
 
         attack_metrics = calculate_attack_metrics(
-            train_df=self.train_df,
-            test_df=self.test_df,
-            synthetic_df=synth_df,
-            semantic_types=self.semantic_types,
+            train=self.train_df,
+            test=self.test_df,
+            synth=synth_df,
+            stypes=self.semantic_types,
             dtypes=self.python_dtypes,
             agent=self.agent,
             config=self.config,
@@ -591,10 +591,10 @@ class DataGen:
         with col2:
             if attack_key not in st.session_state:
                 attack_metrics = calculate_attack_metrics_ui(
-                    train_df=self.train_df,
-                    test_df=self.test_df,
-                    synthetic_df=synth_df,
-                    semantic_types=self.semantic_types,
+                    train=self.train_df,
+                    test=self.test_df,
+                    synth=synth_df,
+                    stypes=self.semantic_types,
                     dtypes=self.python_dtypes,
                     agent=self.agent,
                     config=self.config,
