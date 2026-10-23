@@ -8,8 +8,8 @@ from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
 
 from agentic_synth_data.prompts.stype_prompt import semantic_type_message
-from agentic_synth_data.utils import SemanticType, df_formatter_st, extract_output, \
-    info_helper_message, parse_json, parse_json_ui, SemanticTypes
+from agentic_synth_data.utils import SemanticType, SemanticTypes, df_formatter_st, invoke_agent, \
+    info_helper_message
 
 
 class STypeInference(RootModel[SemanticTypes]):
@@ -59,26 +59,15 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     """
     # 1. Make a profile of the semantic types of each column.
     profiles = semantic_type_profile(df)
-    prompt = semantic_type_message(profiles)
 
     # 2. Agent infers the semantic type of columns based on their profile.
     print(
         "\nAgent is analyzing column data types, unique values, and value distributions to " \
         "infer semantic types..."
     )
-    raw_inference = agent.invoke(
-        {"messages": [{"role": "user","content": prompt,}]},
-        config=config,
-    )
 
-    plan = extract_output(raw_inference)
-
-    semantic_types = parse_json(
-        plan=plan,
-        model_cls=STypeInference,
-        agent=agent,
-        config=config,
-        root=True
+    semantic_types = invoke_agent(
+        prompt=semantic_type_message(profiles), model_cls=STypeInference, agent=agent, config=config, root=True,
     ) # TODO: check more extensively
 
     # TODO:Include more formal checks that each column is accounted for:
@@ -151,23 +140,16 @@ def handle_semantic_types_ui(
     if "semantic_types_inference" not in st.session_state:
         # Make a profile of the semantic types of each column.
         profiles = semantic_type_profile(df)
-        prompt = semantic_type_message(profiles)
 
         # Agent infers the semantic type of columns based on their profile.
         with st.spinner("Agent is analyzing dataset characteristics to infer semantic types..."):
-            raw_inference = agent.invoke(
-                {"messages": [{"role": "user","content": prompt,}]},
-                config=config,
-            )
-
-            plan = extract_output(raw_inference)
-
-            inferred_semantic_types = parse_json_ui(
-                plan=plan,
+            inferred_semantic_types = invoke_agent(
+                prompt=semantic_type_message(profiles),
                 model_cls=STypeInference,
                 agent=agent,
                 config=config,
                 root=True,
+                ui=True,
             )
 
         st.session_state.semantic_types_inference = inferred_semantic_types.copy()
@@ -274,30 +256,30 @@ def handle_semantic_types_ui(
 
 
 def prepare_for_syndat(
-    real_df: pd.DataFrame,
-    synthetic_df: pd.DataFrame,
-    semantic_types: SemanticTypes,
+    real: pd.DataFrame,
+    synth: pd.DataFrame,
+    stypes: SemanticTypes,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Match real and synthetic dataframe columns to previously defined dtypes for compatibility 
     with Syndat.
     Args:
-        real_df (pd.DataFrame): The real dataframe (either with missing values replaced or not).
-        synthetic_df (pd.DataFrame): The synthetic dataframe.
-        semantic_types (SemanticTypes): Dictionary with the semantic types of each column.
+        real (pd.DataFrame): The real dataframe (either with missing values replaced or not).
+        synth (pd.DataFrame): The synthetic dataframe.
+        stypes (SemanticTypes): Dictionary with the semantic types of each column.
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]:
         - pd.DataFrame: The real dataframe with prepared dtypes.
         - pd.DataFrame: The synthetic dataframe with prepared dtypes.
     """
-    real = real_df.copy()
-    synth = synthetic_df.copy()
+    real = real.copy()
+    synth = synth.copy()
 
     # Same columns/order
     synth = synth[real.columns]
 
     for col in real.columns:
-        stype = semantic_types[col]
+        stype = stypes[col]
 
         if stype in ["Categorical", "Ordinal", "Boolean"]:
             real[col] = real[col].astype("object")

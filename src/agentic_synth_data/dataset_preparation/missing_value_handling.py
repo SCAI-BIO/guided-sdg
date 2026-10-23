@@ -7,8 +7,8 @@ from langgraph.graph.state import CompiledStateGraph
 from sklearn.impute import SimpleImputer
 import streamlit as st
 
-from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
-    parse_json, parse_json_ui, display_synthesis_request, SemanticTypes
+from agentic_synth_data.utils import format_response, info_helper_message, invoke_agent, \
+    display_synthesis_request, SemanticTypes
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 from agentic_synth_data.schemas.missing_model import MissingHandling
 from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
@@ -345,15 +345,8 @@ def handle_missing_values(
                 current_prompt = missing_feedback(prompt, feedback)
                 print("Waiting for agent response...")
 
-            raw_plan = agent.invoke(
-                {"messages": [{"role": "user", "content": current_prompt,}]},
-                config=config,
-            )
-
-            plan = extract_output(raw_plan)
-
-            missing_plan = parse_json(
-                plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+            missing_plan = invoke_agent(
+                prompt=current_prompt, model_cls=MissingHandling, agent=agent, config=config,
             )
 
             updated_plan = {
@@ -468,15 +461,8 @@ def handle_missing_values_ui(
 
         if "missing_plan" not in st.session_state:
             with st.spinner("Agent is coming up with a suggestion for missing value handling..."):
-                raw_plan = agent.invoke(
-                    {"messages": [{"role": "user", "content": prompt,}]},
-                    config=config,
-                )
-
-                plan = extract_output(raw_plan)
-
-                missing_plan = parse_json_ui(
-                    plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+                missing_plan = invoke_agent(
+                    prompt=prompt, model_cls=MissingHandling, agent=agent, config=config, ui=True,
                 )
 
                 st.session_state.missing_plan = {
@@ -565,15 +551,12 @@ def handle_missing_values_ui(
                     current_prompt = missing_feedback(prompt, feedback)
 
                     with st.spinner("Agent is updating suggestion..."):
-                        raw_plan = agent.invoke(
-                            {"messages": [{"role": "user", "content": current_prompt,}]},
+                        missing_plan = invoke_agent(
+                            prompt=current_prompt,
+                            model_cls=MissingHandling,
+                            agent=agent,
                             config=config,
-                        )
-
-                        plan = extract_output(raw_plan)
-
-                        missing_plan = parse_json_ui(
-                            plan=plan, model_cls=MissingHandling, agent=agent, config=config,
+                            ui=True,
                         )
 
                     st.session_state.missing_plan = {

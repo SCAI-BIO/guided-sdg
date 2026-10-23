@@ -8,7 +8,7 @@ from agentic_synth_data.schemas.attack_model import AttackMetrics
 from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
-    parse_json, parse_json_ui
+    invoke_agent
 from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 
@@ -36,22 +36,18 @@ def evaluation(
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
     """
-    prompt = evaluation_prompt(
-        synthesis_request=synthesis_request,
-        syndat_metrics=syndat_metrics,
-        attack_metrics=attack_metrics,
-    )
-
     print("\nAgent is evaluating the results...")
 
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]},
+    eval_plan = invoke_agent(
+        prompt=evaluation_prompt(
+            synthesis_request=synthesis_request,
+            syndat_metrics=syndat_metrics,
+            attack_metrics=attack_metrics,
+        ),
+        model_cls=AgentEval,
+        agent=agent,
         config=config,
     )
-
-    plan = extract_output(raw_response)
-
-    eval_plan = parse_json(plan, AgentEval, agent, config,)
 
     print("\nEvaluation:")
     print(f"- Status: {eval_plan.status}")
@@ -87,22 +83,19 @@ def evaluation_ui(
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
     """
-    prompt = evaluation_prompt(
-        synthesis_request=synthesis_request,
-        syndat_metrics=syndat_metrics,
-        attack_metrics=attack_metrics,
-    )
-
     if "agent_evaluation" not in st.session_state:
         with st.spinner("Agent is evaluating the results..."):
-            raw_response = agent.invoke(
-                {"messages": [{"role": "user", "content": prompt,}]},
+            eval_plan = invoke_agent(
+                prompt=evaluation_prompt(
+                    synthesis_request=synthesis_request,
+                    syndat_metrics=syndat_metrics,
+                    attack_metrics=attack_metrics,
+                ),
+                model_cls=AgentEval,
+                agent=agent,
                 config=config,
+                ui=True,
             )
-
-            plan = extract_output(raw_response)
-
-            eval_plan = parse_json_ui(plan, AgentEval, agent, config,)
 
         st.session_state.agent_evaluation = eval_plan
 

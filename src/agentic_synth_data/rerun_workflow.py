@@ -12,8 +12,8 @@ from agentic_synth_data.schemas.missing_model import MissingRevisionOption, Miss
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
     parameter_revision_message
-from agentic_synth_data.utils import GeneratorName, info_helper_message, parse_json, \
-    parse_json_ui, extract_output, newline_every_n_words
+from agentic_synth_data.utils import GeneratorName, info_helper_message, invoke_agent, \
+    newline_every_n_words
 
 
 PENDING = "pending"
@@ -179,14 +179,13 @@ def generator_update(
     """
     print(f"Current generator: {synthesis_request.generator.name}")
     print("\nAgent is coming up with a generator revision options...")
-    prompt = revision_message(synthesis_request, report, agent_decision)
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]},
+
+    revision_plan = invoke_agent(
+        prompt=revision_message(synthesis_request, report, agent_decision),
+        model_cls=GeneratorRevisionPlan,
+        agent=agent,
         config=config,
     )
-
-    plan = extract_output(raw_response)
-    revision_plan = parse_json(plan, GeneratorRevisionPlan, agent, config)
 
     menu_options = {}
     for option in revision_plan.options:
@@ -245,14 +244,13 @@ def generator_update_ui(
 
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with a generator revision options..."):
-            prompt = revision_message(synthesis_request, report, agent_decision)
-            raw_response = agent.invoke(
-                {"messages": [{"role": "user", "content": prompt,}]},
+            revision_plan = invoke_agent(
+                prompt=revision_message(synthesis_request, report, agent_decision),
+                model_cls=GeneratorRevisionPlan,
+                agent=agent,
                 config=config,
+                ui=True,
             )
-
-            plan = extract_output(raw_response)
-            revision_plan = parse_json_ui(plan, GeneratorRevisionPlan, agent, config)
 
         st.session_state[plan_key] = revision_plan
 
@@ -325,15 +323,13 @@ def parameter_update(
         return None
 
     print("\nAgent is coming up with a parameter revision...")
-    prompt = parameter_revision_message(selected_mechanism)
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]},
+
+    param_revision = invoke_agent(
+        prompt=parameter_revision_message(selected_mechanism),
+        model_cls=CONFIG_MAP[selected_mechanism],
+        agent=agent,
         config=config,
     )
-
-    raw_params = extract_output(raw_response)
-
-    param_revision = parse_json(raw_params, CONFIG_MAP[selected_mechanism], agent, config)
 
     changed_params = param_revision.model_dump(exclude_defaults=True)
 
@@ -381,24 +377,21 @@ def parameter_update_ui(
     """
     if selected_mechanism in ["BayesianNet", "CTGAN"]:
         st.info(
-            f"=> {selected_mechanism} can only be set to default."
-            " Default parameters retained."
+            f"=> {selected_mechanism} can only be set to default. Default parameters retained."
         )
         return None
 
  # TODO add a check for the agent to only suggest once
     with st.spinner("Agent is coming up with a parameter revision..."):
-        prompt = parameter_revision_message(selected_mechanism)
-        raw_response = agent.invoke(
-            {"messages": [{"role": "user", "content": prompt,}]},
+        param_revision = invoke_agent(
+            prompt=parameter_revision_message(selected_mechanism),
+            model_cls=CONFIG_MAP[selected_mechanism],
+            agent=agent,
             config=config,
+            ui=True,
         )
 
-        raw_params = extract_output(raw_response)
-
-        param_revision = parse_json_ui(raw_params, CONFIG_MAP[selected_mechanism], agent, config)
-
-    changed_params = param_revision.model_dump(exclude_defaults=True) # TODO? move to indent?
+    changed_params = param_revision.model_dump(exclude_defaults=True)
 
     info_helper_message(
         message="The agent has finished determining parameter options.",
@@ -435,10 +428,10 @@ def parameter_update_ui(
 
 
 def missing_update(
-        synthesis_request:SynthesisRequest,
-        agent:Optional[CompiledStateGraph],
-        config:dict,
-    ) -> MissingRevisionOption | None:
+    synthesis_request: SynthesisRequest,
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+) -> MissingRevisionOption | None:
     """
     Ask agent for possible generator revision options and returns the option selected by the 
     user.
@@ -454,14 +447,13 @@ def missing_update(
     """
     print(f"Current missing handling method: {synthesis_request.generator.name}")
     print("\nAgent is coming up with missing value handling options...")
-    prompt = missing_revision_message(synthesis_request)
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]},
+
+    revision_plan = invoke_agent(
+        prompt=missing_revision_message(synthesis_request),
+        model_cls=GeneratorRevisionPlan,
+        agent=agent,
         config=config,
     )
-
-    plan = extract_output(raw_response)
-    revision_plan = parse_json(plan, MissingRevisionPlan, agent, config)
 
     menu_options = {}
     for option in revision_plan.options:
@@ -517,14 +509,13 @@ def missing_update_ui(
 
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with missing value handling options..."):
-            prompt = missing_revision_message(synthesis_request)
-            raw_response = agent.invoke(
-                {"messages": [{"role": "user", "content": prompt,}]},
+            revision_plan = invoke_agent(
+                prompt=missing_revision_message(synthesis_request),
+                model_cls=MissingRevisionPlan,
+                agent=agent,
                 config=config,
+                ui=True,
             )
-
-            plan = extract_output(raw_response)
-            revision_plan = parse_json_ui(plan, MissingRevisionPlan, agent, config,)
 
         st.session_state[plan_key] = revision_plan
 

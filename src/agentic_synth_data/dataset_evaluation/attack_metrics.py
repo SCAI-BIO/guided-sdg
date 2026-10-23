@@ -10,8 +10,8 @@ import plotly.graph_objects as go
 from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetrics, AttackColumns, \
     AttackOutputs
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
-from agentic_synth_data.utils import SemanticTypes, format_response, extract_output, \
-    info_helper_message, parse_json, parse_json_ui
+from agentic_synth_data.utils import SemanticTypes, format_response, info_helper_message, \
+    invoke_agent
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message
 
 
@@ -20,20 +20,20 @@ from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection
 # ============================================================================
 
 ANONYMETER_METRIC_DESCRIPTION = {
-        "singling_out": (
-            "Measures whether an attacker can uniquely identify an individual "
-            "record in the original dataset using information from the synthetic data."
-        ),
-        "linkability": (
-            "Measures whether an attacker can link information about the same "
-            "individual across different sets of attributes using the synthetic data."
-        ),
-        "inference": (
-            "Measures whether an attacker can predict sensitive or unknown "
-            "attribute values in the original dataset using known attributes and the synthetic "
-            "data."
-        ),
-    }
+    "singling_out": (
+        "Measures whether an attacker can uniquely identify an individual "
+        "record in the original dataset using information from the synthetic data."
+    ),
+    "linkability": (
+        "Measures whether an attacker can link information about the same "
+        "individual across different sets of attributes using the synthetic data."
+    ),
+    "inference": (
+        "Measures whether an attacker can predict sensitive or unknown "
+        "attribute values in the original dataset using known attributes and the synthetic "
+        "data."
+    ),
+}
 
 
 # ============================================================================
@@ -173,18 +173,15 @@ def calculate_attack_metrics(
     write_attack_metric(metric_name="Singling out", metric=so_risk,)
 
     # Select columns for inference and linkability risk:
-    prompt = attack_column_selection_message(stypes=stypes)
     print("\nAgent is selecting columns for the following privacy metrics to be assessed:" \
         "\n- Inference risk\n- Linkability risk")
 
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]},
+    cols = invoke_agent(
+        prompt=attack_column_selection_message(stypes=stypes),
+        model_cls=AttackColumns,
+        agent=agent,
         config=config,
     )
-
-    plan = extract_output(raw_response)
-
-    cols = parse_json(plan, AttackColumns, agent, config)
 
     print(f"\nSelected columns:\n- Linkability:\n  - Auxiliary columns: " \
         f"{cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary" \
@@ -280,16 +277,14 @@ def calculate_attack_metrics_ui(
         show_anonymeter_warning_ui(so_risk_output)
 
     # Select columns for inference and linkability risk:
-    prompt = attack_column_selection_message(stypes=stypes)
     with st.spinner("Agent is selecting columns to calculate metrics..."):
-        raw_response = agent.invoke(
-            {"messages": [{"role": "user", "content": prompt,}]},
+        cols = invoke_agent(
+            prompt=attack_column_selection_message(stypes=stypes),
+            model_cls=AttackColumns,
+            agent=agent,
             config=config,
+            ui=True,
         )
-
-        plan = extract_output(raw_response)
-
-        cols = parse_json_ui(plan, AttackColumns, agent, config,)
 
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",

@@ -9,7 +9,7 @@ from agentic_synth_data.prompts.generator_selection_prompt import generator_sele
     generator_review_message
 from agentic_synth_data.schemas.generator_model import SelectGenerator
 from agentic_synth_data.utils import GeneratorName, SemanticTypes, format_response, \
-    extract_output, info_helper_message, output_default_parameters, parse_json, parse_json_ui
+    info_helper_message, invoke_agent, output_default_parameters
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
@@ -192,16 +192,9 @@ def select_generator(
         if feedback_hist:
             message += "\n\nUser feedback so far:\n" + "\n".join(feedback_hist)
 
-        raw_response = agent.invoke(
-            {"messages": [{"role": "user", "content": message,}]},
-            config=config,
+        generation_plan = invoke_agent(
+            prompt=message, model_cls=SelectGenerator, agent=agent, config=config,
         )
-
-        plan = extract_output(raw_message=raw_response)
-
-        generation_plan = parse_json(
-            plan=plan, model_cls=SelectGenerator, agent=agent, config=config
-            )
 
         print("\nSuggestion:")
         print(f"Data generator: {generation_plan.generator}")
@@ -290,15 +283,8 @@ def select_generator_ui(
             )
 
         with st.spinner("Agent is coming up with a generator suggestion..."):
-            raw_response = agent.invoke(
-                {"messages": [{"role": "user", "content": message,}]},
-                config=config,
-            )
-
-            plan = extract_output(raw_message=raw_response)
-
-            generation_plan = parse_json_ui(
-                plan=plan, model_cls=SelectGenerator, agent=agent, config=config,
+            generation_plan = invoke_agent(
+                prompt=message, model_cls=SelectGenerator, agent=agent, config=config, ui=True,
             )
 
         st.session_state.generator_plan = generation_plan
