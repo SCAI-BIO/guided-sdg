@@ -12,7 +12,10 @@ import streamlit as st
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
 
 
+# ============================================================================
 # Configuration
+# ============================================================================
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEMO_DATA_DIR = PROJECT_ROOT / "demo_data"
 
@@ -25,10 +28,13 @@ OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", PROJECT_ROOT / "output"))
 SDR_URL = os.environ.get("SDR_URL", "http://localhost:8000")
 
 
+# ============================================================================
 # Type aliases
+# ============================================================================
+
 T = TypeVar("T", bound=BaseModel)
 
-type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal"]
+type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]
 
 type SemanticTypes = dict[str, SemanticType]
 
@@ -38,7 +44,10 @@ type GeneratorNameAuto = Literal["auto", "PATEGAN", "CTGAN", "PrivBayes", "Bayes
 type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet",]
 
 
+# ============================================================================
 # CLI helpers
+# ============================================================================
+
 def format_response(text: str) -> None:
     """Format response in CLI such that longer responses fit within the terminal without requiring
     the user to scroll.
@@ -89,13 +98,16 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
     if synthesis_request.missing_values.mode == "impute":
         print(f"- Imputer: {synthesis_request.missing_values.impute.method}")
         print(
-            "- Categorical strategy: " \
+            "- Categorical strategy: "
             f"{synthesis_request.missing_values.impute.categorical_strategy}"
         )
         print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
-# Streamlit helpers
+# ============================================================================
+# UI helpers
+# ============================================================================
+
 def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
     """Display the synthesis request after initial specification (UI).
 
@@ -198,7 +210,10 @@ def info_helper_message(message: str, context: str, key: str,) -> None:
         )
 
 
+# ============================================================================
 # Agent helpers
+# ============================================================================
+
 def parse_json(
     plan: str,
     model_cls: type[T],
@@ -265,7 +280,42 @@ def extract_output(raw_message: dict) -> str:
     return response.strip()
 
 
+def invoke_agent(
+    prompt: str,
+    model_cls: type[T],
+    agent: Optional[CompiledStateGraph],
+    config: dict,
+    root: bool = False,
+    ui: bool = False,
+) -> T | SemanticTypes:
+    """Invoke the agent and parse its response into the specified model.
+
+    Args:
+        prompt (str): Message sent to the agent.
+        model_cls (type[T]): Pydantic model class used to validate JSON response.
+        agent (Optional[CompiledStateGraph]): LangGraph agent.
+        config (dict): Configuration passed to the agent during invocation.
+        root (bool): Whether to return the root value (only necessary for 
+            `semantic_type_handling()`). Defaults to False.
+        ui (bool): Whether to display warning in Streamlit. Defaults to False (CLI).
+
+    Returns:
+        T: Validated instance of the specified Pydantic model.
+    """
+    raw_response = agent.invoke(
+        {"messages": [{"role": "user", "content": prompt,}]},
+        config=config,
+    )
+
+    plan = extract_output(raw_response)
+
+    return parse_json(plan=plan, model_cls=model_cls, agent=agent, config=config, root=root, ui=ui,)
+
+
+# ============================================================================
 # Generator helpers
+# ============================================================================
+
 def output_default_parameters(generator_name: GeneratorNameAuto) -> dict[str, Any] | None:
     """Takes in generator name and outputs its default parameters. Used in select preferences
     and other instances where parameters are set to default.
@@ -303,35 +353,3 @@ def output_default_parameters(generator_name: GeneratorNameAuto) -> dict[str, An
         }
 
     return None # "auto"
-
-
-def invoke_agent(
-    prompt: str,
-    model_cls: type[T],
-    agent: Optional[CompiledStateGraph],
-    config: dict,
-    root: bool = False,
-    ui: bool = False,
-) -> T | SemanticTypes:
-    """Invoke the agent and parse its response into the specified model.
-
-    Args:
-        prompt (str): Message sent to the agent.
-        model_cls (type[T]): Pydantic model class used to validate JSON response.
-        agent (Optional[CompiledStateGraph]): LangGraph agent.
-        config (dict): Configuration passed to the agent during invocation.
-        root (bool): Whether to return the root value (only necessary for 
-            `semantic_type_handling()`). Defaults to False.
-        ui (bool): Whether to display warning in Streamlit. Defaults to False (CLI).
-
-    Returns:
-        T: Validated instance of the specified Pydantic model.
-    """
-    raw_response = agent.invoke(
-        {"messages": [{"role": "user", "content": prompt,}]},
-        config=config,
-    )
-
-    plan = extract_output(raw_response)
-
-    return parse_json(plan=plan, model_cls=model_cls, agent=agent, config=config, root=root, ui=ui,)
