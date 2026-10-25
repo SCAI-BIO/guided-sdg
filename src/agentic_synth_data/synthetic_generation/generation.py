@@ -1,5 +1,6 @@
 from typing import Any, get_args
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 import pandas as pd
 import pyinputplus as pyip
@@ -154,7 +155,7 @@ def select_generator(
     semantic_types: SemanticTypes,
     profile: dict[str, Any],
     agent: CompiledStateGraph,
-    config: dict[str, dict[str, Any]],
+    config: RunnableConfig,
 ) -> SynthesisRequest:
     """Based on the user's preferences and information about the dataset, the agent 
     selects a data generator mechanism.
@@ -163,7 +164,7 @@ def select_generator(
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
         semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
-        config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         SynthesisRequest: Synthesis request with updated generator information.                       
@@ -225,7 +226,7 @@ def select_generator(
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                list(get_args(GeneratorName.__value__)),
+                get_args(GeneratorName.__value__),
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
                 )
@@ -246,7 +247,7 @@ def select_generator_ui(
     semantic_types: SemanticTypes,
     profile: dict[str, Any],
     agent: CompiledStateGraph,
-    config: dict[str, dict[str, Any]],
+    config: RunnableConfig,
 ) -> SynthesisRequest:
     """Based on the user's preferences and information about the dataset, the agent 
     selects a data generator mechanism (UI).
@@ -255,7 +256,7 @@ def select_generator_ui(
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
         semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
-        config (dict[str, dict[str, Any]]: Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         SynthesisRequest: Synthesis request with updated generator information.                       
@@ -352,7 +353,7 @@ def select_generator_ui(
         st.write("Enter generator to evaluate:")
         selected_mechanism = st.selectbox(
             "select another mechanism",
-            list(get_args(GeneratorName.__value__)),
+            get_args(GeneratorName.__value__),
             index=None,
             label_visibility="hidden",
         )

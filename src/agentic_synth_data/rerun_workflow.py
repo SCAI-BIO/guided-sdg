@@ -1,5 +1,6 @@
 from typing import Literal, Optional
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
 import streamlit as st
@@ -29,7 +30,7 @@ def plan_update(
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
 ) -> dict | None:
     """Agent suggests possible retroactive changes, which the user can select from.
     
@@ -43,7 +44,7 @@ def plan_update(
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
                         synthesis plan.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         dict | None: If a revision was chosen, returns the update_plan dict. Otherwise, None.
@@ -88,7 +89,7 @@ def plan_update_ui(
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
     version_id: int,
 ) -> dict | None:
     """Agent suggests possible retroactive changes, which the user can select from (UI).
@@ -103,7 +104,7 @@ def plan_update_ui(
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
             synthesis plan.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
@@ -157,12 +158,12 @@ def plan_update_ui(
 
 
 def generator_update(
-        synthesis_request:SynthesisRequest,
-        agent_decision:AgentEval,
-        report:Report,
-        agent:Optional[CompiledStateGraph],
-        config:dict,
-    ) -> GeneratorRevisionOption | None:
+    synthesis_request: SynthesisRequest,
+    agent_decision: AgentEval,
+    report: Report,
+    agent: Optional[CompiledStateGraph],
+    config: RunnableConfig,
+) -> GeneratorRevisionOption | None:
     """Ask agent for for possible generator revision options and returns the option selected by 
     the user.
 
@@ -172,7 +173,7 @@ def generator_update(
                                     needs_review.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
@@ -213,7 +214,7 @@ def generator_update_ui(
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
     version_id: int,
 ) -> GeneratorRevisionOption | None | Literal["pending"]:
     """Ask agent for for possible generator revision options and returns the option selected by 
@@ -225,7 +226,7 @@ def generator_update_ui(
             needs_review.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
@@ -303,14 +304,14 @@ def generator_update_ui(
 
 
 def parameter_update(
-    selected_mechanism: GeneratorName, agent: Optional[CompiledStateGraph], config: dict,
+    selected_mechanism: GeneratorName, agent: Optional[CompiledStateGraph], config: RunnableConfig,
 ) -> str | None:
     """Ask agent for possible parameter revision.
 
     Args:
         selected_mechanism (GeneratorName): The selected mechanism.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
@@ -361,7 +362,7 @@ def parameter_update(
 def parameter_update_ui(
     selected_mechanism: GeneratorName,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
     version_id: int,
 ) -> str | None | Literal["pending"]:
     """Ask agent for possible parameter revision (UI).
@@ -369,7 +370,7 @@ def parameter_update_ui(
     Args:
         selected_mechanism (GeneratorName): The selected mechanism.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
@@ -430,7 +431,7 @@ def parameter_update_ui(
 def missing_update(
     synthesis_request: SynthesisRequest,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
 ) -> MissingRevisionOption | None:
     """
     Ask agent for possible generator revision options and returns the option selected by the 
@@ -440,7 +441,7 @@ def missing_update(
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a strategy for 
                                               missing values.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         MissingRevisionOption | None: Selected generator revision, or None if cancelled.
@@ -450,7 +451,7 @@ def missing_update(
 
     revision_plan = invoke_agent(
         prompt=missing_revision_message(synthesis_request),
-        model_cls=GeneratorRevisionPlan,
+        model_cls=MissingRevisionPlan,
         agent=agent,
         config=config,
     )
@@ -486,7 +487,7 @@ def missing_update(
 def missing_update_ui(
     synthesis_request: SynthesisRequest,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
     version_id: int,
 ) -> MissingRevisionOption | None | Literal["pending"]:
     """
@@ -497,7 +498,7 @@ def missing_update_ui(
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a strategy for 
             missing values.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:

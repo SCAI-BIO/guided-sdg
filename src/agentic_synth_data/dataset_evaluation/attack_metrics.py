@@ -2,6 +2,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from typing import Optional
 
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 import pandas as pd
 import streamlit as st
@@ -131,7 +132,7 @@ def calculate_attack_metrics(
     stypes: SemanticTypes,
     dtypes: dict[str, str],
     agent: Optional[CompiledStateGraph] | None = None,
-    config: dict | None = None,
+    config: RunnableConfig | None = None,
 ) -> AttackMetrics:
     """Calculate Anonymeter metrics with agent assistance for column selection.
     
@@ -143,8 +144,8 @@ def calculate_attack_metrics(
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
             variables privacy metric calculation. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation. 
-            Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
@@ -225,7 +226,7 @@ def calculate_attack_metrics_ui(
     stypes: SemanticTypes,
     dtypes: dict[str, str],
     agent: Optional[CompiledStateGraph] | None = None,
-    config: dict | None = None,
+    config: RunnableConfig | None = None,
 ) -> AttackMetrics:
     """Calculate Anonymeter metrics with agent assistance for column selection (UI).
 
@@ -237,8 +238,8 @@ def calculate_attack_metrics_ui(
         dtypes (dict[str, str]): Python storage dtypes for each column.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to select
             variables privacy metric calculation. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation. 
-            Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         AttackMetrics: Anonymeter privacy metric output (e.g., singling out, linkability, and 
@@ -292,16 +293,7 @@ def calculate_attack_metrics_ui(
         key="privacy_metric_column_selection",
     )
 
-    st.write(
-        "\nSelected columns:\n"
-        "- Linkability:\n"
-        f"  - Auxiliary columns: {cols.linkability_aux_cols}\n"
-        "- Inference:\n"
-        f"  - Auxiliary columns: {cols.inference_aux_cols}\n"
-        f"  - Secret column: {cols.secret}\n\n"
-        "Rationale:"
-    )
-    st.write(cols.rationale)
+    expand_col_selection_ui(cols=cols)
 
     # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
@@ -383,17 +375,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
         key="privacy_metric_column_selection_displayed",
     )
 
-    st.write(
-        "\nSelected columns:\n"
-        "- Linkability:\n"
-        f"  - Auxiliary columns: {cols.linkability_aux_cols}\n"
-        "- Inference:\n"
-        f"  - Auxiliary columns: {cols.inference_aux_cols}\n"
-        f"  - Secret column: {cols.secret}\n\n"
-        "Rationale:"
-    )
-
-    st.write(cols.rationale)
+    expand_col_selection_ui(cols=cols)
 
     write_attack_metric_ui(
         metric_name="Inference", metric=inference_risk, description=description["inference"],
@@ -503,7 +485,28 @@ def write_attack_metric_ui(metric_name: str, metric: "PrivacyRisk", description:
         f"{description}\n"
     )
 
-    display_privacy_risk_ui(metric_name, metric.value, metric.ci[0], metric.ci[1])
+    display_privacy_risk_ui(f"{metric_name} risk", metric.value, metric.ci[0], metric.ci[1])
+
+
+def expand_col_selection_ui(cols: AttackColumns) -> None:
+    """Display an expandable view of which columns were selected by the agent and why.
+
+    Args:
+        cols (AttackColumns): Agent suggested attack columns for inference and linkability
+            calculation.
+    """
+    with st.expander("Click to view details on variable selection."):
+        st.write(
+            "\nSelected columns:\n"
+            "- Linkability:\n"
+            f"  - Auxiliary columns: {cols.linkability_aux_cols}\n"
+            "- Inference:\n"
+            f"  - Auxiliary columns: {cols.inference_aux_cols}\n"
+            f"  - Secret column: {cols.secret}\n\n"
+            "Rationale:"
+        )
+
+        st.write(cols.rationale)
 
 
 # ============================================================================

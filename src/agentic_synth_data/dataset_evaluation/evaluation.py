@@ -1,5 +1,6 @@
 from typing import Optional
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
 import streamlit as st
@@ -18,7 +19,7 @@ def evaluation(
     syndat_metrics: SyndatMetrics,
     attack_metrics: AttackMetrics,
     agent: Optional[CompiledStateGraph] | None = None,
-    config: dict | None = None,
+    config: RunnableConfig | None = None,
 ) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics.
 
@@ -30,8 +31,8 @@ def evaluation(
                                 a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
                                 synthetic data based on SYNDAT metrics. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation. 
-                                Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
@@ -65,7 +66,7 @@ def evaluation_ui(
     syndat_metrics: SyndatMetrics,
     attack_metrics: AttackMetrics,
     agent: Optional[CompiledStateGraph] | None = None,
-    config: dict | None = None,
+    config: RunnableConfig | None = None,
 ) -> AgentEval:
     """The agent evaluates the synthetic dataset using calculated metrics (UI).
 
@@ -77,8 +78,8 @@ def evaluation_ui(
                                 a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
                                 synthetic data based on SYNDAT metrics. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation. 
-                                Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         AgentEval: The decision plan based on the agent's assessment.
@@ -127,7 +128,7 @@ def evaluation_ui(
 def evaluation_review(
     agent_decision: AgentEval,
     agent: Optional[CompiledStateGraph] | None = None,
-    config: dict | None = None
+    config: RunnableConfig | None = None
 ) -> str:
     """User asks questions about agent's assessment/discusses details to focus on.
 
@@ -135,8 +136,8 @@ def evaluation_review(
         agent_decision (AgentEval): Agent's evaluation decision.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
                                                                evaluation. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation.
-                                        Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         str: Whether the workflow should finish or be revised.
@@ -169,7 +170,7 @@ def evaluation_review(
 def evaluation_review_ui(
     agent_decision: AgentEval,
     agent: Optional[CompiledStateGraph] | None = None,
-    config: dict | None = None,
+    config: RunnableConfig | None = None,
     version_id: int | None = None,
 ) -> str:
     """User asks questions about agent's assessment/discusses details to focus on (UI).
@@ -178,8 +179,8 @@ def evaluation_review_ui(
         agent_decision (AgentEval): Agent's evaluation decision.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
                                                                evaluation. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation.
-                                        Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         str: Whether the workflow should finish or be revised.

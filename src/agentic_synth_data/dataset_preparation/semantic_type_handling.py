@@ -1,5 +1,6 @@
 from typing import Any, get_args
 
+from langchain_core.runnables import RunnableConfig
 import pandas as pd
 import numpy as np
 from pydantic import RootModel
@@ -16,7 +17,7 @@ class STypeInference(RootModel[SemanticTypes]):
     pass
 
 
-def semantic_type_profile(df:pd.DataFrame) -> dict[str, dict[str, Any]]:
+def semantic_type_profile(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
     """Create a profile for each column in the dataframe for the agent to use in 
     inferring the semantic types of each column.
 
@@ -40,8 +41,10 @@ def semantic_type_profile(df:pd.DataFrame) -> dict[str, dict[str, Any]]:
         }
     return profiles
 
-# Semantic type dict type channge to literal
-def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict) -> SemanticTypes:
+
+def handle_semantic_types(
+    df: pd.DataFrame, agent: CompiledStateGraph, config: RunnableConfig,
+) -> SemanticTypes:
     """Determine the semantic type of each column in a dataframe by:
     1. Making a profile for each column (dtype, unique non null values and 
        their counts, and total number of non null unique values).
@@ -52,7 +55,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     Args:
         df (pd.DataFrame): The input dataframe.
         agent (CompiledStateGraph): LangGraph agent used to infer column semantic types.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         SemanticTypes: Semantic types (value) assigned to each column (key).
@@ -67,7 +70,11 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
     )
 
     semantic_types = invoke_agent(
-        prompt=semantic_type_message(profiles), model_cls=STypeInference, agent=agent, config=config, root=True,
+        prompt=semantic_type_message(profiles),
+        model_cls=STypeInference,
+        agent=agent,
+        config=config,
+        root=True,
     ) # TODO: check more extensively
 
     # TODO:Include more formal checks that each column is accounted for:
@@ -102,7 +109,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
                 " to?"
             )
 
-            choice = pyip.inputMenu(list(get_args(SemanticType.__value__)), numbered=True,)
+            choice = pyip.inputMenu(get_args(SemanticType.__value__), numbered=True,)
 
             semantic_types[col] = choice
 
@@ -119,7 +126,7 @@ def handle_semantic_types(df:pd.DataFrame, agent:CompiledStateGraph, config:dict
 
 
 def handle_semantic_types_ui(
-    df: pd.DataFrame, agent: CompiledStateGraph, config: dict,
+    df: pd.DataFrame, agent: CompiledStateGraph, config: RunnableConfig,
 ) -> SemanticTypes:
     """Determine the semantic type of each column in a dataframe by (UI):
     1. Making a profile for each column (dtype, unique non null values and 
@@ -131,7 +138,7 @@ def handle_semantic_types_ui(
     Args:
         df (pd.DataFrame): The input dataframe.
         agent (CompiledStateGraph): LangGraph agent used to infer column semantic types.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         SemanticTypes: Semantic types (value) assigned to each column (key).
@@ -221,7 +228,7 @@ def handle_semantic_types_ui(
 
         with st.form("semantic_type_correction_form"):
             semantic_type_choices = {}
-            options = list(get_args(SemanticType.__value__))
+            options = get_args(SemanticType.__value__)
 
             for col in df.columns:
                 current_type = semantic_types[col]

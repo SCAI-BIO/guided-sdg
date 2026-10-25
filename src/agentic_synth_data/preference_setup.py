@@ -5,18 +5,19 @@ import streamlit as st
 
 from agentic_synth_data.schemas.models import SynthesisRequest
 from agentic_synth_data.utils import GeneratorNameAuto, display_synthesis_request, \
-    display_synthesis_request_st, format_response, output_default_parameters
+    display_synthesis_request_st, format_response, output_default_parameters, \
+    CategoricalChoiceAuto, NumericalChoiceAuto
 
 
 def build_synthesis_request(
     sample_size: Literal["fixed_value", "same_as_original"],
-    fixed_value: int,
+    fixed_value: int | None,
     privacy: Literal["standard", "differential_privacy"],
     generator: GeneratorNameAuto,
     missing_values: Literal["auto", "impute", "threshold", "remove"],
     impute_method: Literal["SimpleImputer"] | None=None,
-    categorical_strategy: Literal["auto", "most_frequent", "constant"] | None=None,
-    numerical_strategy: Literal["auto", "mean", "median", "most_frequent"] | None=None,
+    categorical_strategy: CategoricalChoiceAuto | None=None,
+    numerical_strategy: NumericalChoiceAuto | None=None,
 ) -> SynthesisRequest:
     """Build the starting synthesis request from user configuration.
 
@@ -29,10 +30,10 @@ def build_synthesis_request(
             mode.
         impute_method (Literal["SimpleImputer"] | None, optional): Imputation method. Defaults to 
             None.
-        categorical_strategy (Literal["auto", "most_frequent", "constant"] | None, optional): 
-            Strategy for categorical imputation. Defaults to None.
-        numerical_strategy (Literal["auto", "mean", "median", "most_frequent"] | None, optional): 
-            Strategy for numerical imputation. Defaults to None.
+        categorical_strategy (CategoricalChoiceAuto] | None, optional): Strategy for categorical
+            imputation. Defaults to None.
+        numerical_strategy (NumericalChoiceAuto | None, optional): Strategy for numerical
+            imputation. Defaults to None.
 
     Returns:
         SynthesisRequest: Configured data synthesis request.
@@ -106,7 +107,7 @@ def select_preferences() -> SynthesisRequest:
         "'auto' if you would like a suggestion."
     )
 
-    generator = pyip.inputMenu(list(get_args(GeneratorNameAuto.__value__)), numbered=True,)
+    generator = pyip.inputMenu(get_args(GeneratorNameAuto.__value__), numbered=True,)
 
     if generator == "auto":
         print("\t=> You will receive a recommendation based on the dataset's characteristics.")
@@ -139,7 +140,10 @@ def select_preferences() -> SynthesisRequest:
             "How would you like to handle missing categorical values? Select 'auto' if you " \
             "would like a suggestion."
         )
-        categorical_strategy = pyip.inputMenu(["auto", "most frequent", "constant",], numbered=True)
+
+        categorical_strategy = pyip.inputMenu(
+            get_args(CategoricalChoiceAuto.__value__), numbered=True,
+        )
 
         if categorical_strategy == "auto":
             print("\t=> You will receive a recommendation based on the dataset's characteristics.")
@@ -155,8 +159,9 @@ def select_preferences() -> SynthesisRequest:
             "How would you like to handle missing numerical values? Select 'auto' if you " \
             "would like a suggestion."
         )
+
         numerical_strategy = pyip.inputMenu(
-            ["auto", "mean", "median", "most frequent"], numbered=True
+            get_args(NumericalChoiceAuto.__value__), numbered=True,
         )
 
         if numerical_strategy == "auto":
@@ -215,8 +220,8 @@ def select_preferences_ui() -> SynthesisRequest:
 
         st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
 
-    if sample_size == "same as original": 
-            st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
+    # if sample_size == "same as original": # TODO include a method to display sample size
+    #     st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
 
     st.write("---")
 
@@ -248,7 +253,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
     generator = st.selectbox(
         "data generator",
-        list(get_args(GeneratorNameAuto.__value__)),
+        get_args(GeneratorNameAuto.__value__),
         label_visibility="hidden",
         index=None,
         key="preferences_generator_choice",
@@ -297,7 +302,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
         categorical_strategy = st.selectbox(
             "categorical strategy",
-            ["auto", "most frequent", "constant",],
+            get_args(CategoricalChoiceAuto.__value__),
             label_visibility="hidden",
             index=None,
             key="preferences_categorical_strategy",
@@ -323,7 +328,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
         numerical_strategy = st.selectbox(
             "numerical strategy", 
-            ["auto", "mean", "median", "most frequent"],
+            get_args(NumericalChoiceAuto.__value__),
             label_visibility="hidden",
             index=None,
             key="preferences_numerical_strategy",

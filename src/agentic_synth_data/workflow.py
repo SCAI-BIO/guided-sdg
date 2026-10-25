@@ -1,10 +1,10 @@
 import copy
 from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any
 from collections.abc import Hashable
 import os
 
+from langchain_core.runnables import RunnableConfig
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import streamlit as st
@@ -69,7 +69,7 @@ class DataGen:
 
         self.model: BaseChatModel = self.create_model()
         self.checkpointer: InMemorySaver = InMemorySaver()
-        self.config: dict[str, dict[str, Any]] = {"configurable": {"thread_id": 1}}
+        self.config: RunnableConfig = {"configurable": {"thread_id": 1}}
         self.agent: CompiledStateGraph = self.create_agent()
 
         self.report: Report = Report()

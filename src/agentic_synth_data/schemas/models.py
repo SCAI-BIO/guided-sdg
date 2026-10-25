@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import Field, BaseModel
 
-from agentic_synth_data.utils import GeneratorNameAuto
+from agentic_synth_data.utils import CategoricalChoiceAuto, GeneratorNameAuto, NumericalChoiceAuto
 
 
 class SampleSizeConfig(BaseModel):
@@ -26,8 +26,8 @@ class GeneratorConfig(BaseModel):
 class ImputationConfig(BaseModel):
     """Synthesis request imputation configuration."""
     method: Literal["SimpleImputer"] | None = None
-    categorical_strategy: Literal["auto", "most_frequent", "constant"] | None = None
-    numerical_strategy: Literal["auto", "mean", "median", "most_frequent"] | None = None
+    categorical_strategy: CategoricalChoiceAuto | None = None
+    numerical_strategy: NumericalChoiceAuto | None = None
 
 
 class MissingValueConfig(BaseModel):

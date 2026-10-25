@@ -1,5 +1,6 @@
-from typing import Optional, Any
+from typing import Optional, Any, get_args
 
+from langchain_core.runnables import RunnableConfig
 import pandas as pd
 import numpy as np
 import pyinputplus as pyip
@@ -7,14 +8,14 @@ from langgraph.graph.state import CompiledStateGraph
 from sklearn.impute import SimpleImputer
 import streamlit as st
 
-from agentic_synth_data.utils import format_response, info_helper_message, invoke_agent, \
-    display_synthesis_request, SemanticTypes
+from agentic_synth_data.utils import CategoricalChoiceAuto, NumericalChoiceAuto, format_response, \
+    info_helper_message, invoke_agent, display_synthesis_request, SemanticTypes
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 from agentic_synth_data.schemas.missing_model import MissingHandling
 from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
 
 
-def update_missing_value_choice(synthesis_request:SynthesisRequest) -> SynthesisRequest:
+def update_missing_value_choice(synthesis_request: SynthesisRequest) -> SynthesisRequest:
     """Update missing value handling choice in the case that either the remove all or
      threshold setting for null values is too harsh.
 
@@ -40,11 +41,8 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
         synthesis_request.missing_values.impute = ImputationConfig()
 
     elif choice == "impute":
-        synthesis_request.missing_values.impute.method = "SimpleImputer"
-        synthesis_request.missing_values.threshold = None
-
         cat_choice = pyip.inputMenu(
-            ["auto", "most frequent", "constant"],
+            get_args(CategoricalChoiceAuto.__value__),
             "\nHow would you like to handle missing categorical values? Select 'auto' if you" \
             " would like a suggestion.\n", 
             numbered=True,
@@ -53,10 +51,8 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
         if cat_choice == "most frequent":
             cat_choice = "most_frequent"
 
-        synthesis_request.missing_values.impute.categorical_strategy = cat_choice
-
         num_choice = pyip.inputMenu(
-            ["auto", "mean", "median", "most frequent"],
+            get_args(NumericalChoiceAuto.__value__),
             "\nHow would you like to handle missing numerical values? Select 'auto' if you would" \
             " like a suggestion.\n", 
             numbered=True,
@@ -65,6 +61,9 @@ def update_missing_value_choice(synthesis_request:SynthesisRequest) -> Synthesis
         if num_choice == "most frequent":
             num_choice = "most_frequent"
 
+        synthesis_request.missing_values.impute.method = "SimpleImputer"
+        synthesis_request.missing_values.threshold = None
+        synthesis_request.missing_values.impute.categorical_strategy = cat_choice
         synthesis_request.missing_values.impute.numerical_strategy = num_choice
 
     elif choice == "auto":
@@ -95,12 +94,7 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
     if choice is None:
         st.stop()
 
-    synthesis_request.missing_values.mode = choice
-
     if choice == "impute":
-        synthesis_request.missing_values.impute.method = "SimpleImputer"
-        synthesis_request.missing_values.threshold = None
-
         st.write(
             "How would you like to handle missing categorical values? Select 'auto' if you would "
             "like a suggestion."
@@ -108,36 +102,44 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
 
         cat_choice = st.selectbox(
             label="Update missing value handling choice",
-            options=["auto", "impute",],
+            options=get_args(CategoricalChoiceAuto.__value__),
             index=None,
-            key="update_missing_value_handling_choice",
+            key="update_categorical_strategy",
         )
+
+        num_choice = st.selectbox(
+            label="Update missing value handling choice",
+            options=get_args(NumericalChoiceAuto.__value__),
+            index=None,
+            key="update_numerical_strategy",
+        )
+
+        if cat_choice is None or num_choice is None:
+            st.stop()
 
         if cat_choice == "most frequent":
             cat_choice = "most_frequent"
 
-        synthesis_request.missing_values.impute.categorical_strategy = cat_choice
-
-        num_choice = st.selectbox(
-            label="Update missing value handling choice",
-            options=["auto", "impute",],
-            index=None,
-            key="update_missing_value_handling_choice",
-        )
-
         if num_choice == "most frequent":
             num_choice = "most_frequent"
 
+        synthesis_request.missing_values.mode = "impute"
+        synthesis_request.missing_values.impute.method = "SimpleImputer"
+        synthesis_request.missing_values.threshold = None
+        synthesis_request.missing_values.impute.categorical_strategy = cat_choice
         synthesis_request.missing_values.impute.numerical_strategy = num_choice
 
     elif choice == "auto":
+        synthesis_request.missing_values.mode = "auto"
         synthesis_request.missing_values.threshold = None
         synthesis_request.missing_values.impute = ImputationConfig()
 
     return synthesis_request
 
 
-def auto_update_missing_plan(synthesis_request:SynthesisRequest, missing_plan:dict[str, Any]) -> SynthesisRequest:
+def auto_update_missing_plan(
+    synthesis_request: SynthesisRequest, missing_plan: dict[str, Any],
+) -> SynthesisRequest:
     """When "auto" is selected in the missing value handling plan, the agent is called and 
     returns a structured dictionary. This structured dictionary is changed to the format of
     the synthesis request.
@@ -164,7 +166,7 @@ def handle_missing_values(
     synthesis_request: SynthesisRequest,
     semantic_types: SemanticTypes,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
 ) -> tuple[pd.DataFrame, SynthesisRequest] | None:
     """Handle missing values in a dataframe based on user defined preferences.
 
@@ -181,8 +183,8 @@ def handle_missing_values(
             ordinal, integer, float).
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to recommend 
             a strategy for missing values. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation.
-            Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         tuple[pd.DataFrame, dict[str, Any]] | None: 
@@ -402,7 +404,7 @@ def handle_missing_values_ui(
     synthesis_request: SynthesisRequest,
     semantic_types: SemanticTypes,
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
 ) -> tuple[pd.DataFrame, SynthesisRequest] | None:
     """Handle missing values in a dataframe based on user defined preferences (UI).
 
@@ -419,8 +421,8 @@ def handle_missing_values_ui(
             ordinal, integer, float).
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to 
             recommend a strategy for missing values. Defaults to None.
-        config (dict | None, optional): Configuration passed to the agent during invocation.
-            Defaults to None.
+        config (RunnableConfig | None, optional): Configuration passed to the agent during
+            invocation. Defaults to None.
 
     Returns:
         tuple[pd.DataFrame, dict[str, Any]] | None: 

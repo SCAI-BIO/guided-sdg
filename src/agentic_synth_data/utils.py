@@ -1,8 +1,9 @@
 import os
 import textwrap
-from typing import Any, Literal, Optional, TypeVar
+from typing import Any, Literal, Optional, TypeVar, overload
 from pathlib import Path
 
+from langchain_core.runnables import RunnableConfig
 import pandas as pd
 from pandas.io.formats.style import Styler
 from pydantic import BaseModel
@@ -34,14 +35,28 @@ SDR_URL = os.environ.get("SDR_URL", "http://localhost:8000")
 
 T = TypeVar("T", bound=BaseModel)
 
+# Permitted semantic types
 type SemanticType = Literal["Float", "Integer", "Boolean", "Categorical", "Ordinal",]
 
 type SemanticTypes = dict[str, SemanticType]
 
-# Automatic (agent-assisted) selection is supported.
+# Generator specification
+# a: Primary options
+type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet",]
+
+# b: If agent-assisted selection is permitted.
 type GeneratorNameAuto = Literal["auto", "PATEGAN", "CTGAN", "PrivBayes", "BayesianNet",]
 
-type GeneratorName = Literal["PATEGAN", "CTGAN", "PrivBayes", "BayesianNet",]
+# Imputation specification for categorical or numerical null values
+# a: Primary options
+type CategoricalChoice = Literal["most frequent", "constant",]
+
+type NumericalChoice = Literal["mean", "median", "most frequent",]
+
+# b: If agent-assisted selection is permitted
+type CategoricalChoiceAuto = Literal["auto", "most frequent", "constant",]
+
+type NumericalChoiceAuto = Literal["auto", "mean", "median", "most frequent",]
 
 
 # ============================================================================
@@ -89,19 +104,19 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
     if synthesis_request.sample_size.fixed_value is not None:
         print(f"Sample size: {synthesis_request.sample_size.fixed_value}")
 
-    print(f"Privacy mode: {synthesis_request.privacy.mode}")
-
-    print(f"Generator: {synthesis_request.generator.name}")
-
-    print(f"Missing value handling: {synthesis_request.missing_values.mode}")
+    print(
+        f"Privacy mode: {synthesis_request.privacy.mode}\n"
+        f"Generator: {synthesis_request.generator.name}\n"
+        f"Missing value handling: {synthesis_request.missing_values.mode}"
+    )
 
     if synthesis_request.missing_values.mode == "impute":
-        print(f"- Imputer: {synthesis_request.missing_values.impute.method}")
         print(
+            f"- Imputer: {synthesis_request.missing_values.impute.method}\n"
             "- Categorical strategy: "
-            f"{synthesis_request.missing_values.impute.categorical_strategy}"
+            f"{synthesis_request.missing_values.impute.categorical_strategy}\n"
+            f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}"
         )
-        print(f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}")
 
 
 # ============================================================================
@@ -218,17 +233,17 @@ def parse_json(
     plan: str,
     model_cls: type[T],
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig,
     root: bool = False,
     ui: bool = False,
-) -> T:
+) -> T | SemanticTypes:
     """If agent fails to correctly format JSON response, prompts to try again.
 
     Args:
         plan (str): The agent output.
         model_cls (type[T]): Pydantic model class used to validate JSON response.
         agent (Optional[CompiledStateGraph]): LangGraph agent.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
         root (bool, optional): Whether to return the root value (only necessary for 
             `semantic_type_handling()`). Defaults to False.
         ui (bool): Whether to display warning in Streamlit. Defaults to False (CLI).
@@ -240,7 +255,10 @@ def parse_json(
         result = model_cls.model_validate_json(plan)
 
     except Exception as error:
-        message = "Agent response could not be parsed. Asking agent to repair the response..." + f"Error: {type(error).__name__}: {error}"
+        message = (
+            "Agent response could not be parsed. Asking agent to repair the response..."
+            f"Error: {type(error).__name__}: {error}"
+        )
 
         if ui:
             st.warning(message)
@@ -280,11 +298,35 @@ def extract_output(raw_message: dict) -> str:
     return response.strip()
 
 
+@overload
 def invoke_agent(
     prompt: str,
     model_cls: type[T],
     agent: Optional[CompiledStateGraph],
-    config: dict,
+    config: RunnableConfig | None,
+    root: Literal[False] = False,
+    ui: bool = False,
+) -> T:
+    ...
+
+
+@overload
+def invoke_agent(
+    prompt: str,
+    model_cls: type[T],
+    agent: Optional[CompiledStateGraph],
+    config: RunnableConfig | None,
+    root: Literal[True],
+    ui: bool = False,
+) -> SemanticTypes:
+    ...
+
+
+def invoke_agent(
+    prompt: str,
+    model_cls: type[T],
+    agent: Optional[CompiledStateGraph],
+    config: RunnableConfig | None,
     root: bool = False,
     ui: bool = False,
 ) -> T | SemanticTypes:
@@ -294,7 +336,7 @@ def invoke_agent(
         prompt (str): Message sent to the agent.
         model_cls (type[T]): Pydantic model class used to validate JSON response.
         agent (Optional[CompiledStateGraph]): LangGraph agent.
-        config (dict): Configuration passed to the agent during invocation.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
         root (bool): Whether to return the root value (only necessary for 
             `semantic_type_handling()`). Defaults to False.
         ui (bool): Whether to display warning in Streamlit. Defaults to False (CLI).

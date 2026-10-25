@@ -2,14 +2,16 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from agentic_synth_data.utils import CategoricalChoice, NumericalChoice
+
 
 class MissingRevisionOption(BaseModel):
     """Proposed missing value handling strategy for workflow revision."""
     id: str
     mode: Literal["remove", "impute",]
     imputation_method: Literal["SimpleImputer"] | None = None
-    categorical_strategy: Literal["most_frequent", "constant",] | None = None
-    numerical_strategy: Literal["mean", "median", "most_frequent",] | None = None
+    categorical_strategy: CategoricalChoice | None = None
+    numerical_strategy: NumericalChoice | None = None
     reason: str
 
 
