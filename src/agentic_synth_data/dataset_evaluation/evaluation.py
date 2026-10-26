@@ -25,12 +25,12 @@ def evaluation(
 
     Args:
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
-                                a record of the processing done to generate the synthetic data.
+            a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
-                                synthetic data based on SYNDAT metrics. Defaults to None.
+            synthetic data based on SYNDAT metrics. Defaults to None.
         config (RunnableConfig | None, optional): Configuration passed to the agent during
             invocation. Defaults to None.
 
@@ -72,12 +72,12 @@ def evaluation_ui(
 
     Args:
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
-                                a record of the processing done to generate the synthetic data.
+            a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
-                                synthetic data based on SYNDAT metrics. Defaults to None.
+            synthetic data based on SYNDAT metrics. Defaults to None.
         config (RunnableConfig | None, optional): Configuration passed to the agent during
             invocation. Defaults to None.
 
@@ -118,10 +118,12 @@ def evaluation_ui(
     st.write(f"- Status: {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
         st.write(f"- Problem columns: {eval_plan.problem_columns}")
-    st.write("#### - Recommendation:")
-    st.write(eval_plan.recommendation)
-    st.write("#### - Rationale:")
-    st.write(eval_plan.rationale)
+    st.write(
+        "#### - Recommendation:\n"
+        f"{eval_plan.recommendation}\n"
+        "#### - Rationale:\n"
+        f"{eval_plan.rationale}"
+    )
     return eval_plan
 
 

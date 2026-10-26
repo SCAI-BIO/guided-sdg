@@ -197,7 +197,7 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
         "positive and the other negative."
     )
 
-    st.write(f"{metrics.norm_corr_diff}")
+    st.metric(label="Normalized correlation difference", value=metrics.norm_corr_diff,)
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
@@ -215,7 +215,7 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
             "to distinguish between."
         )
 
-        st.write(f"{metrics.discrim_auc}")
+        st.metric(label="Discriminator AUC", value=metrics.discrim_auc,)
 
         if metrics.output_messages.discrim_auc:
             with st.expander(
@@ -499,8 +499,7 @@ def generate_plots_ui(
 
     if cache_key not in st.session_state:
         st.session_state[cache_key] = {
-            plot_type: _cache_pngs(paths)
-            for plot_type, paths in plot_paths.items()
+            plot_type: _cache_pngs(paths) for plot_type, paths in plot_paths.items()
         }
 
     plots = st.session_state[cache_key]
