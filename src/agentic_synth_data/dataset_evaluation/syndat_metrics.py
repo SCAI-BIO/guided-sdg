@@ -212,7 +212,7 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander(
-            "UserWarning: Click to see output while calculating normalized correlation difference."
+            "UserWarning: Click to view output while calculating normalized correlation difference."
         ):
             st.warning(metrics.output_messages.norm_corr_diff)
 
@@ -234,7 +234,7 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
 
         if metrics.output_messages.discrim_auc:
             with st.expander(
-                "UserWarning: Click to see output while calculating discriminator AUC."
+                "UserWarning: Click to view output while calculating discriminator AUC."
             ):
                 st.warning(metrics.output_messages.discrim_auc)
 
@@ -524,6 +524,11 @@ def generate_plots_ui(
     ])
 
     with tab_dist:
+        st.write(
+            "Compare the distribution of individual variables between the real and synthetic "
+            "datasets to assess how well their statistical properties are preserved."
+        )
+
         plot_viewer(
             images=plots["distributions"],
             plot_type="distribution",
@@ -531,7 +536,11 @@ def generate_plots_ui(
         )
 
     with tab_corr:
-        st.write("Correlation plots")
+        st.write(
+            "Compare relationships between variables in the real and synthetic datasets to "
+            "assess how well their correlation structures are preserved."
+        )
+
         plot_viewer(
             images=plots["correlations"],
             plot_type="correlation",
@@ -540,7 +549,11 @@ def generate_plots_ui(
         )
 
     with tab_shap:
-        st.write("SHAP plot")
+        st.write(
+            "Identify which variables contribute most to a classifier's ability to distinguish "
+            "real data from synthetic data."
+        )
+
         plot_viewer(
             images=plots["shap"],
             plot_type="shap",

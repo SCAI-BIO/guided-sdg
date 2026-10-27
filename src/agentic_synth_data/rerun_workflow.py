@@ -583,19 +583,32 @@ def missing_update_ui(
     return menu_options[choice]
 
 
-def revision_tabs_ui() -> dict:
-    """Create a new tab for each revision and select the latest revision (UI).
+def version_tabs_ui(
+    label: str = "Revision", key: str = "active_revision_tab", include_initial: bool = False,
+) -> dict:
+    """Create tabs for workflow versions (UI).
+
+    Args:
+        label (str, optional): Label used for each version tab. Defaults to "Revision".
+        key (str, optional): Unique Streamlit key for the tab groups. Defaults to
+            "active_revision_tab".
 
     Returns:
-        dict: Versions and the tabs attributed to each version.
+        dict: Mapping of version IDs to their corresponding tabs.
     """
-    versions = st.session_state.get("revision_versions", [])
+    versions = st.session_state.get("revision_versions", []).copy()
+
+    if include_initial:
+        versions.insert(0, 1)
 
     if not versions:
         return {}
 
-    labels = [f"Revision {version - 1}" for version in versions]
-
-    tabs = st.tabs(labels, key="active_revision_tab", on_change="rerun",)
+    labels = [
+        f"{label} {version - 1 if label == 'Revision' else version}"
+        for version in versions
+    ]
+    #labels = [f"{label} {version - 1}" for version in versions]
+    tabs = st.tabs(labels, key=key, on_change="rerun",)
 
     return dict(zip(versions, tabs))

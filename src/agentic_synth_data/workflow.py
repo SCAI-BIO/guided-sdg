@@ -51,6 +51,7 @@ class DataGen:
     # ============================================================================
     # Initialization and configuration
     # ============================================================================
+    
     def __init__(self, data_path):
         # Workflow identification and revision state
         self.data_path: str = data_path
@@ -257,7 +258,7 @@ class DataGen:
         st.subheader("Final data types present in each column")
 
         final_dtypes = pd.DataFrame({
-            "Column": self.semantic_types.keys(),
+            "Feature": self.semantic_types.keys(),
             "Data type": [self.python_dtypes[col] for col in self.semantic_types.keys()],
             "Semantic type": self.semantic_types.values(),
         })
@@ -415,7 +416,6 @@ class DataGen:
     # ============================================================================
 
     # TODO combine CLI and UI functions with minimal changes (only print statements have been changed)
-    # Example of how this could be done...
     def save_prepared_data(self) -> Path:
         """ Step 4: Setup tool data
             i. Save the prepared data
@@ -443,9 +443,7 @@ class DataGen:
 
         prepared_path = self.save_prepared_data()
 
-        format_response(
-            f"- Created csv for generator input: {prepared_path}"
-        )
+        format_response(f"- Created csv for generator input: {prepared_path}")
         return prepared_path
 
 
@@ -529,7 +527,8 @@ class DataGen:
                     )
 
                 status.update(
-                    label=f"=> Synthetic generation completed with {generator}.",
+                    label=f"=> Synthetic generation completed with {generator} (click to view " \
+                        "terminal outputs).",
                     state="complete",
                     expanded=False,
                 )
@@ -689,8 +688,12 @@ class DataGen:
             version_id=self.version_id,
         )
 
-        st.info(f"=> Created a report for the following version: v_{self.version_id}.")
-        # Better to include file path
+        data_name = Path(self.data_path.stem)
+
+        st.info(
+            f"=> Created a report for version_{self.version_id}: "
+            f"`{OUTPUT_DIR} / f"version_{self.version_id}" / f"report_{data_name}_v{self.version_id}.md`."
+        )
 
 
     # ============================================================================
@@ -1002,7 +1005,7 @@ class DataGen:
     def _rerun_selection_ui(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps (UI)."""
         with st.container(border=True):
-            st.success("Revision choices confirmed")
+            st.success("Revision choices have been confirmed.")
             # TODO: show previous choices and what specifically was changed, even with an arrow.
 
             if "update_mech" in update_plan:
@@ -1018,7 +1021,7 @@ class DataGen:
 
             if "update_missing" in update_plan:
                 st.write(
-                    f"**New missing handling strategy:** {update_plan['update_missing'].mode}\n"
+                    f"**New missing handling strategy:** {update_plan['update_missing'].mode}\n\n"
                     f"**Reason:** {update_plan['update_missing'].reason}"
                 )
 

@@ -2,6 +2,7 @@ from pathlib import Path
 import pprint
 from typing import Any
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics
@@ -98,6 +99,12 @@ def write_report(
         if report.input.parent_version else ""
     )
 
+    dtype_table = pd.DataFrame({
+        "Feature": report.prep.stypes.keys(),
+        "Data type": [report.prep.dtypes[col] for col in report.prep.stypes.keys()],
+        "Semantic type": report.prep.stypes.values(),
+    })
+
     def display_plots(paths: list[Path]) -> str:
         return "\n\n".join(
             f"![{path.stem}]({path.relative_to(output_dir).as_posix()})"
@@ -125,7 +132,6 @@ def write_report(
     # SHAP plots
     shap_plots = display_plots(report.evaluate.plots.get("shap", []))
 
-
     def fmt(value):
         return pprint.pformat(value, sort_dicts=False)
 
@@ -144,41 +150,44 @@ Replaced markers:
 {fmt(report.prep.missing_markers_replaced)}
 ```
 """
+    # Syndat and anonymeter metrics
+    syndat = report.evaluate.syndat
+    attack = report.evaluate.attack
+    syndat_output = syndat.output_messages
+    attack_output = attack.output_messages
 
     jsd_output = (
-        f"- Output (Jensen-Shannon Distance): {report.evaluate.syndat.output_messages.jsd}"
-        if report.evaluate.syndat.output_messages.jsd else ""
+        f"- **Output (Jensen-Shannon Distance):** {syndat_output.jsd}" if syndat_output.jsd else ""
     )
     norm_corr_diff_output = (
-        f"- Output (Normalized correlation difference): {
-            report.evaluate.syndat.output_messages.norm_corr_diff
-        }"
-        if report.evaluate.syndat.output_messages.norm_corr_diff else ""
+        f"- **Output (Normalized correlation difference):** {syndat_output.norm_corr_diff}"
+        if syndat_output.norm_corr_diff else ""
     )
     discrim_auc_output = (
-        f"- Output (Discriminator AUC): {report.evaluate.syndat.output_messages.discrim_auc}"
-        if report.evaluate.syndat.output_messages.discrim_auc else ""
+        f"- **Output (Discriminator AUC):** {syndat_output.discrim_auc}" 
+        if syndat_output.discrim_auc else ""
     )
     singling_out_output = (
-        f"- Output (Singling out risk): {report.evaluate.attack.output_messages.singling_out}"
-        if report.evaluate.attack.output_messages.singling_out else ""
+        f"- **Output (Singling out risk):** {attack_output.singling_out}"
+        if attack_output.singling_out else ""
     )
     inference_output = (
-        f"- Output (Inference risk): {report.evaluate.attack.output_messages.inference}"
-        if report.evaluate.attack.output_messages.inference else ""
+        f"- **Output (Inference risk):** {attack_output.inference}"
+        if attack_output.inference else ""
     )
     linkability_output = (
-        f"- Output (Linkability risk): {report.evaluate.attack.output_messages.linkability}"
-        if report.evaluate.attack.output_messages.linkability else ""
+        f"- **Output (Linkability risk):** {attack_output.linkability}"
+        if attack_output.linkability else ""
     )
 
+    # Main structure of the report and information content
     content = f"""# SYNTHETIC DATA GENERATION REPORT
 (version_{version_id}{parent})
 
 ### Information about the original (input) dataset:
-- Location (path): `{report.input.path}`
+- **Location (path):** `{report.input.path}`
 
-- Original shape: {report.input.original_shape[0]} rows, {report.input.original_shape[1]} columns.
+- **Original shape:** {report.input.original_shape[0]} rows, {report.input.original_shape[1]} columns.
 
 ## Preprocessing:
 {missing_markers}
@@ -192,6 +201,10 @@ Replaced markers:
 ```python
 {fmt(report.prep.stypes)}
 ```
+
+### Data types
+{dtype_table.to_markdown()}
+
 
 ### Profile
 
@@ -227,28 +240,28 @@ Summary statistics for numeric values:
 } rows, {report.input.prepared_shape[1]} columns.
 
 ### Generation:
-Chosen generator: {synthesis_request.generator.name}
+**Chosen generator:** {synthesis_request.generator.name}
 
-Parameters: {report.gen.params}
+**Parameters:** {report.gen.params}
 
-Prepared dataset path: `{report.gen.prep_path}`
+**Prepared dataset path:** `{report.gen.prep_path}`
 
-Synthetic dataset path: `{report.gen.synth_path}`
+**Synthetic dataset path:** `{report.gen.synth_path}`
 
-Synthetic shape: {report.gen.synth_shape[0]} rows, {report.gen.synth_shape[1]} columns.
+**Synthetic shape:** {report.gen.synth_shape[0]} rows, {report.gen.synth_shape[1]} columns.
 
 ### Results:
-Jensen-Shannon Distance:
+**Jensen-Shannon Distance:**
 ```python
-{fmt(report.evaluate.syndat.jsd)}
+{fmt(syndat.jsd)}
 ```
 {jsd_output}
 
-Normalized correlation difference: {report.evaluate.syndat.norm_corr_diff}
+**Normalized correlation difference:** {syndat.norm_corr_diff}
 
 {norm_corr_diff_output}
 
-Discriminator AUC: {report.evaluate.syndat.discrim_auc}
+**Discriminator AUC:** {syndat.discrim_auc}
 
 {discrim_auc_output}
 
@@ -263,27 +276,30 @@ The first three plots are displayed below. All additional plots are available at
 
 ---
 
-Singling out risk: {report.evaluate.attack.singling_out}
+**Singling out risk:** {round(attack.singling_out.value, 4)}
+- **Confidence interval:** {round(attack.singling_out.ci[0], 4)} – {round(attack.singling_out.ci[1], 4)}
 
 {singling_out_output}
 
-Inference risk: {report.evaluate.attack.inference}
+**Inference risk:** {round(attack.inference.value, 4)}
+- **Confidence interval:** {round(attack.inference.ci[0], 4)} – {round(attack.inference.ci[1], 4)}
 
 {inference_output}
 
-Linkability risk: {report.evaluate.attack.linkability}
+**Linkability risk:** {round(attack.linkability.value, 4)}
+- **Confidence interval:** {round(attack.linkability.ci[0], 4)} – {round(attack.linkability.ci[1], 4)}
 
 {linkability_output}
 
 ### Agent review:
 
-- Status: {report.review.status}
+- **Status:** {report.review.status}
 
-- Recommendation: {report.review.recommendation}
+- **Recommendation:** {report.review.recommendation}
 
-- Rationale behind the recommendation: {report.review.rationale}
+- **Rationale behind the recommendation:** {report.review.rationale}
 
-- Problem columns: {report.review.problem_columns}
+- **Problem columns:** {report.review.problem_columns}
 
 ---
 
