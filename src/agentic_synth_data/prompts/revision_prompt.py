@@ -38,6 +38,9 @@ def revision_message(
         if synthesis_request.generator.name in ["PrivBayes", "BayesianNet"]:
             missing_handling = "- Missing value handling was not applied, the generator used" \
             " allows for missing values."
+        else:
+            missing_handling = "Missing value  handling was not applied."
+    
     return dedent(f"""
     The workflow should be revised. For now, only start with generator selection.
     Input dataframe shape: {report.input.original_shape}
@@ -81,6 +84,7 @@ def revision_message(
     - Do not suggest semantic type changes.
     - Do not suggest sample size changes.
     - Do not suggest privacy mode changes.
+    - Do not suggest generator parameter changes.
 
     Available generators:
     - CTGAN
@@ -94,7 +98,6 @@ def revision_message(
         {{
         "id": "option_1",
         "generator_name": "CTGAN",
-        "parameters": {{}},
         "reason": "short reason based on evaluation metrics"
         }}
     ]

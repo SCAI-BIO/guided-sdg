@@ -1,8 +1,9 @@
+import shutil # Temporary while clear_output_ui exists
 import time
 
 import streamlit as st
 
-from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR
+from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR, PROJECT_ROOT
 from agentic_synth_data.workflow import DataGen
 
 
@@ -115,3 +116,29 @@ if clicked:
     st.session_state.file_name = file_name
 
     st.switch_page("pages/preferences.py")
+
+
+def clear_output_ui(): # Temporary fn
+    """Delete all files and subdirectories inside output/."""
+    output_dir = PROJECT_ROOT / "output"
+
+    if st.button("Clear output folder", key="clear_output_button"):
+        st.session_state.confirm_clear_output = True
+
+    if st.session_state.get("confirm_clear_output", False):
+        st.warning("This will permanently delete all files and folders inside output/.")
+
+        if st.button("Confirm deletion", key="confirm_clear_output_button"):
+            if output_dir.exists():
+                for item in output_dir.iterdir():
+                    if item.is_dir() and not item.is_symlink():
+                        shutil.rmtree(item)
+                    else:
+                        item.unlink()
+
+            st.session_state.confirm_clear_output = False
+            st.success("Output folder cleared.")
+
+with st.sidebar:
+    st.subheader("Developer tools")
+    clear_output_ui()

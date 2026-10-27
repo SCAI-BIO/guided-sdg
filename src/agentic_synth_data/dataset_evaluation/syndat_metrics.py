@@ -143,6 +143,17 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
     Returns:
         SyndatMetrics: Calculated metrics and captured output messages.
     """
+    metrics = _calculate_metrics(real=real, synth=synth, ui=True,)
+    display_metrics_ui(metrics=metrics,)
+    return metrics
+
+
+def display_metrics_ui(metrics: SyndatMetrics,) -> None:
+    """Display syndat metrics (UI).
+
+    Args:
+        metrics (SyndatMetrics): Calculated metrics and captured output messages.
+    """
     st.subheader("Fidelity and utility metrics")
     st.write(
         "The synthetic data should resemble the original dataset. We record the following metrics "
@@ -152,8 +163,6 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
         "- Discriminator AUC\n\n"
         "All of these metrics output a value between 0 and 1."
     )
-
-    metrics = _calculate_metrics(real, synth, True)
 
     # Jensen-Shannon Distances:
     st.write("#### Jensen-Shannon Distance:")
@@ -184,7 +193,7 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
     df_formatter_st(styled_jsd_table)
 
     if metrics.output_messages.jsd:
-        with st.expander("UserWarning: Some variables may have been excluded for computation."):
+        with st.expander("UserWarning: Some variables may have been excluded during computation."):
             st.warning(metrics.output_messages.jsd)
 
     # Normalized correlation difference:
@@ -200,7 +209,9 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
     st.metric(label="Normalized correlation difference", value=metrics.norm_corr_diff,)
 
     if metrics.output_messages.norm_corr_diff:
-        with st.expander("UserWarning: Syndat normalized correlation difference output a message."):
+        with st.expander(
+            "UserWarning: Click to see output while calculating normalized correlation difference."
+        ):
             st.warning(metrics.output_messages.norm_corr_diff)
 
     # Discriminator AUC:
@@ -219,11 +230,9 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
 
         if metrics.output_messages.discrim_auc:
             with st.expander(
-                "UserWarning: A message has been output by syndat discrimination AUC tool"
+                "UserWarning: Click to see output while calculating discriminator AUC."
             ):
                 st.warning(metrics.output_messages.discrim_auc)
-
-    return metrics
 
 
 # ============================================================================

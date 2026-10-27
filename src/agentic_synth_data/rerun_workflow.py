@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
@@ -112,7 +112,12 @@ def plan_update_ui(
     """
     # Update generator
     update_mech = generator_update_ui(
-        synthesis_request, agent_decision, report, agent, config, version_id,
+        synthesis_request=synthesis_request,
+        agent_decision=agent_decision,
+        report=report,
+        agent=agent,
+        config=config,
+        version_id=version_id,
     )
 
     if update_mech == PENDING:
@@ -124,7 +129,12 @@ def plan_update_ui(
         effective_generator = synthesis_request.generator.name
 
     # Update generator parameters
-    update_params = parameter_update_ui(effective_generator, agent, config, version_id,)
+    update_params = parameter_update_ui(
+        selected_mechanism=effective_generator,
+        agent=agent,
+        config=config,
+        version_id=version_id,
+    )
 
     if update_params == PENDING:
         st.stop()
@@ -138,7 +148,12 @@ def plan_update_ui(
             " will not be applied."
         )
     else:
-        update_missing = missing_update_ui(synthesis_request, agent, config, version_id,)
+        update_missing = missing_update_ui(
+            synthesis_request=synthesis_request,
+            agent=agent,
+            config=config,
+            version_id=version_id,
+        )
 
         if update_missing == PENDING:
             st.stop()
@@ -241,7 +256,7 @@ def generator_update_ui(
 
     st.subheader("Select a generator revision option")
 
-    st.write(f"Current generator: {synthesis_request.generator.name}")
+    st.write(f"**Current generator:** {synthesis_request.generator.name}")
 
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with a generator revision options..."):
@@ -364,7 +379,7 @@ def parameter_update_ui(
     agent: Optional[CompiledStateGraph],
     config: RunnableConfig,
     version_id: int,
-) -> str | None | Literal["pending"]:
+) -> dict[str, Any] | None | Literal["pending"]:
     """Ask agent for possible parameter revision (UI).
 
     Args:
@@ -409,15 +424,15 @@ def parameter_update_ui(
 
     if selected_mechanism == "PATEGAN":
         mech_params = {
-            "eps":param_revision.eps, "delta":1e-5, "infer_ranges":False, "num_teachers":10,
-            "n_iters":100, "batch_size":128, "learning_rate":1e-4, "multiprocess":False,
+            "eps": param_revision.eps, "delta": 1e-5, "infer_ranges": False, "num_teachers": 10,
+            "n_iters": 100, "batch_size": 128, "learning_rate": 1e-4, "multiprocess": False,
         }
         selection = ("epsilon", 1, param_revision.eps)
 
     elif selected_mechanism == "PrivBayes":
         mech_params = {
-            "histogram_bins":10, "degree":1, "epsilon":param_revision.epsilon, "infer_ranges":False,
-            "multiprocess":True, "seed":None,
+            "histogram_bins": 10, "degree": 1, "epsilon": param_revision.epsilon,
+            "infer_ranges": False, "multiprocess": True, "seed": None,
         }
         selection = ("epsilon", .1, param_revision.epsilon)
 

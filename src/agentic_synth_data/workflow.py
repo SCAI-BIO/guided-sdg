@@ -419,7 +419,7 @@ class DataGen:
         """
         prepared_path = self.save_prepared_data()
 
-        st.write(f"- Created csv for generator input: {self.prepared_path}")
+        st.write(f"- Created csv for generator input: `{self.prepared_path}`")
         return prepared_path
 
 
@@ -541,7 +541,9 @@ class DataGen:
 
         self.report.evaluate.attack = attack_metrics
 
-        self.report.evaluate.plots = generate_plots(real=real, synth=synth, version_id=self.version_id,)
+        self.report.evaluate.plots = generate_plots(
+            real=real, synth=synth, version_id=self.version_id,
+        )
 
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
@@ -617,9 +619,7 @@ class DataGen:
             self.report.evaluate.plots = generate_plots_ui(
                 real=real, synth=synth, version_id=self.version_id,
             )
-
-        st.write("---")
-
+        # Display agent evaluation of results
         self.agent_decision = evaluation_ui(
             synthesis_request=self.synthesis_request,
             syndat_metrics=syndat_metrics,
@@ -628,6 +628,7 @@ class DataGen:
             config=self.config,
         )
 
+        # Write report
         self.report.review = ReviewReport(
             problem_columns=self.agent_decision.problem_columns,
             status=self.agent_decision.status,
@@ -641,6 +642,9 @@ class DataGen:
             data_path=self.data_path,
             version_id=self.version_id,
         )
+
+        st.info(f"=> Created a report for the following version: v_{self.version_id}.")
+        # Better to include file path
 
 
     def post_evaluation_check(self):
@@ -678,6 +682,7 @@ class DataGen:
 
     def post_evaluation_check_ui(self):
         """Revise: Check in with user and possibly change the plan (UI)"""
+        # Considering revision versions
         if "revision_versions" not in st.session_state:
             st.session_state.revision_versions = []
 
@@ -893,9 +898,8 @@ class DataGen:
 
     def _reset_from_selection(self, selection:str) -> None:
         """Clears previous outputs which are expected to be updated after changing the generator,
-        missing value, or the selection of both options.
-        
-        Additionally, clears the report in the altered sections.
+        missing value, or the selection of both options. Additionally, clears the report in the
+        altered sections.
         """
         self.missing_handled_df = None
         self.prepared_df = None
@@ -910,7 +914,7 @@ class DataGen:
         self.report.gen.synth_shape = None
 
         if selection in {
-            "parameter_revision", 
+            "parameter_revision",
             "generator_parameter_selection",
             "parameter_missing_selection",
             "all", # Generator, parameter, and missing value handling selection.

@@ -5,7 +5,7 @@ import streamlit as st
 
 from agentic_synth_data.schemas.models import SynthesisRequest
 from agentic_synth_data.utils import GeneratorNameAuto, display_synthesis_request, \
-    display_synthesis_request_st, format_response, output_default_parameters, \
+    display_synthesis_request_st, format_option, format_response, output_default_parameters, \
     CategoricalChoiceAuto, NumericalChoiceAuto
 
 
@@ -207,8 +207,8 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     sample_size = st.selectbox(
-        "sample size", 
-        ["fixed value", "same as original"],
+        label="sample size",
+        options=["fixed value", "same as original"],
         label_visibility="hidden",
         index=None,
         key="preferences_sample_size",
@@ -235,8 +235,8 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     privacy = st.selectbox(
-        "privacy specification", 
-        ["yes", "no"],
+        label="privacy specification",
+        options=["yes", "no"],
         label_visibility="hidden",
         index=None,
         key="preferences_privacy",
@@ -252,8 +252,8 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     generator = st.selectbox(
-        "data generator",
-        get_args(GeneratorNameAuto.__value__),
+        label="data generator",
+        options=get_args(GeneratorNameAuto.__value__),
         label_visibility="hidden",
         index=None,
         key="preferences_generator_choice",
@@ -277,8 +277,8 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     missing_values = st.selectbox(
-        "missing strategy", 
-        ["auto", "impute", "remove"],
+        label="missing strategy",
+        options=["auto", "impute", "remove"],
         label_visibility="hidden",
         index=None,
         key="preferences_missing_value_handling",
@@ -301,11 +301,12 @@ def select_preferences_ui() -> SynthesisRequest:
         )
 
         categorical_strategy = st.selectbox(
-            "categorical strategy",
-            get_args(CategoricalChoiceAuto.__value__),
-            label_visibility="hidden",
+            label="categorical strategy",
+            options=get_args(CategoricalChoiceAuto.__value__),
+            format_func=format_option,
             index=None,
             key="preferences_categorical_strategy",
+            label_visibility="hidden",
         )
 
         if categorical_strategy is None:
@@ -327,11 +328,12 @@ def select_preferences_ui() -> SynthesisRequest:
         )
 
         numerical_strategy = st.selectbox(
-            "numerical strategy", 
-            get_args(NumericalChoiceAuto.__value__),
-            label_visibility="hidden",
+            label="numerical strategy",
+            options=get_args(NumericalChoiceAuto.__value__),
             index=None,
+            format_func=format_option,
             key="preferences_numerical_strategy",
+            label_visibility="hidden",
         )
 
         if numerical_strategy is None:

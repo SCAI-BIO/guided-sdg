@@ -308,7 +308,7 @@ def select_generator_ui(
     )
 
     st.subheader("Suggestion:")
-    st.write(f"Data generator: {generation_plan.generator}")
+    st.write(f"**Data generator:** {generation_plan.generator}")
 
     st.subheader("Pros:")
     st.write(generation_plan.pros)

@@ -211,7 +211,7 @@ def calculate_attack_metrics(
     )
 
     return AttackMetrics(
-        singling_out= so_risk,
+        singling_out=so_risk,
         inference=inference_risk,
         linkability=linkability_risk,
         cols=cols,
@@ -302,7 +302,7 @@ def calculate_attack_metrics_ui(
     write_attack_metric_ui(
         metric_name="Inference",
         metric=inference_risk,
-        description=ANONYMETER_METRIC_DESCRIPTION["inference"]
+        description=ANONYMETER_METRIC_DESCRIPTION["inference"],
     )
 
     if inference_risk_output:
@@ -328,7 +328,7 @@ def calculate_attack_metrics_ui(
     )
 
     return AttackMetrics(
-        singling_out= so_risk,
+        singling_out=so_risk,
         inference=inference_risk,
         linkability=linkability_risk,
         cols=cols,
@@ -336,7 +336,7 @@ def calculate_attack_metrics_ui(
     )
 
 
-def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[str, str]) -> None:
+def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[str, str],) -> None:
     """Display what was calculated from Anonymeter's functions and the variables that were used
     to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
     run.
@@ -378,14 +378,18 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
     expand_col_selection_ui(cols=cols)
 
     write_attack_metric_ui(
-        metric_name="Inference", metric=inference_risk, description=description["inference"],
+        metric_name="Inference",
+        metric=inference_risk,
+        description=description["inference"],
     )
 
     if outputs.inference:
         show_anonymeter_warning_ui(outputs.inference)
 
     write_attack_metric_ui(
-        metric_name="Linkability", metric=linkability_risk, description=description["linkability"],
+        metric_name="Linkability",
+        metric=linkability_risk,
+        description=description["linkability"],
     )
 
     if outputs.linkability:
@@ -485,7 +489,12 @@ def write_attack_metric_ui(metric_name: str, metric: "PrivacyRisk", description:
         f"{description}\n"
     )
 
-    display_privacy_risk_ui(f"{metric_name} risk", metric.value, metric.ci[0], metric.ci[1])
+    display_privacy_risk_ui(
+        label=f"{metric_name} risk",
+        value=metric.value,
+        ci_lower=metric.ci[0],
+        ci_upper=metric.ci[1],
+    )
 
 
 def expand_col_selection_ui(cols: AttackColumns) -> None:

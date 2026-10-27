@@ -18,7 +18,7 @@ class GeneratorRevisionOption(BaseModel):
     """Proposed generator configuration for workflow revision."""
     id: str
     generator_name: GeneratorName
-    parameters: dict[str, Any] = Field(default_factory=dict)
+    #parameters: dict[str, Any] = Field(default_factory=dict)
     reason: str
 
 

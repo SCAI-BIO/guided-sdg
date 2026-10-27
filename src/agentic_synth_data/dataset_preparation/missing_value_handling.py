@@ -8,8 +8,8 @@ from langgraph.graph.state import CompiledStateGraph
 from sklearn.impute import SimpleImputer
 import streamlit as st
 
-from agentic_synth_data.utils import CategoricalChoiceAuto, NumericalChoiceAuto, format_response, \
-    info_helper_message, invoke_agent, display_synthesis_request, SemanticTypes
+from agentic_synth_data.utils import CategoricalChoiceAuto, NumericalChoiceAuto, format_option, \
+    format_response, info_helper_message, invoke_agent, display_synthesis_request, SemanticTypes
 from agentic_synth_data.prompts.missing_value_prompt import missing_value_prompt, missing_feedback
 from agentic_synth_data.schemas.missing_model import MissingHandling
 from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
@@ -26,8 +26,8 @@ def update_missing_value_choice(synthesis_request: SynthesisRequest) -> Synthesi
         SynthesisRequest: Updated synthesis request.
     """
     choice = pyip.inputMenu(
-        ["auto", "impute", "threshold"],
-        "\nPlease select another method to handle missing values:\n",
+        choices=["auto", "impute", "threshold"],
+        prompt="\nPlease select another method to handle missing values:\n",
         numbered=True
     )
     synthesis_request.missing_values.mode = choice
@@ -42,9 +42,9 @@ def update_missing_value_choice(synthesis_request: SynthesisRequest) -> Synthesi
 
     elif choice == "impute":
         cat_choice = pyip.inputMenu(
-            get_args(CategoricalChoiceAuto.__value__),
-            "\nHow would you like to handle missing categorical values? Select 'auto' if you" \
-            " would like a suggestion.\n", 
+            choices=get_args(CategoricalChoiceAuto.__value__),
+            prompt="\nHow would you like to handle missing categorical values? Select 'auto' " \
+                "if you would like a suggestion.\n",
             numbered=True,
         )
 
@@ -52,9 +52,11 @@ def update_missing_value_choice(synthesis_request: SynthesisRequest) -> Synthesi
             cat_choice = "most_frequent"
 
         num_choice = pyip.inputMenu(
-            get_args(NumericalChoiceAuto.__value__),
-            "\nHow would you like to handle missing numerical values? Select 'auto' if you would" \
-            " like a suggestion.\n", 
+            choices=get_args(NumericalChoiceAuto.__value__),
+            prompt=(
+                "\nHow would you like to handle missing numerical values? Select 'auto' if you "
+                "would like a suggestion.\n"
+            ),
             numbered=True,
         )
 
@@ -104,6 +106,7 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
             label="Update missing value handling choice",
             options=get_args(CategoricalChoiceAuto.__value__),
             index=None,
+            format_func=format_option,
             key="update_categorical_strategy",
         )
 
@@ -111,6 +114,7 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
             label="Update missing value handling choice",
             options=get_args(NumericalChoiceAuto.__value__),
             index=None,
+            format_func=format_option,
             key="update_numerical_strategy",
         )
 
@@ -492,25 +496,25 @@ def handle_missing_values_ui(
             key="missing_handling_info",
         )
 
-        st.write("Suggested plan:")
-        st.write(f"- Mode: {updated_plan['mode']}")
+        st.write("#### Suggested plan:")
+        st.write(f"- **Mode:** {updated_plan['mode']}")
 
         if updated_plan["set_threshold"] is not None:
-            st.write(f"- Threshold: {updated_plan['set_threshold']}")
+            st.write(f"- **Threshold:** {updated_plan['set_threshold']}")
 
         if updated_plan["imputation_method"] is not None:
-            st.write(f"- Imputation method: {updated_plan['imputation_method']}")
+            st.write(f"- **Imputation method:** {updated_plan['imputation_method']}")
 
         if updated_plan["categorical_strategy"] is not None:
-            st.write(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
+            st.write(f"- **Categorical strategy:** {updated_plan['categorical_strategy']}")
 
         if updated_plan["numerical_strategy"]:
-            st.write(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
+            st.write(f"- **Numerical strategy:** {updated_plan['numerical_strategy']}")
 
         if len(updated_plan["warning"]) > 0:
-            st.warning(f"- Warning: {updated_plan['warning'][0]}")
+            st.warning(f"- **Warning:** {updated_plan['warning'][0]}")
 
-        st.write("Rationale behind the suggestion:")
+        st.write("#### Rationale behind the suggestion:")
         st.write(updated_plan["rationale"])
 
         if st.session_state.get("missing_handling_complete", False):
@@ -522,8 +526,8 @@ def handle_missing_values_ui(
                 st.session_state.missing_check_version = 0
 
             confirm = st.selectbox(
-                "Would you like to proceed with the suggestion?",
-                ["yes", "no"],
+                label="Would you like to proceed with the suggestion?",
+                options=["yes", "no"],
                 index=None,
                 key=f"missing_handling_check_suggestion_{st.session_state.missing_check_version}",
             )
@@ -592,8 +596,8 @@ def handle_missing_values_ui(
         )
 
         confirm = st.selectbox(
-            "Confirm whether this should be done:",
-            ["yes", "no"],
+            label="Confirm whether this should be done:",
+            options=["yes", "no"],
             index=None,
         )
 
@@ -627,7 +631,10 @@ def handle_missing_values_ui(
         num_cols = grouped.get("Integer", []) + grouped.get("Float", [])
 
         df = df.copy()
-        st.write("\nReview of missing value handling results:")
+
+        st.write("---")
+
+        st.write("#### Review of missing value handling results:")
 
         # Categorical value imputation
         cat_strategy = synthesis_request.missing_values.impute.categorical_strategy
@@ -674,9 +681,9 @@ def handle_missing_values_ui(
             )
 
             st.write(
-                f"- There are {df[num_cols].isna().sum().sum()} remaining null values"
-                " in the numerical columns."
+                f"- There are {df[num_cols].isna().sum().sum()} remaining null values in the "
+                "numerical columns."
             )
 
-        st.write(f"\n=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
+        st.info(f"=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
         return df, synthesis_request

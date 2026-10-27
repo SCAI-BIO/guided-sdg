@@ -115,9 +115,9 @@ def evaluation_ui(
     )
 
     st.subheader("Evaluation:")
-    st.write(f"- Status: {eval_plan.status}")
+    st.write(f"- **Status:** {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
-        st.write(f"- Problem columns: {eval_plan.problem_columns}")
+        st.write(f"- **Problem columns:** {eval_plan.problem_columns}")
     st.write(
         "#### - Recommendation:\n"
         f"{eval_plan.recommendation}\n"

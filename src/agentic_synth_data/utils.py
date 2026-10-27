@@ -49,14 +49,14 @@ type GeneratorNameAuto = Literal["auto", "PATEGAN", "CTGAN", "PrivBayes", "Bayes
 
 # Imputation specification for categorical or numerical null values
 # a: Primary options
-type CategoricalChoice = Literal["most frequent", "constant",]
+type CategoricalChoice = Literal["most_frequent", "constant",]
 
-type NumericalChoice = Literal["mean", "median", "most frequent",]
+type NumericalChoice = Literal["mean", "median", "most_frequent",]
 
 # b: If agent-assisted selection is permitted
-type CategoricalChoiceAuto = Literal["auto", "most frequent", "constant",]
+type CategoricalChoiceAuto = Literal["auto", "most_frequent", "constant",]
 
-type NumericalChoiceAuto = Literal["auto", "mean", "median", "most frequent",]
+type NumericalChoiceAuto = Literal["auto", "mean", "median", "most_frequent",]
 
 
 # ============================================================================
@@ -225,6 +225,11 @@ def info_helper_message(message: str, context: str, key: str,) -> None:
         )
 
 
+def format_option(value: str) -> str:
+    """Replace underscores with spaces for display (UI)."""
+    return value.replace("_", " ")
+
+
 # ============================================================================
 # Agent helpers
 # ============================================================================
@@ -255,16 +260,24 @@ def parse_json(
         result = model_cls.model_validate_json(plan)
 
     except Exception as error:
-        message = (
-            "Agent response could not be parsed. Asking agent to repair the response..."
-            f"Error: {type(error).__name__}: {error}"
-        )
+        message = "Agent response could not be parsed. Asking agent to repair the response..."
 
         if ui:
-            st.warning(message)
+            with st.expander("Agent JSON response"):
+                st.code(
+                    "\n".join(
+                        f"{i}: {line}"
+                        for i, line in enumerate(plan.splitlines(), 1)
+                    ),
+                    language="json",
+                )
+
+            # st.warning(message)
+            # with st.expander("Validation error details"):
+            #     st.code(f"{type(error).__name__}: {error}")
 
         else:
-            print(f"\n{message}")
+            print(f"\n{message}\nError: {type(error).__name__}: {error}")
 
         repair_prompt = json_repair_prompt(error, plan, model_cls)
 
