@@ -196,6 +196,8 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
         with st.expander("UserWarning: Some variables may have been excluded during computation."):
             st.warning(metrics.output_messages.jsd)
 
+    st.write("---")
+
     # Normalized correlation difference:
     st.write("#### Normalized correlation difference:")
     st.write(
@@ -213,6 +215,8 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
             "UserWarning: Click to see output while calculating normalized correlation difference."
         ):
             st.warning(metrics.output_messages.norm_corr_diff)
+
+    st.write("---")
 
     # Discriminator AUC:
     if metrics.discrim_auc is None:

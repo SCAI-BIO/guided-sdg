@@ -114,17 +114,27 @@ def evaluation_ui(
         key="agent_eval_synth_data_info",
     )
 
+    display_agent_evaluation_ui(agent_decision=eval_plan,)
+
+    return eval_plan
+
+
+def display_agent_evaluation_ui(agent_decision: AgentEval) -> None:
+    """Display the agent's evaluation (UI).
+
+    Args:
+        agent_decision (AgentEval): The decision plan based on the agent's assessment.
+    """
     st.subheader("Evaluation:")
-    st.write(f"- **Status:** {eval_plan.status}")
-    if len(eval_plan.problem_columns) > 0:
-        st.write(f"- **Problem columns:** {eval_plan.problem_columns}")
+    st.write(f"- **Status:** {agent_decision.status}")
+    if len(agent_decision.problem_columns) > 0:
+        st.write(f"- **Problem columns:** {agent_decision.problem_columns}")
     st.write(
         "#### - Recommendation:\n"
-        f"{eval_plan.recommendation}\n"
+        f"{agent_decision.recommendation}\n"
         "#### - Rationale:\n"
-        f"{eval_plan.rationale}"
+        f"{agent_decision.rationale}"
     )
-    return eval_plan
 
 
 def evaluation_review(
@@ -244,8 +254,8 @@ def evaluation_review_ui(
     st.write(f"Workflow result status: {agent_decision.status}")
 
     choice = st.selectbox(
-        "Would you like to finish or revise the workflow?",
-        ["finish", "revise"],
+        label="Would you like to finish or revise the workflow?",
+        options=["finish", "revise"],
         index=None,
         key=f"evaluation_workflow_choice_{version_id}",
     )

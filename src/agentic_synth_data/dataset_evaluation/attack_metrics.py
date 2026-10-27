@@ -225,6 +225,7 @@ def calculate_attack_metrics_ui(
     synth: pd.DataFrame,
     stypes: SemanticTypes,
     dtypes: dict[str, str],
+    key_prefix: str,
     agent: Optional[CompiledStateGraph] | None = None,
     config: RunnableConfig | None = None,
 ) -> AttackMetrics:
@@ -272,10 +273,13 @@ def calculate_attack_metrics_ui(
         metric_name="Singling out",
         metric=so_risk,
         description=ANONYMETER_METRIC_DESCRIPTION["singling_out"],
+        key_prefix=key_prefix,
     )
 
     if so_risk_output:
         show_anonymeter_warning_ui(so_risk_output)
+
+    st.write("---")
 
     # Select columns for inference and linkability risk:
     with st.spinner("Agent is selecting columns to calculate metrics..."):
@@ -290,10 +294,12 @@ def calculate_attack_metrics_ui(
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",
         context="The agent was reminded of the variable names and their semantic types.",
-        key="privacy_metric_column_selection",
+        key=f"{key_prefix}_privacy_metric_column_selection",
     )
 
     expand_col_selection_ui(cols=cols)
+
+    st.write("---")
 
     # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
@@ -303,10 +309,13 @@ def calculate_attack_metrics_ui(
         metric_name="Inference",
         metric=inference_risk,
         description=ANONYMETER_METRIC_DESCRIPTION["inference"],
+        key_prefix=key_prefix,
     )
 
     if inference_risk_output:
         show_anonymeter_warning_ui(inference_risk_output)
+
+    st.write("---")
 
     # Calculate linkability risk:
     with st.spinner("Evaluating linkability risk..."):
@@ -316,6 +325,7 @@ def calculate_attack_metrics_ui(
         metric_name="Linkability",
         metric=linkability_risk,
         description=ANONYMETER_METRIC_DESCRIPTION["linkability"],
+        key_prefix=key_prefix
     )
 
     if link_risk_output:
@@ -336,7 +346,9 @@ def calculate_attack_metrics_ui(
     )
 
 
-def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[str, str],) -> None:
+def display_attack_metrics_ui(
+    attack_metrics: AttackMetrics, description: dict[str, str], key_prefix: str,
+) -> None:
     """Display what was calculated from Anonymeter's functions and the variables that were used
     to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
     run.
@@ -364,6 +376,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
         metric_name="Singling out",
         metric=singling_out_risk,
         description=description["singling_out"],
+        key_prefix=key_prefix,
     )
 
     if outputs.singling_out:
@@ -372,7 +385,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",
         context="The agent was reminded of the variable names and their semantic types.",
-        key="privacy_metric_column_selection_displayed",
+        key=f"{key_prefix}_privacy_metric_column_selection_displayed",
     )
 
     expand_col_selection_ui(cols=cols)
@@ -381,6 +394,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
         metric_name="Inference",
         metric=inference_risk,
         description=description["inference"],
+        key_prefix=key_prefix,
     )
 
     if outputs.inference:
@@ -390,6 +404,7 @@ def display_attack_metrics_ui(attack_metrics: AttackMetrics, description: dict[s
         metric_name="Linkability",
         metric=linkability_risk,
         description=description["linkability"],
+        key_prefix=key_prefix,
     )
 
     if outputs.linkability:
@@ -431,7 +446,9 @@ def show_anonymeter_warning_ui(output: str) -> None:
             st.warning(output)
 
 
-def display_privacy_risk_ui(label: str, value: float, ci_lower: float, ci_upper: float,) -> None:
+def display_privacy_risk_ui(
+    label: str, value: float, ci_lower: float, ci_upper: float, key_prefix=str,
+) -> None:
     """Display a privacy risk estimate and its confidence interval (UI).
 
     Args:
@@ -471,12 +488,14 @@ def display_privacy_risk_ui(label: str, value: float, ci_lower: float, ci_upper:
         yaxis={"visible": False, "range":[-1, 1],},
     )
 
-    st.plotly_chart(fig, width="stretch", key=f"privacy_risk_{label}",)
+    st.plotly_chart(fig, width="stretch", key=f"{key_prefix}_privacy_risk_{label}",)
 
     st.caption(f"95% confidence interval: {ci_lower:.1%} – {ci_upper:.1%}")
 
 
-def write_attack_metric_ui(metric_name: str, metric: "PrivacyRisk", description: str,) -> None:
+def write_attack_metric_ui(
+    metric_name: str, metric: "PrivacyRisk", description: str, key_prefix: str,
+) -> None:
     """Display privacy metric information.
 
     Args:
@@ -494,6 +513,7 @@ def write_attack_metric_ui(metric_name: str, metric: "PrivacyRisk", description:
         value=metric.value,
         ci_lower=metric.ci[0],
         ci_upper=metric.ci[1],
+        key_prefix=key_prefix,
     )
 
 

@@ -13,13 +13,13 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import evaluation, evaluation_ui, \
-    evaluation_review_ui, evaluation_review
+from agentic_synth_data.dataset_evaluation.evaluation import display_agent_evaluation_ui, \
+    evaluation, evaluation_ui, evaluation_review_ui, evaluation_review
 from agentic_synth_data.dataset_evaluation.attack_metrics import calculate_attack_metrics, \
     calculate_attack_metrics_ui, display_attack_metrics_ui, ANONYMETER_METRIC_DESCRIPTION
 from agentic_synth_data.report import write_report
 from agentic_synth_data.dataset_evaluation.syndat_metrics import calculate_metrics, \
-    calculate_metrics_ui, generate_plots, generate_plots_ui
+    calculate_metrics_ui, generate_plots, generate_plots_ui, display_metrics_ui
 from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.dataset_preparation.load_dataframe import load_df
@@ -595,6 +595,7 @@ class DataGen:
                     synth=synth,
                     stypes=self.semantic_types,
                     dtypes=self.python_dtypes,
+                    key_prefix=f"calculation_v{self.version_id}",
                     agent=self.agent,
                     config=self.config,
                 )
@@ -607,6 +608,7 @@ class DataGen:
                 display_attack_metrics_ui(
                     attack_metrics=attack_metrics,
                     description=ANONYMETER_METRIC_DESCRIPTION,
+                    key_prefix=f"evaluation_v{self.version_id}",
                 )
 
         self.report.evaluate.attack = attack_metrics
@@ -689,39 +691,47 @@ class DataGen:
         if "revision_pending_from" not in st.session_state:
             st.session_state.revision_pending_from = None
 
+        # Review interface
+        review_container = st.empty()
+        revision_container = st.empty()
+
         if st.session_state.revision_pending_from == self.version_id:
-            selected_updates = plan_update_ui(
-                synthesis_request=self.synthesis_request,
+            review_container.empty()
+
+            with revision_container.container():
+                selected_updates = plan_update_ui(
+                    synthesis_request=self.synthesis_request,
+                    agent_decision=self.agent_decision,
+                    report=self.report,
+                    agent=self.agent,
+                    config=self.config,
+                    version_id=self.version_id,
+                )
+
+                if selected_updates is not None:
+                    for key, value in selected_updates.items():
+                        if key == "update_params":
+                            self.report.update.selected_plan_updates[key] = value
+                        else:
+                            self.report.update.selected_plan_updates[key] = value.model_dump()
+
+                    revised = self.create_revision_ui(selected_updates)
+
+                    st.session_state.current_revision = revised
+                    st.session_state.revision_history[revised.version_id] = revised
+                    st.session_state.revision_pending_from = None
+
+                    st.rerun()
+
+            return self
+
+        with review_container.container():
+            choice = evaluation_review_ui(
                 agent_decision=self.agent_decision,
-                report=self.report,
                 agent=self.agent,
                 config=self.config,
                 version_id=self.version_id,
             )
-
-            if selected_updates is not None:
-                for key, value in selected_updates.items():
-                    if key == "update_params":
-                        self.report.update.selected_plan_updates[key] = value
-                    else:
-                        self.report.update.selected_plan_updates[key] = value.model_dump()
-
-                revised = self.create_revision_ui(selected_updates)
-
-                st.session_state.current_revision = revised
-                st.session_state.revision_history[revised.version_id] = revised
-                st.session_state.revision_pending_from = None
-
-                st.rerun()
-
-            return self
-
-        choice = evaluation_review_ui(
-            agent_decision=self.agent_decision,
-            agent=self.agent,
-            config=self.config,
-            version_id=self.version_id,
-        )
 
         if choice == "revise":
             next_version = self.version_id + 1
@@ -732,6 +742,8 @@ class DataGen:
             st.session_state.revision_pending_from = self.version_id
             st.session_state.pending_active_revision_tab = f"Revision {next_version - 1}"
 
+            # Clear the previous review interface
+            review_container.empty()
             st.rerun()
 
         return self
@@ -864,20 +876,26 @@ class DataGen:
 
     def _rerun_selection_ui(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps (UI)."""
-        if "update_mech" in update_plan:
-            generator_name = update_plan['update_mech'].generator_name
+        with st.container(border=True):
+            st.success("Revision choices confirmed")
+            # TODO: show previous choices and what specifically was changed, even with an arrow.
 
-            st.write(f"New generator: {generator_name}\n\nReason:\n")
-            st.write(update_plan['update_mech'].reason)
+            if "update_mech" in update_plan:
+                generator_name = update_plan['update_mech'].generator_name
 
-        if "update_params" in update_plan:
-            st.write(f"New parameter configuration: {update_plan['update_params']}")
+                # TODO: show previous generator if gneerator changed
 
-        if "update_missing" in update_plan:
-            st.write(
-                f"New missing handling strategy: {update_plan['update_missing'].mode}\n"
-                f"Reason: {update_plan['update_missing'].reason}"
-            )
+                st.write(f"**Current generator:** {generator_name}\n\n**Reason:**\n")
+                st.write(update_plan['update_mech'].reason)
+
+            if "update_params" in update_plan:
+                st.write(f"**New parameter configuration:** {update_plan['update_params']}")
+
+            if "update_missing" in update_plan:
+                st.write(
+                    f"**New missing handling strategy:** {update_plan['update_missing'].mode}\n"
+                    f"**Reason:** {update_plan['update_missing'].reason}"
+                )
 
         self.report.update.selected_plan_updates = {}
 
@@ -1012,3 +1030,30 @@ class DataGen:
             option = updates["update_missing"]
             st.write(f"Missing value handling: {option['mode']}")
             st.write(f"Reason: {option['reason']}")
+
+
+    def display_revision_results_ui(self) -> None:
+        """Display previously generated and evaluated revision results (UI)."""
+
+        # Synthetic dataset
+        if self.synthetic_df is not None:
+            st.subheader("Synthetic dataset")
+            st.dataframe(self.synthetic_df.head())
+
+        # Evaluation metrics
+        col1, col2 = st.columns(2)
+        with col1:
+            if self.report.evaluate.syndat is not None:
+                display_metrics_ui(metrics=self.report.evaluate.syndat,)
+
+        with col2:
+            if self.report.evaluate.attack is not None:
+                display_attack_metrics_ui(
+                    attack_metrics=self.report.evaluate.attack,
+                    description=ANONYMETER_METRIC_DESCRIPTION,
+                    key_prefix=f"review_v{self.version_id}",
+                )
+
+        # Agent evaluation
+        if self.agent_decision is not None:
+            display_agent_evaluation_ui(self.agent_decision)
