@@ -326,7 +326,9 @@ def select_generator_ui(
         st.info(f"=> {generation_plan.generator} has been approved.")
         return st.session_state.approved_synthesis_request
 
-    st.header("Do you approve using the suggested generator?")
+    st.write("---")
+
+    st.subheader("Do you approve using the suggested generator?")
     decision = st.selectbox(
         "Do you approve using the suggested generator?",
         ["approve", "choose another", "discuss",],

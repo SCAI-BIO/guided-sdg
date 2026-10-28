@@ -608,7 +608,7 @@ def version_tabs_ui(
         f"{label} {version - 1 if label == 'Revision' else version}"
         for version in versions
     ]
-    #labels = [f"{label} {version - 1}" for version in versions]
+
     tabs = st.tabs(labels, key=key, on_change="rerun",)
 
     return dict(zip(versions, tabs))

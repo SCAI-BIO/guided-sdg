@@ -51,7 +51,7 @@ class DataGen:
     # ============================================================================
     # Initialization and configuration
     # ============================================================================
-    
+
     def __init__(self, data_path):
         # Workflow identification and revision state
         self.data_path: str = data_path
@@ -68,6 +68,7 @@ class DataGen:
         # Dataframes
         self.source_df: pd.DataFrame | None = None # Original data
         self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
+        self.selected_df: pd.DataFrame | None = None # Covariate exclusion
         self.train_df: pd.DataFrame | None = None # Training
         self.test_df: pd.DataFrame | None = None # Evaluation (mainly anonymeter)
         self.dtype_handled_df: pd.DataFrame | None = None # dtype prepared data
@@ -265,9 +266,51 @@ class DataGen:
 
         df_formatter_st(final_dtypes)
 
-        # possible TODO: Leave train test split to when continue is pressed (maybe a 1 second delay before next page).
-        self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
-        st.info("=> Created train/test split") # TODO: show how many train and how many test?
+        st.write("---")
+        # Granted, this deviates from CLI...
+        # TODO: include CLI implementation of this
+        # TODO: also must consider when missing value handling is applied.
+        st.subheader("Covariate exclusion")
+
+        cols = self.dtype_handled_df.columns.tolist()
+
+        selected_cols = st.multiselect(
+            label="Select the features that should be retained for synthetic data generation. " \
+                "Unselected features will be excluded.",
+            options=cols,
+            default=cols,
+            key="selected_covariates",
+        )
+
+        if not selected_cols:
+            st.warning("Select at least one column.")
+            st.stop()
+
+        st.write(
+            "The following features will be retained for synthetic data generation:",
+            selected_cols, # View is not as user-friendly as I would like...
+        )
+
+        finished = st.button(label="Continue with the current selection.",)
+
+        if not finished:
+            st.stop()
+
+        self.selected_df = self.dtype_handled_df[selected_cols].copy()
+
+        # Update stypes and dtypes to exclude selected cols
+        self.semantic_types = {col: self.semantic_types[col] for col in self.selected_df.columns}
+        self.python_dtypes = {col: self.python_dtypes[col] for col in self.selected_df.columns}
+
+        self.report.prep.dtypes = self.python_dtypes # possibly delete previous values...
+        self.report.prep.stypes = self.semantic_types
+
+        self.train_df, self.test_df = train_test_split(self.selected_df, test_size=0.2)
+
+        st.info(
+            f"=> Created test/train split: {len(self.train_df)} training rows and "
+            f"{len(self.test_df)} testing rows."
+        )
         return self.train_df
 
 
@@ -367,7 +410,7 @@ class DataGen:
         """Step 3: Preprocess
             iv. Handle missing values (if needed for the generator) (UI)
         """
-        self.report.prep.missing_before = self.dtype_handled_df.isna().sum().sum()
+        self.report.prep.missing_before = self.selected_df.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -391,7 +434,7 @@ class DataGen:
 
             return self.prepared_df, self.synthesis_request
 
-        self.prepared_df = self.dtype_handled_df.copy()
+        self.prepared_df = self.train_df.copy()
         self.report.input.prepared_shape = self.prepared_df.shape
         self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
 
@@ -619,6 +662,8 @@ class DataGen:
         else:
             real = self.source_df.copy()
 
+        real = real[self.selected_df.columns].copy()
+
         real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.semantic_types,)
 
         col1, col2 = st.columns(2)
@@ -690,9 +735,12 @@ class DataGen:
 
         data_name = Path(self.data_path.stem)
 
+        report_dir = (
+            OUTPUT_DIR / f'version_{self.version_id}' / f'report_{data_name}_v{self.version_id}.md'
+        )
+
         st.info(
-            f"=> Created a report for version_{self.version_id}: "
-            f"`{OUTPUT_DIR} / f"version_{self.version_id}" / f"report_{data_name}_v{self.version_id}.md`."
+            f"=> Created a report for version_{self.version_id}: `{report_dir}`"
         )
 
 
@@ -821,6 +869,7 @@ class DataGen:
 
         revised.source_df = self.source_df.copy()
         revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
+        revised.selected_df = self.selected_df.copy()
         revised.dtype_handled_df = self.dtype_handled_df.copy()
         revised.train_df = self.train_df.copy()
         revised.test_df = self.test_df.copy()
@@ -857,6 +906,7 @@ class DataGen:
 
         revised.source_df = self.source_df.copy()
         revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
+        revised.selected_df = self.selected_df.copy()
         revised.dtype_handled_df = self.dtype_handled_df.copy()
         revised.train_df = self.train_df.copy()
         revised.test_df = self.test_df.copy()
@@ -1046,6 +1096,7 @@ class DataGen:
     # Display previously completed results (UI)
     # ============================================================================
 
+    # TODO: Improve how revised values are displayed.
     def display_revision_summary_ui(self) -> None:
         """Display previously selected revision changes (UI)."""
         updates = self.report.update.selected_plan_updates

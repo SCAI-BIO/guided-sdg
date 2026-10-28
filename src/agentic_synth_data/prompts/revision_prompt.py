@@ -121,7 +121,7 @@ def parameter_revision_message(selected_mechanism: GeneratorName) -> str:
 
     Parameters that can be changed for each model:
     PATEGAN:
-    - eps: integer between 0 and 10
+    - eps: integer between 0 and 7
     PrivBayes:
     - epsilon: float between 0.0 and 1.0
     CTGAN: No parameter updates allowed.

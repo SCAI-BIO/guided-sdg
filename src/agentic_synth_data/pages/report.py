@@ -35,8 +35,6 @@ for version_id, tab in revision_tabs.items():
 
         report_path = OUTPUT_DIR / f"version_{version_id}" / f"report_{data_name}_v{version_id}.md"
 
-        st.subheader(f"Report — Version {version_id}")
-
         if report_path.exists():
             report_content = report_path.read_text(encoding="utf-8")
             st.markdown(report_content)
@@ -50,3 +48,8 @@ for version_id, tab in revision_tabs.items():
 
         else:
             st.info(f"No report available for version {version_id}.")
+
+# TODO: Add a method to compare reports...
+    # For each report, add a checkbox to select which version reports to be compared
+        # st.checkbox("Are these correct?")
+        # Maybe set a max of 3? (Perhaps start without limiting it for now though...)

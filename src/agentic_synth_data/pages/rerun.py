@@ -1,7 +1,10 @@
 import streamlit as st
 
-from agentic_synth_data.rerun_workflow import revision_tabs_ui
+from agentic_synth_data.rerun_workflow import version_tabs_ui
 from agentic_synth_data.utils import page_navigation
+from agentic_synth_data.dataset_evaluation.syndat_metrics import display_metrics_ui
+from agentic_synth_data.dataset_evaluation.attack_metrics import ANONYMETER_METRIC_DESCRIPTION, \
+    display_attack_metrics_ui
 
 
 st.sidebar.title("GuidedSDG")
@@ -22,30 +25,33 @@ st.write(
     "- Missing value handling decision."
 )
 
-gen = st.session_state.get("current_revision", st.session_state.gen)
-
+# Initialize revision history
 if "revision_history" not in st.session_state:
-    st.session_state.revision_history = {}
+    st.session_state.revision_history = {1: st.session_state.gen,}
 
-st.session_state.revision_history[1] = st.session_state.gen
+initial = st.session_state.revision_history[1]
+gen = st.session_state.get("current_revision", initial,)
 
-############################
-st.write("Current version:", gen.version_id)
-st.write(
-    "Stored revision:",
-    st.session_state.current_revision.version_id
-    if "current_revision" in st.session_state
-    else None,
-)
-st.write("Has pending plan:", gen.pending_revision_plan is not None)
-############################
+with st.expander(
+    "Click to review fidelity, utility, and privacy metrics from the initial version."
+):
+    col1, col2 = st.columns(2)
+    with col1:
+        display_metrics_ui(metrics=initial.report.evaluate.syndat,)
+
+    with col2:
+        display_attack_metrics_ui(
+            attack_metrics=initial.report.evaluate.attack,
+            description=ANONYMETER_METRIC_DESCRIPTION,
+            key_prefix="initial_review",
+        )
 
 pending_tab = st.session_state.pop("pending_active_revision_tab", None)
 
 if pending_tab is not None:
     st.session_state.active_revision_tab = pending_tab
 
-revision_tabs = revision_tabs_ui()
+revision_tabs = version_tabs_ui()
 
 # Original workflow (prior to revisions existing)
 if not revision_tabs:
@@ -76,16 +82,15 @@ for version_id, tab in revision_tabs.items():
         # Execute pending revision
         if revision.pending_revision_plan is not None:
             revision._rerun_selection_ui(revision.pending_revision_plan)
-
             revision.pending_revision_plan = None
 
-            if version_id == gen.version_id:
-                revision.post_evaluation_check_ui()
+            st.rerun()
 
-        # TODO: Display completed revision
-        else:
-            if version_id == gen.version_id:
-                revision.post_evaluation_check_ui()
+        revision.display_revision_summary_ui()
+        revision.display_revision_results_ui()
+
+        if version_id == gen.version_id:
+            revision.post_evaluation_check_ui()
 
 page_navigation(
     back_page="pages/evaluate.py",

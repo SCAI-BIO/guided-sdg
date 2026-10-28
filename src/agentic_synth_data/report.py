@@ -105,6 +105,8 @@ def write_report(
         "Semantic type": report.prep.stypes.values(),
     })
 
+    # TODO: add train/test split information
+
     def display_plots(paths: list[Path]) -> str:
         return "\n\n".join(
             f"![{path.stem}]({path.relative_to(output_dir).as_posix()})"
@@ -119,15 +121,13 @@ def write_report(
     # Correlation plots
     correlation_paths = report.evaluate.plots.get("correlations", [])
 
-    original_correlations = display_plots([
-        path for path in correlation_paths
-        if "real" in path.stem.lower() or "original" in path.stem.lower()
-    ])
+    original_correlations = display_plots(
+        [path for path in correlation_paths if "real_corr" in path.stem.lower()]
+    )
 
-    synthetic_correlations = display_plots([
-        path for path in correlation_paths
-        if "synthetic" in path.stem.lower() or "synth" in path.stem.lower()
-    ])
+    synthetic_correlations = display_plots( # NOTE: synthetic_corr is misspelled.
+        [path for path in correlation_paths if "syntehtic_corr" in path.stem.lower()]
+    )
 
     # SHAP plots
     shap_plots = display_plots(report.evaluate.plots.get("shap", []))
