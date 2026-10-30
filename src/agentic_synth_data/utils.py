@@ -9,6 +9,7 @@ from pandas.io.formats.style import Styler
 from pydantic import BaseModel
 from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
+import st_yled
 
 from agentic_synth_data.prompts.system_prompt import json_repair_prompt
 
@@ -129,13 +130,13 @@ def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
     Args:
         synthesis_request (SynthesisRequest): User preferences for data synthesis.
     """
-    st.write(f"\n**Sample size mode:** {synthesis_request.sample_size.mode}")
+    st.write(f"\n**Sample size mode:** {format_option(synthesis_request.sample_size.mode)}")
 
     if synthesis_request.sample_size.fixed_value is not None:
         st.write(f"**Sample size:** {synthesis_request.sample_size.fixed_value}")
 
     st.write(
-        f"**Privacy mode:** {synthesis_request.privacy.mode}\n\n"
+        f"**Privacy mode:** {format_option(synthesis_request.privacy.mode)}\n\n"
         f"**Generator:** {synthesis_request.generator.name}\n\n"
         f"**Missing value handling:** {synthesis_request.missing_values.mode}"
     )
@@ -144,13 +145,13 @@ def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
         st.write(
             f"- **Imputer:** {synthesis_request.missing_values.impute.method}\n\n"
             "- **Categorical strategy:** "
-            f"{synthesis_request.missing_values.impute.categorical_strategy}\n\n"
+            f"{format_option(synthesis_request.missing_values.impute.categorical_strategy)}\n\n"
             "- **Numerical strategy:** "
-            f"{synthesis_request.missing_values.impute.numerical_strategy}"
+            f"{format_option(synthesis_request.missing_values.impute.numerical_strategy)}"
         )
 
 
-def page_navigation(back_page: str, next_page: str, next_disabled: bool=False,):
+def page_navigation(back_page: str, next_page: str, next_disabled: bool = False,):
     """Page navigation buttons to either go back or forward in the workflow.
 
     Args:
@@ -223,6 +224,36 @@ def info_helper_message(message: str, context: str, key: str,) -> None:
             type="tertiary",
             key=key,
         )
+
+
+def display_workflow_progress(text: str) -> None:
+    """Display a persistent workflow indicator in the Streamlit header.
+
+    Args:
+        text (str): Workflow progress text to display.
+    """
+    # Used to prevent sticky header from blocking interactions with Streamlit icons.
+    st.html("""
+    <style>
+        [class*="st-key-workflow-header"] {
+            pointer-events: none !important;
+        }
+
+        [class*="st-key-workflow-header"] * {
+            pointer-events: none !important;
+        }
+    </style>
+    """)
+
+    with st_yled.sticky_header(
+        height="56px",
+        background_color="transparent",
+        vertical_alignment="center",
+        horizontal_alignment="center",
+        padding="0px 16px",
+        key="workflow-header",
+    ):
+        st.write(text)
 
 
 def format_option(value: str) -> str:
@@ -316,11 +347,10 @@ def invoke_agent(
     prompt: str,
     model_cls: type[T],
     agent: Optional[CompiledStateGraph],
-    config: RunnableConfig | None,
+    config: RunnableConfig,
     root: Literal[False] = False,
     ui: bool = False,
-) -> T:
-    ...
+) -> T: ...
 
 
 @overload
@@ -328,18 +358,17 @@ def invoke_agent(
     prompt: str,
     model_cls: type[T],
     agent: Optional[CompiledStateGraph],
-    config: RunnableConfig | None,
+    config: RunnableConfig,
     root: Literal[True],
     ui: bool = False,
-) -> SemanticTypes:
-    ...
+) -> SemanticTypes: ...
 
 
 def invoke_agent(
     prompt: str,
     model_cls: type[T],
     agent: Optional[CompiledStateGraph],
-    config: RunnableConfig | None,
+    config: RunnableConfig,
     root: bool = False,
     ui: bool = False,
 ) -> T | SemanticTypes:

@@ -286,10 +286,7 @@ class DataGen:
             st.warning("Select at least one column.")
             st.stop()
 
-        st.write(
-            "The following features will be retained for synthetic data generation:",
-            selected_cols, # View is not as user-friendly as I would like...
-        )
+        st.write(f"The following features will be retained: {selected_cols}")
 
         finished = st.button(label="Continue with the current selection.",)
 
@@ -845,6 +842,12 @@ class DataGen:
             review_container.empty()
             st.rerun()
 
+        if choice == "finish":
+            st.info("The workflow has been completed.")
+            # TODO: redirect to download synthetic data for the preferred version
+            # Click here to download the most recent synthetic dataset or to review actions committed in the report
+            # show all (show hte same for the reports seciton)
+
         return self
 
 
@@ -1141,6 +1144,8 @@ class DataGen:
                     description=ANONYMETER_METRIC_DESCRIPTION,
                     key_prefix=f"review_v{self.version_id}",
                 )
+
+        # TODO: add some sort of metric summary.
 
         # Agent evaluation
         if self.agent_decision is not None:

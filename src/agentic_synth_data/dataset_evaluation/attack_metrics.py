@@ -276,6 +276,7 @@ def calculate_attack_metrics_ui(
         key_prefix=key_prefix,
     )
 
+    # TODO: Replace user path name as usr for the output messages (agent will see file path but not user id).
     if so_risk_output:
         show_anonymeter_warning_ui(so_risk_output)
 
@@ -524,7 +525,7 @@ def expand_col_selection_ui(cols: AttackColumns) -> None:
         cols (AttackColumns): Agent suggested attack columns for inference and linkability
             calculation.
     """
-    with st.expander("Click to view details on variable selection."):
+    with st.expander("Click to view details on column selection."):
         st.write(
             "\nSelected columns:\n"
             "- Linkability:\n"

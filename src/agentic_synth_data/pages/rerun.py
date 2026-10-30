@@ -1,7 +1,7 @@
 import streamlit as st
 
 from agentic_synth_data.rerun_workflow import version_tabs_ui
-from agentic_synth_data.utils import page_navigation
+from agentic_synth_data.utils import display_workflow_progress, page_navigation
 from agentic_synth_data.dataset_evaluation.syndat_metrics import display_metrics_ui
 from agentic_synth_data.dataset_evaluation.attack_metrics import ANONYMETER_METRIC_DESCRIPTION, \
     display_attack_metrics_ui
@@ -9,7 +9,7 @@ from agentic_synth_data.dataset_evaluation.attack_metrics import ANONYMETER_METR
 
 st.sidebar.title("GuidedSDG")
 
-st.write(
+display_workflow_progress(
     "`✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ ✓ Missing values ─ ✓ Generate ─ ✓ Evaluate`"
 )
 

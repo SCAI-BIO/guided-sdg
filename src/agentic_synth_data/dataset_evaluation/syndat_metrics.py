@@ -192,6 +192,8 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
 
     df_formatter_st(styled_jsd_table)
 
+    st.metric(label="Jensen-Shannon Divergence (average)", value=metrics.jsd["jsd_AVERAGE"],)
+
     if metrics.output_messages.jsd:
         with st.expander("UserWarning: Some variables may have been excluded during computation."):
             st.warning(metrics.output_messages.jsd)

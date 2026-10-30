@@ -3,13 +3,14 @@ import time
 
 import streamlit as st
 
-from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR, PROJECT_ROOT
+from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR, PROJECT_ROOT, \
+    display_workflow_progress
 from agentic_synth_data.workflow import DataGen
 
 
 st.sidebar.title("GuidedSDG")
 
-st.write(
+display_workflow_progress(
     "`● Setup ─── ○ Preference ─── ○ Data types ─── ○ Missing ───  ○ Generate ───  ○ Evaluate`"
 )
 

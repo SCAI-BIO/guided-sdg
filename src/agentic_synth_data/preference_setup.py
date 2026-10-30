@@ -317,8 +317,8 @@ def select_preferences_ui() -> SynthesisRequest:
 
         elif categorical_strategy is not None:
             st.info(
-                "=> Your missing categorical data will be imputed using"
-                f" {categorical_strategy}."
+                "=> Your missing categorical data will be imputed using "
+                f"{format_option(categorical_strategy)}."
             )
 
         # Numerical handling
@@ -346,7 +346,8 @@ def select_preferences_ui() -> SynthesisRequest:
 
         elif numerical_strategy is not None:
             st.info(
-                f"=> Your missing numerical data will be imputed using {numerical_strategy}."
+                "=> Your missing numerical data will be imputed using "
+                f"{format_option(numerical_strategy)}."
             )
 
     st.write("---")

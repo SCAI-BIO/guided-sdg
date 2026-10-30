@@ -202,7 +202,9 @@ def handle_missing_values(
         )
         return df, synthesis_request
 
-    print(f"\n{df.isna().sum().sum()} samples with missing values detected in the dataset.")
+    print(
+        f"\n{df.isna().sum().sum()} samples with missing values have been detected in the dataset."
+    )
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 
@@ -440,7 +442,9 @@ def handle_missing_values_ui(
         )
         return df, synthesis_request
 
-    st.write(f"\n{df.isna().sum().sum()} samples with missing values detected in the dataset.")
+    st.write(
+        f"\n{df.isna().sum().sum()} samples with missing values have been detected in the dataset."
+    )
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 

@@ -74,6 +74,7 @@ class Report(BaseModel):
     revisions: list = Field(default_factory=list)
 
 
+# Note: tabulate package is required for dtype_table.to_markdown(), think if needed/alternative can be used
 # possible TODO: break into section pieces, but first determine what the report should look like/sections should look like...
 def write_report(
     report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
@@ -192,15 +193,6 @@ Replaced markers:
 ## Preprocessing:
 {missing_markers}
 
-### Python data types
-```python
-{fmt(report.prep.dtypes)}
-```
-
-### Semantic data types
-```python
-{fmt(report.prep.stypes)}
-```
 
 ### Data types
 {dtype_table.to_markdown()}
