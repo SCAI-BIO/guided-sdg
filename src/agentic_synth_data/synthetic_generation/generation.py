@@ -14,6 +14,10 @@ from agentic_synth_data.utils import GeneratorName, SemanticTypes, format_respon
 from agentic_synth_data.preference_setup import SynthesisRequest
 
 
+# ============================================================================
+# 1. Dataset profiling
+# ============================================================================
+
 def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
     """Prior to selecting the generator, view correlations and summary statistics 
     of numeric columns, which could help to inform data generator choice.
@@ -133,10 +137,15 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
     else:
         corr_method = "pearson"
 
-    num_corr = num_df.corr(method=corr_method, numeric_only=True)
+    num_corr = num_df.corr(method=corr_method, numeric_only=True).round(4)
+
+    styled_corr_table = (
+        num_corr.style.background_gradient(cmap="RdBu_r", vmin=-1, vmax=1,).format("{:.4f}")
+    )
 
     st.subheader(f"\nCorrelation ({corr_method.capitalize()}):")
-    st.write(num_corr)
+    st.write(styled_corr_table)
+
     st.write("---")
 
     profile = {
@@ -148,6 +157,10 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
     }
     return profile
 
+
+# ============================================================================
+# 2. Generator recommendation
+# ============================================================================
 
 # TODO: Expand to parameter selection.
 def select_generator(
@@ -163,6 +176,8 @@ def select_generator(
     Args:
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
         semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
+        profile (dict[str, Any]): Dataset profile containing summary statistics and
+            correlations used to inform generator selection.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (RunnableConfig): Configuration passed to the agent during invocation.
 
@@ -222,7 +237,7 @@ def select_generator(
                 synthesis_request.generator.name
             )
             choice_confirmed = True
-            print(f"\n=> {generation_plan.generator} has been approved.")
+            print(f"\n⇨ {generation_plan.generator} has been approved.")
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
@@ -255,6 +270,8 @@ def select_generator_ui(
     Args:
         synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
         semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
+        profile (dict[str, Any]): Dataset profile containing summary statistics and
+            correlations used to inform generator selection.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
         config (RunnableConfig): Configuration passed to the agent during invocation.
 
@@ -323,7 +340,7 @@ def select_generator_ui(
         st.warning(f"Warning: {generation_plan.warning[0]}")
 
     if st.session_state.get("generator_selection_complete", False,):
-        st.info(f"=> {generation_plan.generator} has been approved.")
+        st.info(f"⇨ {generation_plan.generator} has been approved.")
         return st.session_state.approved_synthesis_request
 
     st.write("---")
@@ -348,7 +365,7 @@ def select_generator_ui(
         st.session_state.approved_synthesis_request = synthesis_request
         st.session_state.generator_selection_complete = True
 
-        st.info(f"=> {generation_plan.generator} has been approved.")
+        st.info(f"⇨ {generation_plan.generator} has been approved.")
         return synthesis_request
 
     if decision == "choose another":

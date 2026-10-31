@@ -177,6 +177,7 @@ def calculate_attack_metrics(
     print("\nAgent is selecting columns for the following privacy metrics to be assessed:" \
         "\n- Inference risk\n- Linkability risk")
 
+    # TODO: add agent column selection caching to verify only saved once
     cols = invoke_agent(
         prompt=attack_column_selection_message(stypes=stypes),
         model_cls=AttackColumns,
@@ -283,14 +284,19 @@ def calculate_attack_metrics_ui(
     st.write("---")
 
     # Select columns for inference and linkability risk:
-    with st.spinner("Agent is selecting columns to calculate metrics..."):
-        cols = invoke_agent(
-            prompt=attack_column_selection_message(stypes=stypes),
-            model_cls=AttackColumns,
-            agent=agent,
-            config=config,
-            ui=True,
-        )
+    plan_key = "attack_col_selection_plan"
+
+    if plan_key not in st.session_state:
+        with st.spinner("Agent is selecting columns to calculate metrics..."):
+            st.session_state[plan_key] = invoke_agent(
+                prompt=attack_column_selection_message(stypes=stypes),
+                model_cls=AttackColumns,
+                agent=agent,
+                config=config,
+                ui=True,
+            )
+
+    attack_col_plan = st.session_state[plan_key]
 
     info_helper_message(
         message="Agent has selected columns for inference and linkability risk assessment.",
@@ -298,7 +304,7 @@ def calculate_attack_metrics_ui(
         key=f"{key_prefix}_privacy_metric_column_selection",
     )
 
-    expand_col_selection_ui(cols=cols)
+    expand_col_selection_ui(cols=attack_col_plan)
 
     st.write("---")
 
@@ -424,7 +430,7 @@ def write_attack_metric(metric_name: str, metric: "PrivacyRisk",) -> None:
         metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
     """
     print(
-        f"\n=> {metric_name} risk:\n  "
+        f"\n⇨ {metric_name} risk:\n "
         f"- Value: {round(metric.value*100, 3)}%\n  "
         f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
         f"{round(metric.ci[1]*100,3)}%"
@@ -527,16 +533,14 @@ def expand_col_selection_ui(cols: AttackColumns) -> None:
     """
     with st.expander("Click to view details on column selection."):
         st.write(
-            "\nSelected columns:\n"
-            "- Linkability:\n"
-            f"  - Auxiliary columns: {cols.linkability_aux_cols}\n"
-            "- Inference:\n"
-            f"  - Auxiliary columns: {cols.inference_aux_cols}\n"
-            f"  - Secret column: {cols.secret}\n\n"
-            "Rationale:"
+            "Columns selected for the following privacy metric calculation:\n"
+            "- **Linkability:**\n"
+            f"  - **Auxiliary columns:** {cols.linkability_aux_cols}\n"
+            "- **Inference:**\n"
+            f"  - **Auxiliary columns:** {cols.inference_aux_cols}\n"
+            f"  - **Secret column:** {cols.secret}\n\n"
+            f"**Rationale:** {cols.rationale}"
         )
-
-        st.write(cols.rationale)
 
 
 # ============================================================================
