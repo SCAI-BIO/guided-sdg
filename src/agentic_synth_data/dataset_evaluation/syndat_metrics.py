@@ -195,7 +195,7 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
     st.metric(label="Jensen-Shannon Divergence (average)", value=metrics.jsd["jsd_AVERAGE"],)
 
     if metrics.output_messages.jsd:
-        with st.expander("UserWarning: Some variables may have been excluded during computation."):
+        with st.expander("**UserWarning:** Some variables may have been excluded during computation."):
             st.warning(metrics.output_messages.jsd)
 
     st.write("---")
@@ -214,7 +214,8 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander(
-            "UserWarning: Click to view output while calculating normalized correlation difference."
+            "**UserWarning:** Click to view output while calculating normalized correlation "
+            "difference."
         ):
             st.warning(metrics.output_messages.norm_corr_diff)
 
@@ -236,7 +237,7 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
 
         if metrics.output_messages.discrim_auc:
             with st.expander(
-                "UserWarning: Click to view output while calculating discriminator AUC."
+                "**UserWarning:** Click to view output while calculating discriminator AUC."
             ):
                 st.warning(metrics.output_messages.discrim_auc)
 
@@ -264,7 +265,7 @@ def encode_for_correlation(
     combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
 
     categorical_cols = combined.select_dtypes(
-        include=["object", "str", "category"]
+        include=["object", "string", "category", "bool",]
     ).columns
 
     low_cardinality = [
@@ -298,7 +299,9 @@ def encode_for_shap(real: pd.DataFrame, synth: pd.DataFrame,) -> tuple[pd.DataFr
     combined = pd.concat([real, synth], ignore_index=True,)
     combined = combined.loc[:, ~combined.columns.str.startswith("Unnamed:")]
 
-    categorical_cols = combined.select_dtypes(include=["object", "str", "category"]).columns
+    categorical_cols = combined.select_dtypes(
+        include=["object", "string", "category", "bool",]
+    ).columns
 
     for col in categorical_cols:
         combined[col], _ = pd.factorize(combined[col])
@@ -480,7 +483,7 @@ def generate_plots(
             print(f"\n{plot_type.capitalize()} plot: {paths[0].name}")
             display(Image(filename=str(paths[0])))
 
-        print(f"=> {plot_type.capitalize()} plots saved to: {output_dir / plot_type}")
+        print(f"⇨ {plot_type.capitalize()} plots saved to: {output_dir / plot_type}")
 
     return plot_paths
 

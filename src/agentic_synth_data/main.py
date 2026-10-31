@@ -1,8 +1,30 @@
 from dotenv import load_dotenv
 import streamlit as st
 
+from agentic_synth_data.utils import colorize_multiselect
+
 
 load_dotenv()
+
+about_msg = (
+    "GuidedSDG is an agentic decision-support workflow for Synthetic Data Generation (SDG). A "
+    "Large Language Model (LLM) agent assists users in preparing datasets, selecting suitable "
+    "generators, and evaluating synthetic data based on the characteristics of the original "
+    "dataset and user preferences."
+)
+
+st.set_page_config(
+    page_title="GuidedSDG",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        "Get Help": "https://github.com/SCAI-BIO/agentic-synth-data/tree/feat29/user-interface",
+        "Report a bug": "https://github.com/SCAI-BIO/agentic-synth-data/issues",
+        "About": about_msg,
+    },
+)
+
+colorize_multiselect("#74E96E")
 
 setup = st.Page("pages/setup.py", title="0. Setup")
 select_preferences = st.Page("pages/preferences.py", title="1. Select preferences")
@@ -25,7 +47,7 @@ st.navigation(
         evaluation,
         rerun,
         reports,
-    ]
+    ],
 ).run()
 
 # TODO Add a homepage (explains the project and its features)

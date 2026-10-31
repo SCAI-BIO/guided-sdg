@@ -167,13 +167,13 @@ class DataGen:
 
         if missing_report.has_missing_markers:
             self.norm_na_df = missing_report.df.copy()
-            print("\n=> Dataframe has been saved for use during evaluation.")
+            print("\n⇨ Dataframe has been saved for use during evaluation.")
 
         norm_df = missing_report.df
 
         if missing_report.replaced_markers:
             self.norm_na_df = norm_df.copy()
-            print("\n=> Dataframe has been saved for use during evaluation.")
+            print("\n⇨ Dataframe has been saved for use during evaluation.")
 
         print("\n\n")
         print("="*25+"[STEP: Handle data types]"+"="*25)
@@ -189,7 +189,7 @@ class DataGen:
         self.report.prep.stypes = self.semantic_types
 
         self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
-        print("\n=> Created train/test split")
+        print("\n⇨ Created train/test split")
         return self.train_df
 
 
@@ -215,13 +215,13 @@ class DataGen:
 
         if missing_report.has_missing_markers:
             self.norm_na_df = missing_report.df.copy()
-            st.info("=> Dataframe has been saved for use during evaluation.")
+            st.info("⇨ Dataframe has been saved for use during evaluation.")
 
         norm_df = missing_report.df
 
         if missing_report.replaced_markers:
             self.norm_na_df = norm_df.copy()
-            st.info("=> Dataframe has been saved for use during evaluation.")
+            st.info("⇨ Dataframe has been saved for use during evaluation.")
 
         st.write("---")
 
@@ -272,11 +272,15 @@ class DataGen:
         # TODO: also must consider when missing value handling is applied.
         st.subheader("Covariate exclusion")
 
+        st.write(
+            "Select the features that should be retained for synthetic data generation. "
+            "Unselected features will be excluded."
+        )
+
         cols = self.dtype_handled_df.columns.tolist()
 
         selected_cols = st.multiselect(
-            label="Select the features that should be retained for synthetic data generation. " \
-                "Unselected features will be excluded.",
+            label="Select features:",
             options=cols,
             default=cols,
             key="selected_covariates",
@@ -286,7 +290,10 @@ class DataGen:
             st.warning("Select at least one column.")
             st.stop()
 
-        st.write(f"The following features will be retained: {selected_cols}")
+        st.write(
+            f"The following **{len(selected_cols)}** features will be retained: "
+            f"{', '.join(selected_cols)}"
+        )
 
         finished = st.button(label="Continue with the current selection.",)
 
@@ -305,7 +312,7 @@ class DataGen:
         self.train_df, self.test_df = train_test_split(self.selected_df, test_size=0.2)
 
         st.info(
-            f"=> Created test/train split: {len(self.train_df)} training rows and "
+            f"⇨ Created test/train split: {len(self.train_df)} training rows and "
             f"{len(self.test_df)} testing rows."
         )
         return self.train_df
@@ -567,7 +574,7 @@ class DataGen:
                     )
 
                 status.update(
-                    label=f"=> Synthetic generation completed with {generator} (click to view " \
+                    label=f"⇨ Synthetic generation completed with {generator} (click to view " \
                         "terminal outputs).",
                     state="complete",
                     expanded=False,
@@ -706,6 +713,9 @@ class DataGen:
             self.report.evaluate.plots = generate_plots_ui(
                 real=real, synth=synth, version_id=self.version_id,
             )
+
+        st.write("---")
+
         # Display agent evaluation of results
         self.agent_decision = evaluation_ui(
             synthesis_request=self.synthesis_request,
@@ -737,7 +747,7 @@ class DataGen:
         )
 
         st.info(
-            f"=> Created a report for version_{self.version_id}: `{report_dir}`"
+            f"⇨ Created a report for version_{self.version_id}: `{report_dir}`"
         )
 
 

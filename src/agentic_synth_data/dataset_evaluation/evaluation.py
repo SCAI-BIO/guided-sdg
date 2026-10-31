@@ -9,7 +9,7 @@ from agentic_synth_data.schemas.attack_model import AttackMetrics
 from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
-    invoke_agent
+    invoke_agent, format_option
 from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 
@@ -126,13 +126,13 @@ def display_agent_evaluation_ui(agent_decision: AgentEval) -> None:
         agent_decision (AgentEval): The decision plan based on the agent's assessment.
     """
     st.subheader("Evaluation:")
-    st.write(f"- **Status:** {agent_decision.status}")
+    st.write(f"- **Status:** {format_option(agent_decision.status)}")
     if len(agent_decision.problem_columns) > 0:
         st.write(f"- **Problem columns:** {agent_decision.problem_columns}")
     st.write(
-        "#### - Recommendation:\n"
+        "#### Recommendation:\n"
         f"{agent_decision.recommendation}\n"
-        "#### - Rationale:\n"
+        "#### Rationale:\n"
         f"{agent_decision.rationale}"
     )
 

@@ -115,8 +115,9 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
         print(
             f"- Imputer: {synthesis_request.missing_values.impute.method}\n"
             "- Categorical strategy: "
-            f"{synthesis_request.missing_values.impute.categorical_strategy}\n"
-            f"- Numerical strategy: {synthesis_request.missing_values.impute.numerical_strategy}"
+            f"{format_option(synthesis_request.missing_values.impute.categorical_strategy)}\n"
+            "- Numerical strategy: "
+            f"{format_option(synthesis_request.missing_values.impute.numerical_strategy)}"
         )
 
 
@@ -254,6 +255,22 @@ def display_workflow_progress(text: str) -> None:
         key="workflow-header",
     ):
         st.write(text)
+
+
+def colorize_multiselect(color: str = "#56EB25") -> None:
+    """Change the background color of selected multiselect tags.
+
+    Args:
+        color (str): CSS color for selected tags.
+    """
+    st.html(f"""
+    <style>
+        .stMultiSelect [data-tag] {{
+            background-color: {color} !important;
+            color: white !important;
+        }}
+    </style>
+    """)
 
 
 def format_option(value: str) -> str:

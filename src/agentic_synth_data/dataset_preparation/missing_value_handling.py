@@ -219,7 +219,7 @@ def handle_missing_values(
         if confirm == "yes":
             df = df.dropna()
             print(
-                "\n=> All samples with missing values have been removed. There are " \
+                "\n⇨ All samples with missing values have been removed. There are " \
                 f"{df.isna().sum().sum()} remaining missing values."
             )
             return df, synthesis_request
@@ -321,7 +321,7 @@ def handle_missing_values(
                 " in the numerical columns."
             )
 
-        print(f"\n=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
+        print(f"\n⇨ There are {df.isna().sum().sum()} remaining null values in the dataset.")
         return df, synthesis_request
 
     # 4. Use the agent to suggest the missing value handling strategy.
@@ -374,9 +374,11 @@ def handle_missing_values(
             if updated_plan["imputation_method"] is not None:
                 print(f"- Imputation method: {updated_plan['imputation_method']}")
             if updated_plan["categorical_strategy"] is not None:
-                print(f"- Categorical strategy: {updated_plan['categorical_strategy']}")
+                print(
+                    f"- Categorical strategy: {format_option(updated_plan['categorical_strategy'])}"
+                )
             if updated_plan["numerical_strategy"]:
-                print(f"- Numerical strategy: {updated_plan['numerical_strategy']}")
+                print(f"- Numerical strategy: {format_option(updated_plan['numerical_strategy'])}")
 
             if len(updated_plan["warning"]) > 0:
                 print("\nWarning:")
@@ -510,10 +512,14 @@ def handle_missing_values_ui(
             st.write(f"- **Imputation method:** {updated_plan['imputation_method']}")
 
         if updated_plan["categorical_strategy"] is not None:
-            st.write(f"- **Categorical strategy:** {updated_plan['categorical_strategy']}")
+            st.write(
+                f"- **Categorical strategy:** {format_option(updated_plan['categorical_strategy'])}"
+            )
 
         if updated_plan["numerical_strategy"]:
-            st.write(f"- **Numerical strategy:** {updated_plan['numerical_strategy']}")
+            st.write(
+                f"- **Numerical strategy:** {format_option(updated_plan['numerical_strategy'])}"
+            )
 
         if len(updated_plan["warning"]) > 0:
             st.warning(f"- **Warning:** {updated_plan['warning'][0]}")
@@ -522,7 +528,7 @@ def handle_missing_values_ui(
         st.write(updated_plan["rationale"])
 
         if st.session_state.get("missing_handling_complete", False):
-            st.info("=> Missing value handling plan has been approved.")
+            st.info("⇨ Missing value handling plan has been approved.")
             synthesis_request = st.session_state.approved_missing_request
 
         else:
@@ -543,7 +549,7 @@ def handle_missing_values_ui(
                 st.session_state.approved_missing_request = synthesis_request
                 st.session_state.missing_handling_complete = True
 
-                st.info("=> The missing value handing plan has been approved.")
+                st.info("⇨ The missing value handing plan has been approved.")
                 st.rerun()
 
             elif confirm == "no":
@@ -595,8 +601,8 @@ def handle_missing_values_ui(
     if mode == "remove":
         null_row_count = df.isna().any(axis=1).sum()
         st.warning(
-            f"Warning: {null_row_count} out of {df.shape[0]} rows ("
-            f"{null_row_count/df.shape[0]*100}%) will be removed from the dataset."
+            f"**Warning:** {null_row_count} out of {df.shape[0]} rows "
+            f"({null_row_count/df.shape[0]*100}%) will be removed from the dataset."
         )
 
         confirm = st.selectbox(
@@ -611,7 +617,7 @@ def handle_missing_values_ui(
         if confirm == "yes":
             df = df.dropna()
             st.info(
-                "=> All samples with missing values have been removed. There are "
+                "⇨ All samples with missing values have been removed. There are "
                 f"{df.isna().sum().sum()} remaining missing values."
             )
             return df, synthesis_request
@@ -689,5 +695,5 @@ def handle_missing_values_ui(
                 "numerical columns."
             )
 
-        st.info(f"=> There are {df.isna().sum().sum()} remaining null values in the dataset.")
+        st.info(f"⇨ There are {df.isna().sum().sum()} remaining null values in the dataset.")
         return df, synthesis_request

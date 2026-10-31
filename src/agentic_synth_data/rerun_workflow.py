@@ -13,7 +13,7 @@ from agentic_synth_data.schemas.missing_model import MissingRevisionOption, Miss
 from agentic_synth_data.preference_setup import SynthesisRequest
 from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
     parameter_revision_message
-from agentic_synth_data.utils import GeneratorName, info_helper_message, invoke_agent, \
+from agentic_synth_data.utils import GeneratorName, format_option, info_helper_message, invoke_agent, \
     newline_every_n_words
 
 
@@ -65,7 +65,7 @@ def plan_update(
 
     if effective_generator in ["PrivBayes", "BayesianNet"]:
         print(
-            "\n=> The data generator selected allows for missing values. Missing value handling" \
+            "\n⇨ The data generator selected allows for missing values. Missing value handling" \
             " will not be applied."
         )
     else:
@@ -144,7 +144,7 @@ def plan_update_ui(
 
     if effective_generator in ["PrivBayes", "BayesianNet"]:
         st.info(
-            "=> The data generator selected allows for missing values. Missing value handling"
+            "⇨ The data generator selected allows for missing values. Missing value handling"
             " will not be applied."
         )
     else:
@@ -216,7 +216,7 @@ def generator_update(
 
     if choice == "Cancel":
         print(
-            "\n=> No revision has been selected for generator choice, continuing to " \
+            "\n⇨ No revision has been selected for generator choice, continuing to " \
             "missing value handling."
         )
         return None
@@ -287,6 +287,8 @@ def generator_update_ui(
         key=f"generator_revision_info_{version_id}",
     )
 
+    st.write("Suggested data generators to switch to:")
+
     menu_options = {}
 
     for option in revision_plan.options:
@@ -307,7 +309,7 @@ def generator_update_ui(
     if choice == "Cancel":
         st.session_state[choice_key] = None
         st.info(
-            "=> No revision has been selected for generator choice, continuing to "
+            "⇨ No revision has been selected for generator choice, continuing to "
             "missing value handling."
         )
         return None
@@ -333,7 +335,7 @@ def parameter_update(
     """
     if selected_mechanism in ["BayesianNet", "CTGAN"]:
         print(
-            f"=> {selected_mechanism} can only be set to default." \
+            f"⇨ {selected_mechanism} can only be set to default." \
               " Default parameters retained."
         )
         return None
@@ -350,7 +352,7 @@ def parameter_update(
     changed_params = param_revision.model_dump(exclude_defaults=True)
 
     if not changed_params:
-        print("\n=> Default parameters retained.")
+        print("\n⇨ Default parameters retained.")
         return None
 
     if selected_mechanism == "PATEGAN":
@@ -368,7 +370,7 @@ def parameter_update(
         selection = ("epsilon", .1, param_revision.epsilon)
 
     print(
-        f"\n=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} " \
+        f"\n⇨ {selected_mechanism}: {selection[0]} has been updated to {selection[2]} " \
         f"(default = {selection[1]})"
     )
     return mech_params
@@ -393,7 +395,7 @@ def parameter_update_ui(
     """
     if selected_mechanism in ["BayesianNet", "CTGAN"]:
         st.info(
-            f"=> {selected_mechanism} can only be set to default. Default parameters retained."
+            f"⇨ {selected_mechanism} can only be set to default. Default parameters retained."
         )
         return None
 
@@ -419,7 +421,7 @@ def parameter_update_ui(
     )
 
     if not changed_params:
-        st.info("=> Default parameters retained.")
+        st.info("⇨ Default parameters retained.")
         return None
 
     if selected_mechanism == "PATEGAN":
@@ -437,7 +439,7 @@ def parameter_update_ui(
         selection = ("epsilon", .1, param_revision.epsilon)
 
     st.info(
-        f"=> {selected_mechanism}: {selection[0]} has been updated to {selection[2]} "
+        f"⇨ {selected_mechanism}: {selection[0]} has been updated to {selection[2]} "
         f"(default = {selection[1]})"
     )
     return mech_params
@@ -478,7 +480,7 @@ def missing_update(
 
         if option.mode == "impute":
             label = f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, " \
-            f"Categorical strategy: {option.categorical_strategy}\n- " \
+            f"Categorical strategy: {format_option(option.categorical_strategy)}\n- " \
             f"{newline_every_n_words(option.reason, 12)}"
 
         menu_options[label] = option
@@ -491,7 +493,7 @@ def missing_update(
 
     if choice == "Cancel":
         print(
-            "\n=> No revision has been selected for missing value handling. " \
+            "\n⇨ No revision has been selected for missing value handling. " \
             "Previously selected settings will be used."
         )
         return None
@@ -558,7 +560,7 @@ def missing_update_ui(
             st.write(f"- {option.mode}: {option.reason}")
             label = (
                 f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, "
-                f"Categorical strategy: {option.categorical_strategy}\n"
+                f"Categorical strategy: {format_option(option.categorical_strategy)}\n"
                 f"- {newline_every_n_words(option.reason, 12)}"
             )
 
@@ -575,7 +577,7 @@ def missing_update_ui(
 
     if choice == "Cancel":
         st.info(
-            "=> No revision has been selected for missing value handling. "
+            "⇨ No revision has been selected for missing value handling. "
             "Previously selected settings will be used."
         )
         return None

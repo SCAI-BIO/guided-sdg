@@ -110,11 +110,11 @@ def select_preferences() -> SynthesisRequest:
     generator = pyip.inputMenu(get_args(GeneratorNameAuto.__value__), numbered=True,)
 
     if generator == "auto":
-        print("\t=> You will receive a recommendation based on the dataset's characteristics.")
+        print("\t⇨ You will receive a recommendation based on the dataset's characteristics.")
         request.generator.name = generator
 
     else:
-        print(f"\t=> Your data will be generated using {generator}.")
+        print(f"\t⇨ Your data will be generated using {generator}.")
 
     # Missing values
     print()
@@ -124,7 +124,7 @@ def select_preferences() -> SynthesisRequest:
     )
     missing_values = pyip.inputMenu(["auto", "impute", "remove"], numbered=True)
     if missing_values == "auto":
-        print("\t=> You will receive a recommendation based on the dataset's characteristics.")
+        print("\t⇨ You will receive a recommendation based on the dataset's characteristics.")
 
     elif missing_values == "impute":
         print()
@@ -132,7 +132,7 @@ def select_preferences() -> SynthesisRequest:
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
         impute_method = "SimpleImputer"
-        print("\t=> Your missing data will be imputed by SimpleImputer.")
+        print("\t⇨ Your missing data will be imputed by SimpleImputer.")
 
         # Categorical handling
         print()
@@ -146,11 +146,11 @@ def select_preferences() -> SynthesisRequest:
         )
 
         if categorical_strategy == "auto":
-            print("\t=> You will receive a recommendation based on the dataset's characteristics.")
+            print("\t⇨ You will receive a recommendation based on the dataset's characteristics.")
 
         else:
             print(
-                f"\t=> Your missing categorical data will be imputed using {categorical_strategy}."
+                f"\t⇨ Your missing categorical data will be imputed using {categorical_strategy}."
             )
 
         # Numerical handling
@@ -165,10 +165,10 @@ def select_preferences() -> SynthesisRequest:
         )
 
         if numerical_strategy == "auto":
-            print("\t=> You will receive a recommendation based on the dataset's characteristics.")
+            print("\t⇨ You will receive a recommendation based on the dataset's characteristics.")
 
         else:
-            print(f"\t=> Your missing numerical data will be imputed using {numerical_strategy}.")
+            print(f"\t⇨ Your missing numerical data will be imputed using {numerical_strategy}.")
 
     request = build_synthesis_request(
         sample_size=sample_size,
@@ -218,10 +218,10 @@ def select_preferences_ui() -> SynthesisRequest:
         st.write("#### How many synthetic samples would you like to generate?")
         fixed_value = st.number_input("", min_value=1)
 
-        st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
+        st.info(f"⇨ {fixed_value} synthetic samples will be generated.") # small delay
 
     # if sample_size == "same as original": # TODO include a method to display sample size
-    #     st.info(f"=> {fixed_value} synthetic samples will be generated.") # small delay
+    #     st.info(f"⇨ {fixed_value} synthetic samples will be generated.") # small delay
 
     st.write("---")
 
@@ -260,11 +260,11 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     if generator == "auto":
-        st.info("=> You will receive a recommendation from the agent.")
+        st.info("⇨ You will receive a recommendation from the agent.")
 
     else:
         if generator is not None:
-            st.info(f"=> Your data will be generated using {generator}.")
+            st.info(f"⇨ Your data will be generated using {generator}.")
 
     st.write("---")
 
@@ -285,14 +285,14 @@ def select_preferences_ui() -> SynthesisRequest:
     )
 
     if missing_values == "auto":
-        st.info("=> You will receive a recommendation based on the dataset's characteristics.")
+        st.info("⇨ You will receive a recommendation based on the dataset's characteristics.")
 
     elif missing_values == "impute":
         st.write(
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
         impute_method = "SimpleImputer"
-        st.info("=> Your missing data will be imputed by SimpleImputer.")
+        st.info("⇨ Your missing data will be imputed by SimpleImputer.")
 
         # Categorical handling
         st.write(
@@ -313,11 +313,11 @@ def select_preferences_ui() -> SynthesisRequest:
             st.stop()
 
         if categorical_strategy == "auto":
-            st.info("=> You will receive a recommendation based on the dataset's characteristics.")
+            st.info("⇨ You will receive a recommendation based on the dataset's characteristics.")
 
         elif categorical_strategy is not None:
             st.info(
-                "=> Your missing categorical data will be imputed using "
+                "⇨ Your missing categorical data will be imputed using "
                 f"{format_option(categorical_strategy)}."
             )
 
@@ -341,12 +341,12 @@ def select_preferences_ui() -> SynthesisRequest:
 
         if numerical_strategy == "auto":
             st.info(
-                "=> You will receive a recommendation based on the dataset's characteristics."
+                "⇨ You will receive a recommendation based on the dataset's characteristics."
             )
 
         elif numerical_strategy is not None:
             st.info(
-                "=> Your missing numerical data will be imputed using "
+                "⇨ Your missing numerical data will be imputed using "
                 f"{format_option(numerical_strategy)}."
             )
 

@@ -151,5 +151,5 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
                 f"{mechanism} failed. {response.json().get('log', response.text)}"
             )
 
-        print(f"\n=> {mechanism}: {n_samples} synthetic samples successfully generated.")
+        print(f"\n⇨ {mechanism}: {n_samples} synthetic samples successfully generated.")
         return synth_path
