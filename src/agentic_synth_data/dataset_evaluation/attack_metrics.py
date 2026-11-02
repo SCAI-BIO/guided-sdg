@@ -12,7 +12,7 @@ from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetri
     AttackOutputs
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.utils import SemanticTypes, format_response, info_helper_message, \
-    invoke_agent
+    invoke_agent, comma_sep
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message
 
 
@@ -310,7 +310,13 @@ def calculate_attack_metrics_ui(
 
     # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
-        inference_risk, inference_risk_output = _calculate_inference(train, test, synth, cols, True)
+        inference_risk, inference_risk_output = _calculate_inference(
+            train=train,
+            test=test,
+            synth=synth,
+            cols=attack_col_plan,
+            ui=True,
+        )
 
     write_attack_metric_ui(
         metric_name="Inference",
@@ -326,7 +332,13 @@ def calculate_attack_metrics_ui(
 
     # Calculate linkability risk:
     with st.spinner("Evaluating linkability risk..."):
-        linkability_risk, link_risk_output = _calculate_linkability(train, test, synth, cols, True)
+        linkability_risk, link_risk_output = _calculate_linkability(
+            train=train,
+            test=test,
+            synth=synth,
+            cols=attack_col_plan,
+            ui=True,
+        )
 
     write_attack_metric_ui(
         metric_name="Linkability",
@@ -348,7 +360,7 @@ def calculate_attack_metrics_ui(
         singling_out=so_risk,
         inference=inference_risk,
         linkability=linkability_risk,
-        cols=cols,
+        cols=attack_col_plan,
         output_messages=outputs,
     )
 
@@ -454,7 +466,11 @@ def show_anonymeter_warning_ui(output: str) -> None:
 
 
 def display_privacy_risk_ui(
-    label: str, value: float, ci_lower: float, ci_upper: float, key_prefix=str,
+    label: str,
+    value: float,
+    ci_lower: float,
+    ci_upper: float,
+    key_prefix: str,
 ) -> None:
     """Display a privacy risk estimate and its confidence interval (UI).
 
@@ -535,9 +551,10 @@ def expand_col_selection_ui(cols: AttackColumns) -> None:
         st.write(
             "Columns selected for the following privacy metric calculation:\n"
             "- **Linkability:**\n"
-            f"  - **Auxiliary columns:** {cols.linkability_aux_cols}\n"
+            f"  - **First auxiliary set:** {comma_sep(cols.linkability_aux_cols[0])}\n"
+            f"  - **Second auxiliary set:** {comma_sep(cols.linkability_aux_cols[1])}\n"
             "- **Inference:**\n"
-            f"  - **Auxiliary columns:** {cols.inference_aux_cols}\n"
+            f"  - **Auxiliary columns:** {comma_sep(cols.inference_aux_cols)}\n"
             f"  - **Secret column:** {cols.secret}\n\n"
             f"**Rationale:** {cols.rationale}"
         )

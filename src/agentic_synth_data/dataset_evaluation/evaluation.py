@@ -9,7 +9,7 @@ from agentic_synth_data.schemas.attack_model import AttackMetrics
 from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
-    invoke_agent, format_option
+    invoke_agent, format_option, comma_sep
 from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
 from agentic_synth_data.preference_setup import SynthesisRequest
 
@@ -53,7 +53,7 @@ def evaluation(
     print("\nEvaluation:")
     print(f"- Status: {eval_plan.status}")
     if len(eval_plan.problem_columns) > 0:
-        print(f"- Problem columns: {eval_plan.problem_columns}")
+        print(f"- Problem columns: {comma_sep(eval_plan.problem_columns)}")
     print("- Recommendation:")
     format_response(eval_plan.recommendation)
     print("- Rationale:")
@@ -128,7 +128,7 @@ def display_agent_evaluation_ui(agent_decision: AgentEval) -> None:
     st.subheader("Evaluation:")
     st.write(f"- **Status:** {format_option(agent_decision.status)}")
     if len(agent_decision.problem_columns) > 0:
-        st.write(f"- **Problem columns:** {agent_decision.problem_columns}")
+        st.write(f"- **Problem columns:** {comma_sep(agent_decision.problem_columns)}")
     st.write(
         "#### Recommendation:\n"
         f"{agent_decision.recommendation}\n"

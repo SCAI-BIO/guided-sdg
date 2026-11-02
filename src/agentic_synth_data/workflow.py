@@ -38,7 +38,7 @@ from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
 from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, SemanticTypes, df_formatter_st, \
-    format_response, output_default_parameters
+    format_response, output_default_parameters, comma_sep
 
 
 class DataGen:
@@ -292,7 +292,7 @@ class DataGen:
 
         st.write(
             f"The following **{len(selected_cols)}** features will be retained: "
-            f"{', '.join(selected_cols)}"
+            f"{comma_sep(selected_cols)}"
         )
 
         finished = st.button(label="Continue with the current selection.",)

@@ -61,6 +61,31 @@ type NumericalChoiceAuto = Literal["auto", "mean", "median", "most_frequent",]
 
 
 # ============================================================================
+# Basic text display helpers
+# ============================================================================
+
+def comma_sep(item_list: list) -> str:
+    """Join list items into a comma separated string.
+
+    Args:
+        item_list (list): list of items.
+    """
+    return ", ".join(item_list)
+
+
+def format_option(value: str) -> str:
+    """Replace underscores with spaces for display (UI).
+
+    Args:
+        value (str): Internal string with underscores.
+
+    Returns:
+        str: String with spaces instead of underscores.
+    """
+    return value.replace("_", " ")
+
+
+# ============================================================================
 # CLI helpers
 # ============================================================================
 
@@ -271,11 +296,6 @@ def colorize_multiselect(color: str = "#56EB25") -> None:
         }}
     </style>
     """)
-
-
-def format_option(value: str) -> str:
-    """Replace underscores with spaces for display (UI)."""
-    return value.replace("_", " ")
 
 
 # ============================================================================
