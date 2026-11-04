@@ -1,14 +1,12 @@
-from pathlib import Path
-
 import streamlit as st
 
 from agentic_synth_data.rerun_workflow import version_tabs_ui
-from agentic_synth_data.utils import OUTPUT_DIR
+from agentic_synth_data.utils import display_downloads_ui, display_workflow_progress
 
 
 st.sidebar.title("GuidedSDG")
 
-st.write(
+display_workflow_progress(
     "`✓ Preferences ─ ✓ Data types ─ ✓ Generator ─ ✓ Missing values ─ ✓ Generate ─ ✓ Evaluate`"
 )
 
@@ -16,9 +14,19 @@ st.header("Workflow reports")
 st.write("Review SDG workflow decisions and results.")
 st.space("small")
 
+# No workflow has been started.
+if not st.session_state.get("revision_history"):
+    st.info(
+        "No workflow has been started yet. Complete an initial run through steps to generate a "
+        "report."
+    )
+    st.stop()
+
 # TODO: Include report comparison as well.
 
-revision_tabs = version_tabs_ui(label="Version", key="active_report_tab", include_initial=True,)
+revision_tabs, comparison_tab = version_tabs_ui(
+    label="Version", key="active_report_tab", include_initial=True, compare=True,
+)
 
 for version_id, tab in revision_tabs.items():
     if not tab.open:
@@ -31,25 +39,17 @@ for version_id, tab in revision_tabs.items():
             st.warning(f"Version {version_id} was not found.")
             continue
 
-        data_name = Path(revision.data_path).stem
+        display_downloads_ui(version_id)
 
-        report_path = OUTPUT_DIR / f"version_{version_id}" / f"report_{data_name}_v{version_id}.md"
+if comparison_tab is not None and comparison_tab.open:
+    with comparison_tab:
+        st.subheader("Compare versions")
+        st.write("Compare evaluation metrics across workflow versions.")
 
-        if report_path.exists():
-            report_content = report_path.read_text(encoding="utf-8")
-            st.markdown(report_content)
-            st.download_button(
-                label="Download report",
-                data=report_content,
-                file_name=report_path.name,
-                mime="text/markdown",
-                key=f"download_report_v{version_id}",
-            )
+        st.multiselect(
+            "Select versions to compare", options=list(st.session_state.revision_history)
+        )
 
-        else:
-            st.info(f"No report available for version {version_id}.")
-
-# TODO: Add a method to compare reports...
-    # For each report, add a checkbox to select which version reports to be compared
-        # st.checkbox("Are these correct?")
-        # Maybe set a max of 3? (Perhaps start without limiting it for now though...)
+    # TODO: Add a clearer method on how to compare reports
+        # This or button:
+            # st.checkbox("Are these correct?")

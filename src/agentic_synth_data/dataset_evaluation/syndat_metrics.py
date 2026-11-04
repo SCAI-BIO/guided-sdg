@@ -9,7 +9,7 @@ import syndat
 
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
-from agentic_synth_data.utils import OUTPUT_DIR, df_formatter_st
+from agentic_synth_data.utils import OUTPUT_DIR, calculate_delta, df_formatter_st
 
 
 # ============================================================================
@@ -127,7 +127,9 @@ def calculate_metrics(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetrics
     return metrics
 
 
-def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetrics:
+def calculate_metrics_ui(
+    real: pd.DataFrame, synth: pd.DataFrame, prev_metrics: SyndatMetrics | None = None,
+) -> SyndatMetrics:
     """Calculate and display syndat metrics (UI).
 
     Calculates metrics:
@@ -144,11 +146,11 @@ def calculate_metrics_ui(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetr
         SyndatMetrics: Calculated metrics and captured output messages.
     """
     metrics = _calculate_metrics(real=real, synth=synth, ui=True,)
-    display_metrics_ui(metrics=metrics,)
+    display_metrics_ui(metrics=metrics, prev_metrics=prev_metrics,)
     return metrics
 
 
-def display_metrics_ui(metrics: SyndatMetrics,) -> None:
+def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | None = None,) -> None:
     """Display syndat metrics (UI).
 
     Args:
@@ -192,10 +194,22 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
 
     df_formatter_st(styled_jsd_table)
 
-    st.metric(label="Jensen-Shannon Divergence (average)", value=metrics.jsd["jsd_AVERAGE"],)
+    st.metric(
+        label="Jensen-Shannon Divergence (average)",
+        value=metrics.jsd["jsd_AVERAGE"],
+        delta=calculate_delta(
+            current=metrics.jsd["jsd_AVERAGE"],
+            previous=(
+                prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
+            ),
+        ),
+        delta_color="inverse",
+    )
 
     if metrics.output_messages.jsd:
-        with st.expander("**UserWarning:** Some variables may have been excluded during computation."):
+        with st.expander(
+            "**UserWarning:** Some variables may have been excluded during computation."
+        ):
             st.warning(metrics.output_messages.jsd)
 
     st.write("---")
@@ -210,7 +224,17 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
         "positive and the other negative."
     )
 
-    st.metric(label="Normalized correlation difference", value=metrics.norm_corr_diff,)
+    st.metric(
+        label="Normalized correlation difference",
+        value=metrics.norm_corr_diff,
+        delta=calculate_delta(
+            current=metrics.norm_corr_diff,
+            previous=(
+                prev_metrics.norm_corr_diff if prev_metrics is not None else None
+            ),
+        ),
+        delta_color="inverse",
+    )
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander(
@@ -233,7 +257,15 @@ def display_metrics_ui(metrics: SyndatMetrics,) -> None:
             "to distinguish between."
         )
 
-        st.metric(label="Discriminator AUC", value=metrics.discrim_auc,)
+        st.metric(
+            label="Discriminator AUC",
+            value=metrics.discrim_auc,
+            delta=calculate_delta(
+                current=metrics.discrim_auc,
+                previous=prev_metrics.discrim_auc if prev_metrics is not None else None,
+            ),
+            delta_color="inverse",
+        )
 
         if metrics.output_messages.discrim_auc:
             with st.expander(

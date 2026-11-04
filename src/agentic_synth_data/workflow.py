@@ -94,7 +94,7 @@ class DataGen:
     def create_model(self) -> BaseChatModel:
         """Initialize the selected large language model."""
         model = init_chat_model(
-            "MiniMaxAI/MiniMax-M2.5",
+            "deepseek-ai/DeepSeek-V4.1-Flash",
             model_provider="openai",
             base_url=os.environ.get("BASE_URL"),
         )
@@ -589,8 +589,9 @@ class DataGen:
             self.report.gen.params = self.synthesis_request.generator.parameters
 
         df_formatter_st(self.synthetic_df.copy().head())
-        st.write(
-            "Note: Only the first five rows of the synthetic dataset are displayed on this page."
+        st.caption(
+            "**Note:** Only the first five rows of the synthetic dataset are displayed on this "
+            "page."
         )
         return self.synthesis_request, self.synthetic_path, self.synthetic_df
 
@@ -671,8 +672,14 @@ class DataGen:
         real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.semantic_types,)
 
         col1, col2 = st.columns(2)
+
+        # Retrieve metrics from the previous version (if available)
+        prev_syndat_metrics, prev_attack_metrics = self.get_prev_evaluation_metrics()
+
         with col1:
-            syndat_metrics = calculate_metrics_ui(real=real, synth=synth,)
+            syndat_metrics = calculate_metrics_ui(
+                real=real, synth=synth, prev_metrics=prev_syndat_metrics,
+            )
 
             self.report.evaluate.syndat = syndat_metrics
 
@@ -688,6 +695,7 @@ class DataGen:
                     stypes=self.semantic_types,
                     dtypes=self.python_dtypes,
                     key_prefix=f"calculation_v{self.version_id}",
+                    prev_metrics=prev_attack_metrics,
                     agent=self.agent,
                     config=self.config,
                 )
@@ -701,6 +709,7 @@ class DataGen:
                     attack_metrics=attack_metrics,
                     description=ANONYMETER_METRIC_DESCRIPTION,
                     key_prefix=f"evaluation_v{self.version_id}",
+                    prev_metrics=prev_attack_metrics,
                 )
 
         self.report.evaluate.attack = attack_metrics
@@ -743,7 +752,7 @@ class DataGen:
         data_name = Path(self.data_path.stem)
 
         report_dir = (
-            OUTPUT_DIR / f'version_{self.version_id}' / f'report_{data_name}_v{self.version_id}.md'
+            OUTPUT_DIR / f"version_{self.version_id}" / f"report_{data_name}_v{self.version_id}.md"
         )
 
         st.info(
@@ -1117,20 +1126,34 @@ class DataGen:
         if not updates:
             return
 
-        st.subheader("Revision summary")
+        with st.container(border=True):
+            st.subheader("Revision summary")
 
-        if "update_mech" in updates:
-            option = updates["update_mech"]
-            st.write(f"Generator: {option['generator_name']}")
-            st.write(f"Reason: {option['reason']}")
+            if "update_mech" in updates:
+                option = updates["update_mech"]
+                st.write(f"**Generator:** {option['generator_name']}")
+                st.write(f"**Reason:** {option['reason']}")
 
-        if "update_params" in updates:
-            st.write(f"Updated parameters: {updates['update_params']}")
+            if "update_params" in updates:
+                st.write(f"**Updated parameters:** {updates['update_params']}")
 
-        if "update_missing" in updates:
-            option = updates["update_missing"]
-            st.write(f"Missing value handling: {option['mode']}")
-            st.write(f"Reason: {option['reason']}")
+            if "update_missing" in updates:
+                option = updates["update_missing"]
+                st.write(f"**Missing value handling:** {option['mode']}")
+                st.write(f"**Reason:** {option['reason']}")
+
+
+    def get_prev_evaluation_metrics(self):
+        """Retrieve evaluation metrics from the previous workflow version (UI)."""
+        if self.version_id == 1:
+            return None, None
+
+        prev_revision = st.session_state.revision_history.get(self.version_id - 1)
+
+        if prev_revision is None:
+            return None, None
+
+        return prev_revision.report.evaluate.syndat, prev_revision.report.evaluate.attack
 
 
     def display_revision_results_ui(self) -> None:
@@ -1141,11 +1164,16 @@ class DataGen:
             st.subheader("Synthetic dataset")
             st.dataframe(self.synthetic_df.head())
 
+        # Retrieve metrics from the previous version
+        prev_syndat_metrics, prev_attack_metrics = self.get_prev_evaluation_metrics()
+
         # Evaluation metrics
         col1, col2 = st.columns(2)
         with col1:
             if self.report.evaluate.syndat is not None:
-                display_metrics_ui(metrics=self.report.evaluate.syndat,)
+                display_metrics_ui(
+                    metrics=self.report.evaluate.syndat, prev_metrics=prev_syndat_metrics,
+                )
 
         with col2:
             if self.report.evaluate.attack is not None:
@@ -1153,9 +1181,12 @@ class DataGen:
                     attack_metrics=self.report.evaluate.attack,
                     description=ANONYMETER_METRIC_DESCRIPTION,
                     key_prefix=f"review_v{self.version_id}",
+                    prev_metrics=prev_attack_metrics,
                 )
 
         # TODO: add some sort of metric summary.
+
+        # TODO: add graph display after loading as well
 
         # Agent evaluation
         if self.agent_decision is not None:

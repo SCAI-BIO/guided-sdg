@@ -293,7 +293,7 @@ def generator_update_ui(
 
     for option in revision_plan.options:
         menu_options[option.generator_name] = option
-        st.write(f"- {option.generator_name}: {option.reason}")
+        st.write(f"- **{option.generator_name}:** {option.reason}")
 
     choice = st.selectbox(
         label="Select a generator revision option. Select cancel to retain your current selection.",
@@ -553,14 +553,14 @@ def missing_update_ui(
 
     for option in revision_plan.options:
         if option.mode == "remove":
-            st.write(f"- {option.mode}: {option.reason}")
+            st.write(f"- **{option.mode}:** {option.reason}")
             label = newline_every_n_words(f"Mode: {option.mode} - {option.reason}", 12)
 
         if option.mode == "impute":
             st.write(f"- {option.mode}: {option.reason}")
             label = (
-                f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, "
-                f"Categorical strategy: {format_option(option.categorical_strategy)}\n"
+                f"**Mode:** {option.mode}, **Numerical strategy:** {option.numerical_strategy}, "
+                f"**Categorical strategy:** {format_option(option.categorical_strategy)}\n"
                 f"- {newline_every_n_words(option.reason, 12)}"
             )
 
@@ -586,14 +586,19 @@ def missing_update_ui(
 
 
 def version_tabs_ui(
-    label: str = "Revision", key: str = "active_revision_tab", include_initial: bool = False,
-) -> dict:
+    label: str = "Revision",
+    key: str = "active_revision_tab",
+    include_initial: bool = False,
+    compare: bool = False,
+) -> tuple[dict, Any | None]:
     """Create tabs for workflow versions (UI).
 
     Args:
         label (str, optional): Label used for each version tab. Defaults to "Revision".
         key (str, optional): Unique Streamlit key for the tab groups. Defaults to
             "active_revision_tab".
+        include_initial (bool, optional): Whether to include version 1.
+        compare (bool, optional): Whether to include a comparison tab.
 
     Returns:
         dict: Mapping of version IDs to their corresponding tabs.
@@ -604,13 +609,20 @@ def version_tabs_ui(
         versions.insert(0, 1)
 
     if not versions:
-        return {}
+        return {}, None
 
     labels = [
         f"{label} {version - 1 if label == 'Revision' else version}"
         for version in versions
     ]
 
+    if compare and len(versions) > 1:
+        labels.append("Compare versions")
+
     tabs = st.tabs(labels, key=key, on_change="rerun",)
 
-    return dict(zip(versions, tabs))
+    version_tabs = dict(zip(versions, tabs[:len(versions)]))
+
+    comparison_tab = tabs[-1] if compare and len(versions) > 1 else None
+
+    return version_tabs, comparison_tab

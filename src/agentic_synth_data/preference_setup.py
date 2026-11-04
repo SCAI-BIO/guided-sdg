@@ -9,15 +9,19 @@ from agentic_synth_data.utils import GeneratorNameAuto, display_synthesis_reques
     CategoricalChoiceAuto, NumericalChoiceAuto
 
 
+# ============================================================================
+# Build the synthesis request
+# ============================================================================
+
 def build_synthesis_request(
     sample_size: Literal["fixed_value", "same_as_original"],
     fixed_value: int | None,
     privacy: Literal["standard", "differential_privacy"],
     generator: GeneratorNameAuto,
     missing_values: Literal["auto", "impute", "threshold", "remove"],
-    impute_method: Literal["SimpleImputer"] | None=None,
-    categorical_strategy: CategoricalChoiceAuto | None=None,
-    numerical_strategy: NumericalChoiceAuto | None=None,
+    impute_method: Literal["SimpleImputer"] | None = None,
+    categorical_strategy: CategoricalChoiceAuto | None = None,
+    numerical_strategy: NumericalChoiceAuto | None = None,
 ) -> SynthesisRequest:
     """Build the starting synthesis request from user configuration.
 
@@ -71,6 +75,10 @@ def build_synthesis_request(
         request.missing_values.impute.numerical_strategy = numerical_strategy
     return request
 
+
+# ============================================================================
+# Select preferences prior to building the synthesis request
+# ============================================================================
 
 def select_preferences() -> SynthesisRequest:
     """Initial setup of user preferences.

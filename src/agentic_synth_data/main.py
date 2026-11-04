@@ -24,7 +24,7 @@ st.set_page_config(
     },
 )
 
-colorize_multiselect("#74E96E")
+colorize_multiselect()
 
 setup = st.Page("pages/setup.py", title="0. Setup")
 select_preferences = st.Page("pages/preferences.py", title="1. Select preferences")

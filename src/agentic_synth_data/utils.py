@@ -1,7 +1,9 @@
+from io import BytesIO
 import os
 import textwrap
 from typing import Any, Literal, Optional, TypeVar, overload
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from langchain_core.runnables import RunnableConfig
 import pandas as pd
@@ -61,7 +63,7 @@ type NumericalChoiceAuto = Literal["auto", "mean", "median", "most_frequent",]
 
 
 # ============================================================================
-# Basic text display helpers
+# General display helpers
 # ============================================================================
 
 def comma_sep(item_list: list) -> str:
@@ -83,6 +85,32 @@ def format_option(value: str) -> str:
         str: String with spaces instead of underscores.
     """
     return value.replace("_", " ")
+
+
+def calculate_delta(
+    current: float | None, previous: float | None, decimals: int = 4, percentage: bool = False,
+) -> str | None:
+    """Calculate and format the change between metric values.
+
+    Args:
+        current (float | None): Current metric value.
+        previous (float | None): Previous metric value
+        decimals (int, optional): Number of decimal places. Defaults to 4.
+        percentage (bool, optional): Whether to express the difference as a percentage. Defaults
+            to False.
+
+    Returns:
+        str | None: Formatted delta, or None if not available.
+    """
+    if current is None or previous is None: # Discriminator AUC has sometimes yielded nan
+        return None
+
+    delta = current - previous
+
+    if percentage:
+        return f"{delta:.{decimals}%}"
+
+    return f"{delta:.{decimals}f}"
 
 
 # ============================================================================
@@ -282,7 +310,7 @@ def display_workflow_progress(text: str) -> None:
         st.write(text)
 
 
-def colorize_multiselect(color: str = "#56EB25") -> None:
+def colorize_multiselect(color: str = "#8BD94A") -> None:
     """Change the background color of selected multiselect tags.
 
     Args:
@@ -296,6 +324,78 @@ def colorize_multiselect(color: str = "#56EB25") -> None:
         }}
     </style>
     """)
+
+
+def display_downloads_ui(version_id: int) -> None:
+    """Display download buttons for report, synthetic data, and plots (UI)
+
+    Args:
+        version_id (int): Which workflow version data should be attributed to.
+    """
+    version = st.session_state.revision_history.get(version_id)
+
+    if version is None:
+        st.warning(f"Version {version_id} was not found.")
+        return
+
+    data_name = Path(version.data_path).stem
+
+    version_dir = OUTPUT_DIR / f"version_{version_id}"
+    report_path = version_dir / f"report_{data_name}_v{version_id}.md"
+    data_paths = list(version_dir.glob(f"synthetic_*_*_v{version_id}.csv"))
+    plots_dir = version_dir / "plots"
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1: # Report download
+        if report_path.exists():
+            st.download_button(
+                label="Download report",
+                data=report_path.read_bytes(),
+                file_name=report_path.name,
+                mime="text/markdown",
+                key=f"download_report_v{version_id}",
+            )
+
+        else:
+            st.info(f"No report available for version {version_id}.")
+
+    with col2: # Data download
+        if data_paths:
+            data_path = data_paths[0]
+
+            st.download_button(
+                label="Download synthetic data",
+                data=data_path.read_bytes(),
+                file_name=data_path.name,
+                mime="text/csv",
+                key=f"download_data_v{version_id}",
+            )
+
+        else:
+            st.info(f"No synthetic data available for version {version_id}.")
+
+    with col3: # Plot download
+        if plots_dir.exists():
+            zip_buffer = BytesIO()
+
+            with ZipFile(zip_buffer, "w", ZIP_DEFLATED) as zip_file:
+                for plot_path in plots_dir.rglob("*"):
+                    if plot_path.is_file():
+                        zip_file.write(
+                            plot_path,
+                            arcname=plot_path.relative_to(plots_dir),
+                        )
+
+            st.download_button(
+                label="Download plots",
+                data=zip_buffer.getvalue(),
+                file_name=f"plots_v{version_id}.zip",
+                mime="application/zip",
+                key=f"download_plots_v{version_id}",
+            )
+        else:
+            st.info(f"No plots available for version {version_id}.")
 
 
 # ============================================================================

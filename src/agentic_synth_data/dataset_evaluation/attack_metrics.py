@@ -11,8 +11,8 @@ import plotly.graph_objects as go
 from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetrics, AttackColumns, \
     AttackOutputs
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
-from agentic_synth_data.utils import SemanticTypes, format_response, info_helper_message, \
-    invoke_agent, comma_sep
+from agentic_synth_data.utils import SemanticTypes, calculate_delta, format_response, \
+    info_helper_message, invoke_agent, comma_sep
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message
 
 
@@ -227,6 +227,7 @@ def calculate_attack_metrics_ui(
     stypes: SemanticTypes,
     dtypes: dict[str, str],
     key_prefix: str,
+    prev_metrics: AttackMetrics | None = None,
     agent: Optional[CompiledStateGraph] | None = None,
     config: RunnableConfig | None = None,
 ) -> AttackMetrics:
@@ -275,6 +276,7 @@ def calculate_attack_metrics_ui(
         metric=so_risk,
         description=ANONYMETER_METRIC_DESCRIPTION["singling_out"],
         key_prefix=key_prefix,
+        previous_value=prev_metrics.singling_out.value if prev_metrics is not None else None,
     )
 
     # TODO: Replace user path name as usr for the output messages (agent will see file path but not user id).
@@ -323,6 +325,7 @@ def calculate_attack_metrics_ui(
         metric=inference_risk,
         description=ANONYMETER_METRIC_DESCRIPTION["inference"],
         key_prefix=key_prefix,
+        previous_value=prev_metrics.inference.value if prev_metrics is not None else None,
     )
 
     if inference_risk_output:
@@ -344,7 +347,8 @@ def calculate_attack_metrics_ui(
         metric_name="Linkability",
         metric=linkability_risk,
         description=ANONYMETER_METRIC_DESCRIPTION["linkability"],
-        key_prefix=key_prefix
+        key_prefix=key_prefix,
+        previous_value=prev_metrics.linkability.value if prev_metrics is not None else None,
     )
 
     if link_risk_output:
@@ -366,7 +370,10 @@ def calculate_attack_metrics_ui(
 
 
 def display_attack_metrics_ui(
-    attack_metrics: AttackMetrics, description: dict[str, str], key_prefix: str,
+    attack_metrics: AttackMetrics,
+    description: dict[str, str],
+    key_prefix: str,
+    prev_metrics: AttackMetrics | None = None,
 ) -> None:
     """Display what was calculated from Anonymeter's functions and the variables that were used
     to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
@@ -376,6 +383,8 @@ def display_attack_metrics_ui(
         attack_metrics (AttackMetrics): Stores information regarding privacy metrics to be 
             displayed.
         description (dict[str, str]): Quick overview of attack metrics.
+        previous_value (AttackMetrics | None): Anonymeter privacy metric output (e.g., singling out,
+            linkability, and inference risk).
     """
     st.subheader("Privacy metrics")
     st.write(
@@ -396,6 +405,7 @@ def display_attack_metrics_ui(
         metric=singling_out_risk,
         description=description["singling_out"],
         key_prefix=key_prefix,
+        previous_value=prev_metrics.singling_out.value if prev_metrics is not None else None,
     )
 
     if outputs.singling_out:
@@ -414,6 +424,7 @@ def display_attack_metrics_ui(
         metric=inference_risk,
         description=description["inference"],
         key_prefix=key_prefix,
+        previous_value=prev_metrics.inference.value if prev_metrics is not None else None,
     )
 
     if outputs.inference:
@@ -424,6 +435,7 @@ def display_attack_metrics_ui(
         metric=linkability_risk,
         description=description["linkability"],
         key_prefix=key_prefix,
+        previous_value=prev_metrics.linkability.value if prev_metrics is not None else None,
     )
 
     if outputs.linkability:
@@ -467,20 +479,33 @@ def show_anonymeter_warning_ui(output: str) -> None:
 
 def display_privacy_risk_ui(
     label: str,
-    value: float,
+    value: "PrivacyRisk",
     ci_lower: float,
     ci_upper: float,
     key_prefix: str,
+    previous_value: float | None = None,
 ) -> None:
     """Display a privacy risk estimate and its confidence interval (UI).
 
     Args:
         label (str): Type of privacy risk metric.
-        value (float): Resulting value.
+        value (PrivacyRisk): Resulting value.
         ci_lower (float): Lower confidence interval.
         ci_upper (float): Upper confidence interval.
+        previous_value (PrivacyRisk | None): Privacy risk estimate from
+            the previous version. Defaults to None (initial version).
     """
-    st.metric(label=label, value=f"{value:.2%}",) # TODO: Can add change between versions
+    st.metric(
+        label=label,
+        value=f"{value:.2%}",
+        delta=calculate_delta(
+            current=value,
+            previous=previous_value,
+            decimals=2,
+            percentage=True,
+        ),
+        delta_color="inverse",
+    )
 
     fig = go.Figure()
 
@@ -505,7 +530,7 @@ def display_privacy_risk_ui(
 
     fig.update_layout(
         height=160,
-        margin={"l": 10, "r": 20, "t": 10, "b":35,},
+        margin={"l": 10, "r": 20, "t": 10, "b": 35,},
         showlegend=False,
         xaxis={"title": "Privacy risk (%)", "range": [0, 100]},
         yaxis={"visible": False, "range":[-1, 1],},
@@ -517,7 +542,11 @@ def display_privacy_risk_ui(
 
 
 def write_attack_metric_ui(
-    metric_name: str, metric: "PrivacyRisk", description: str, key_prefix: str,
+    metric_name: str,
+    metric: "PrivacyRisk",
+    description: str,
+    key_prefix: str,
+    previous_value: float | None = None,
 ) -> None:
     """Display privacy metric information.
 
@@ -525,6 +554,8 @@ def write_attack_metric_ui(
         metric_name (str): Name of the metric (for display).
         metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
         description (str): Basic explanation of the metric for a quick overview.
+        previous_value (PrivacyRisk | None): Privacy risk estimate from the previous version.
+            Defaults to None (initial version).
     """
     st.write(
         f"#### {metric_name} risk:\n"
@@ -537,6 +568,7 @@ def write_attack_metric_ui(
         ci_lower=metric.ci[0],
         ci_upper=metric.ci[1],
         key_prefix=key_prefix,
+        previous_value=previous_value,
     )
 
 

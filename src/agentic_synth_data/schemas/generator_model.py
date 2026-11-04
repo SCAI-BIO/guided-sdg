@@ -29,7 +29,7 @@ class GeneratorRevisionPlan(BaseModel):
 
 class PATEGANConfig(BaseModel):
     """Configuration parameters for the PATEGAN generator. Epsilon only."""
-    eps: int = Field(default=1, ge=0, le=7)
+    eps: float = Field(default=1, ge=0, le=7)
 
 
 class PrivBayesConfig(BaseModel):

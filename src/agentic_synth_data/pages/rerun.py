@@ -51,7 +51,7 @@ pending_tab = st.session_state.pop("pending_active_revision_tab", None)
 if pending_tab is not None:
     st.session_state.active_revision_tab = pending_tab
 
-revision_tabs = version_tabs_ui()
+revision_tabs, _ = version_tabs_ui()
 
 # Original workflow (prior to revisions existing)
 if not revision_tabs:
