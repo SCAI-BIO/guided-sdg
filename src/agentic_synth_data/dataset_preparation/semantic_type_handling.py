@@ -283,23 +283,17 @@ def prepare_for_syndat(
     synth = synth.copy()
 
     # Same columns/order
-    synth = synth[real.columns]
+    synth = synth[real.columns].copy()
 
     for col in real.columns:
         stype = stypes[col]
 
-        if stype in ["Categorical", "Ordinal", "Boolean"]:
-            real[col] = real[col].astype("object")
-            synth[col] = synth[col].astype("object")
+        if stype in ["Categorical", "Ordinal", "Boolean",]:
+            for df in (real, synth):
+                df[col] = df[col].astype("string").astype("object")
+                df[col] = df[col].where(df[col].notna(), np.nan)
 
-            real[col] = real[col].where(~real[col].isna(), np.nan)
-            synth[col] = synth[col].where(~synth[col].isna(), np.nan)
-
-        elif stype == "Integer":
-            real[col] = pd.to_numeric(real[col], errors="coerce")
-            synth[col] = pd.to_numeric(synth[col], errors="coerce")
-
-        elif stype == "Float":
+        elif stype == ["Integer", "Float",]:
             real[col] = pd.to_numeric(real[col], errors="coerce")
             synth[col] = pd.to_numeric(synth[col], errors="coerce")
 
