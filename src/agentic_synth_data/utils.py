@@ -174,6 +174,19 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
         )
 
 
+def step(name: str, space: bool = True) -> None:
+    """Display the name of the current step reached.
+
+    Args:
+        name (str): Name of the step.
+        space (bool): Whether the step needs spaces for readability. Defaults to True.
+    """
+    if space:
+        print("\n\n")
+
+    print("=" * 25 + f"[STEP: {name}]" + "=" * 25)
+
+
 # ============================================================================
 # UI helpers
 # ============================================================================

@@ -38,7 +38,7 @@ from agentic_synth_data.strategies.factory import get_generator_strategy
 from agentic_synth_data.synthetic_generation.generation import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
 from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, SemanticTypes, df_formatter_st, \
-    format_response, output_default_parameters, comma_sep
+    format_response, output_default_parameters, comma_sep, step
 
 
 class DataGen:
@@ -66,14 +66,15 @@ class DataGen:
         self.agent_decision: AgentEval | None = None
 
         # Dataframes
-        self.source_df: pd.DataFrame | None = None # Original data
-        self.norm_na_df: pd.DataFrame | None = None # Original data (optional: marker replacement)
-        self.selected_df: pd.DataFrame | None = None # Covariate exclusion
-        self.train_df: pd.DataFrame | None = None # Training
-        self.test_df: pd.DataFrame | None = None # Evaluation (mainly anonymeter)
-        self.dtype_handled_df: pd.DataFrame | None = None # dtype prepared data
-        self.missing_handled_df: pd.DataFrame | None = None # Missing value prepared data
-        self.prepared_df: pd.DataFrame | None = None # Generator prepared data
+        self.source_df: pd.DataFrame | None = None # Input data (optional: with marker replacement)
+        self.selected_df: pd.DataFrame | None = None # Handled dtypes with specified covariates
+
+        self.train: pd.DataFrame | None = None # Train split of selected
+        self.test: pd.DataFrame | None = None # Test split of selected (used in Anonymeter)
+
+        self.prepared_df: pd.DataFrame | None = None # Training data prepared for generator
+        self.prepared_test: pd.DataFrame | None = None # Prepared testing data
+
         self.synthetic_df: pd.DataFrame | None = None # Synthetic data
 
         # Generated file paths
@@ -131,7 +132,7 @@ class DataGen:
 
     def apply_preferences(self):
         """Step 2: Setup preferences"""
-        print("="*25+"[STEP: Select preferences]"+"="*25)
+        step(name="Select preferences", space=False,)
         self.synthesis_request = select_preferences()
         return self.synthesis_request
 
@@ -156,56 +157,58 @@ class DataGen:
         """Step 3: Preprocess
             i. Check for missing value markers
             ii. Handle dtypes (both categories)
+            iii. Select covariates and split the dataset (pending)
         """
-        # Initial check for missing value markers (can affect dtypes)
-        print("\n\n")
-        print("="*25+"[STEP: Normalize missing values]"+"="*25)
-        source_df = self.source_df.copy()
-        missing_report = missing_value_precheck(source_df)
+        # i. Check for missing value markers
+        step(name="Normalize missing values")
+
+        missing_report = missing_value_precheck(self.source_df.copy())
+
         self.report.prep.missing_markers_detected = missing_report.detected_markers
         self.report.prep.missing_markers_replaced = missing_report.replaced_markers
 
-        if missing_report.has_missing_markers:
-            self.norm_na_df = missing_report.df.copy()
-            print("\n⇨ Dataframe has been saved for use during evaluation.")
+        # Save result whether missing markers have been converted or not.
+        self.source_df = missing_report.df.copy()
+        print("\n⇨ Dataframe has been saved for use during evaluation.")
 
-        norm_df = missing_report.df
+        # ii. Handle dtypes (both categories)
+        step(name="Handle data types")
+        dtype_handled_df, self.python_dtypes = handle_dtypes(self.source_df.copy())
 
-        if missing_report.replaced_markers:
-            self.norm_na_df = norm_df.copy()
-            print("\n⇨ Dataframe has been saved for use during evaluation.")
+        step(name="Handle semantic types")
+        self.semantic_types = handle_semantic_types(
+            df=dtype_handled_df.copy(), agent=self.agent, config=self.config
+        )
 
-        print("\n\n")
-        print("="*25+"[STEP: Handle data types]"+"="*25)
-        self.dtype_handled_df, self.python_dtypes = handle_dtypes(norm_df)
+        # iii. Select covariates and split the dataset (pending)
+        # TODO: Implement column selection here.
+        self.selected_df = dtype_handled_df.copy()
+
+        # Update stypes and dtypes to exclude selected cols
+        self.semantic_types = {col: self.semantic_types[col] for col in self.selected_df.columns}
+        self.python_dtypes = {col: self.python_dtypes[col] for col in self.selected_df.columns}
 
         self.report.prep.dtypes = self.python_dtypes
-
-        print("\n\n")
-        print("="*25+"[STEP: Handle semantic types]"+"="*25)
-        self.semantic_types = handle_semantic_types(
-            df=self.dtype_handled_df, agent=self.agent, config=self.config
-        )
         self.report.prep.stypes = self.semantic_types
 
-        self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
+        self.train, self.test = train_test_split(self.selected_df, test_size=0.2, random_state=42,)
         print("\n⇨ Created train/test split")
-        return self.train_df
+        return self.train
 
 
     def preprocess_dtypes_ui(self) -> pd.DataFrame:
         """Step 3: Preprocess (UI)
             i. Check for missing value markers
             ii. Handle dtypes (both categories)
+            iii. Select covariates and split the dataset
         """
-        # Initial check for missing value markers (can affect dtypes)
+        # i. Check for missing value markers
         st.subheader("Normalize missing values")
         st.write(
             "**Look for any missing value markers that should be encoded as null values within "
             "the dataset prior to analysis.**"
         )
-        source_df = self.source_df.copy()
-        missing_report = missing_value_precheck_ui(source_df)
+        missing_report = missing_value_precheck_ui(self.source_df.copy())
 
         if missing_report is None:
             st.stop()
@@ -213,31 +216,23 @@ class DataGen:
         self.report.prep.missing_markers_detected = missing_report.detected_markers
         self.report.prep.missing_markers_replaced = missing_report.replaced_markers
 
-        if missing_report.has_missing_markers:
-            self.norm_na_df = missing_report.df.copy()
-            st.info("⇨ Dataframe has been saved for use during evaluation.")
-
-        norm_df = missing_report.df
-
-        if missing_report.replaced_markers:
-            self.norm_na_df = norm_df.copy()
-            st.info("⇨ Dataframe has been saved for use during evaluation.")
+        self.source_df = missing_report.df.copy()
+        st.info("⇨ Dataframe has been saved for use during evaluation.")
 
         st.write("---")
 
+        # ii. Handle dtypes (both categories)
         st.subheader("Handle data types")
         st.write(
             "Automatically detect the majority Python data types present for each variable "
             "in the dataframe."
         )
-        dtype_result = handle_dtypes_ui(norm_df)
+        dtype_result = handle_dtypes_ui(self.source_df.copy())
 
         if dtype_result is None:
             st.stop()
 
-        self.dtype_handled_df, self.python_dtypes = dtype_result
-
-        self.report.prep.dtypes = self.python_dtypes
+        dtype_handled_df, self.python_dtypes = dtype_result
 
         st.write("---")
 
@@ -248,12 +243,10 @@ class DataGen:
         )
 
         stype_result = handle_semantic_types_ui(
-            df=self.dtype_handled_df, agent=self.agent, config=self.config,
+            df=dtype_handled_df.copy(), agent=self.agent, config=self.config,
         )
 
         self.semantic_types = stype_result
-
-        self.report.prep.stypes = self.semantic_types
 
         st.write("---")
         st.subheader("Final data types present in each column")
@@ -267,8 +260,8 @@ class DataGen:
         df_formatter_st(final_dtypes)
 
         st.write("---")
-        # Granted, this deviates from CLI...
-        # TODO: include CLI implementation of this
+
+        # iii. Select covariates and split the dataset
         # TODO: also must consider when missing value handling is applied.
         st.subheader("Covariate exclusion")
 
@@ -277,7 +270,7 @@ class DataGen:
             "Unselected features will be excluded."
         )
 
-        cols = self.dtype_handled_df.columns.tolist()
+        cols = dtype_handled_df.columns.tolist()
 
         selected_cols = st.multiselect(
             label="Select features:",
@@ -300,33 +293,31 @@ class DataGen:
         if not finished:
             st.stop()
 
-        self.selected_df = self.dtype_handled_df[selected_cols].copy()
+        self.selected_df = dtype_handled_df[selected_cols].copy()
 
         # Update stypes and dtypes to exclude selected cols
         self.semantic_types = {col: self.semantic_types[col] for col in self.selected_df.columns}
         self.python_dtypes = {col: self.python_dtypes[col] for col in self.selected_df.columns}
 
-        self.report.prep.dtypes = self.python_dtypes # possibly delete previous values...
+        self.report.prep.dtypes = self.python_dtypes
         self.report.prep.stypes = self.semantic_types
 
-        self.train_df, self.test_df = train_test_split(self.selected_df, test_size=0.2)
+        self.train, self.test = train_test_split(self.selected_df, test_size=0.2, random_state=42,)
 
         st.info(
-            f"⇨ Created test/train split: {len(self.train_df)} training rows and "
-            f"{len(self.test_df)} testing rows."
+            f"⇨ Created test/train split: {len(self.train)} training rows and {len(self.test)} "
+            "testing rows."
         )
-        return self.train_df
+        return self.train
 
 
     def generator_selection(self):
         """Step 3: Preprocess
             iii. Select/verify chosen generator
         """
-        print("\n\n")
-        print("="*25+"[STEP: Select data generator]"+"="*25)
+        step(name="Select data generator")
         print()
-        df = self.train_df.copy()
-        profile = generator_profile(df)
+        profile = generator_profile(self.train.copy())
         self.report.prep.profile = profile
         self.synthesis_request = select_generator(
             synthesis_request=self.synthesis_request,
@@ -342,8 +333,7 @@ class DataGen:
         """Step 3: Preprocess
             iii. Select/verify chosen generator
         """
-        df = self.train_df.copy()
-        profile = generator_profile_ui(df)
+        profile = generator_profile_ui(self.train.copy())
         self.report.prep.profile = profile
 
         synthesis_request = select_generator_ui(
@@ -365,16 +355,16 @@ class DataGen:
         """Step 3: Preprocess
             iv. Handle missing values (if needed for the generator)
         """
-        self.report.prep.missing_before = self.dtype_handled_df.isna().sum().sum()
+        self.report.prep.missing_before = self.selected_df.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
         if mechanism in ["PATEGAN", "CTGAN",]: # NOTE: For when missing handing is needed.
-            print("\n\n")
-            print("="*25+"[STEP: Handle missing values]"+"="*25)
+            step(name="Handle missing values")
 
             result = handle_missing_values(
-                df=self.train_df.copy(),
+                train=self.train.copy(),
+                test=self.test.copy(),
                 synthesis_request=self.synthesis_request,
                 semantic_types=self.semantic_types,
                 agent=self.agent,
@@ -382,30 +372,28 @@ class DataGen:
             )
 
             if result is not None:
-                self.missing_handled_df, self.synthesis_request = result
+                self.prepared_df, self.prepared_test, self.synthesis_request = result
 
-            self.prepared_df = self.missing_handled_df.copy()
-            self.report.input.prepared_shape = self.prepared_df.shape
-            self.report.prep.missing_after = self.missing_handled_df.isna().sum().sum()
+        else:
+            self.prepared_df = self.train.copy()
+            self.prepared_test = self.test.copy()
 
-            return self.prepared_df, self.synthesis_request
+            print(
+                "\nThe selected data generator does not require missing value handling: "
+                f"{mechanism}"
+            )
 
-        self.prepared_df = self.dtype_handled_df.copy()
+            # Reset missing value configuration
+            if self.synthesis_request.missing_values.mode == "impute":
+                self.synthesis_request.missing_values.impute = ImputationConfig()
+
+            elif self.synthesis_request.missing_values.impute == "threshold":
+                self.synthesis_request.missing_values.threshold = None
+
+            self.synthesis_request.missing_values.mode = None
+
         self.report.input.prepared_shape = self.prepared_df.shape
         self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
-
-        print(
-            f"\nThe selected data generator does not require missing value handling: {mechanism}"
-        )
-
-        # Set back to default
-        if self.synthesis_request.missing_values.mode == "impute":
-            self.synthesis_request.missing_values.impute = ImputationConfig()
-
-        elif self.synthesis_request.missing_values.impute == "threshold":
-            self.synthesis_request.missing_values.threshold = None
-
-        self.synthesis_request.missing_values.mode = None
 
         return self.prepared_df, self.synthesis_request
 
@@ -422,7 +410,8 @@ class DataGen:
             st.header("Handle missing values")
 
             result = handle_missing_values_ui(
-                df=self.train_df.copy(),
+                train=self.train.copy(),
+                test=self.test.copy(),
                 synthesis_request=self.synthesis_request,
                 semantic_types=self.semantic_types,
                 agent=self.agent,
@@ -430,30 +419,27 @@ class DataGen:
             )
 
             if result is not None:
-                self.missing_handled_df, self.synthesis_request = result
+                self.prepared_df, self.prepared_test, self.synthesis_request = result
 
-            self.prepared_df = self.missing_handled_df.copy()
-            self.report.input.prepared_shape = self.prepared_df.shape
-            self.report.prep.missing_after = self.missing_handled_df.isna().sum().sum()
+        else:
+            self.prepared_df = self.train.copy()
+            self.prepared_test = self.test.copy()
 
-            return self.prepared_df, self.synthesis_request
+            st.info(
+                f"The selected data generator does not require missing value handling: {mechanism}."
+            )
 
-        self.prepared_df = self.train_df.copy()
+            # Reset missing value configuration
+            if self.synthesis_request.missing_values.mode == "impute":
+                self.synthesis_request.missing_values.impute = ImputationConfig()
+
+            elif self.synthesis_request.missing_values.impute == "threshold":
+                self.synthesis_request.missing_values.threshold = None
+
+            self.synthesis_request.missing_values.mode = None
+
         self.report.input.prepared_shape = self.prepared_df.shape
         self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
-
-        st.info(
-            f"The selected data generator does not require missing value handling: {mechanism}."
-        )
-
-        # Set back to default
-        if self.synthesis_request.missing_values.mode == "impute":
-            self.synthesis_request.missing_values.impute = ImputationConfig()
-
-        elif self.synthesis_request.missing_values.impute == "threshold":
-            self.synthesis_request.missing_values.threshold = None
-
-        self.synthesis_request.missing_values.mode = None
 
         return self.prepared_df, self.synthesis_request
 
@@ -485,8 +471,7 @@ class DataGen:
         """ Step 4: Setup tool data
             i. Save the prepared data (CLI)
         """
-        print("\n\n")
-        print("=" * 25 + "[STEP: Create metadata for tool use]" + "=" * 25)
+        step(name="Create metadata for tool use")
 
         prepared_path = self.save_prepared_data()
 
@@ -522,8 +507,7 @@ class DataGen:
 
     def run_synthesis(self):
         """Step 5: Synthesize data"""
-        print("\n\n")
-        print("="*25+"[STEP: Synthesize synthetic data]"+"="*25)
+        step(name="Synthesize synthetic data")
         strategy = get_generator_strategy(self.synthesis_request.generator.name)
 
         # Set sample size
@@ -602,13 +586,10 @@ class DataGen:
 
     def evaluate(self):
         """Step 6: Evaluate results"""
-        print("\n\n")
-        print("="*25+"[STEP: Evaluate synthetic data]"+"="*25)
+        step(name="Evaluate synthetic data")
+
+        real = self.selected_df.copy()
         synth = self.synthetic_df.copy()
-        if self.norm_na_df is not None:
-            real = self.norm_na_df.copy()
-        else:
-            real = self.source_df.copy()
 
         real, synth = prepare_for_syndat(
             real=real,
@@ -621,8 +602,8 @@ class DataGen:
         self.report.evaluate.syndat = syndat_metrics
 
         attack_metrics = calculate_attack_metrics(
-            train=self.train_df,
-            test=self.test_df,
+            train=self.train,
+            test=self.test,
             synth=synth,
             stypes=self.semantic_types,
             dtypes=self.python_dtypes,
@@ -689,8 +670,8 @@ class DataGen:
         with col2:
             if attack_key not in st.session_state:
                 attack_metrics = calculate_attack_metrics_ui(
-                    train=self.train_df,
-                    test=self.test_df,
+                    train=self.train,
+                    test=self.test,
                     synth=synth,
                     stypes=self.semantic_types,
                     dtypes=self.python_dtypes,
@@ -766,8 +747,7 @@ class DataGen:
 
     def post_evaluation_check(self):
         """Revise: Check in with user and possibly change the plan"""
-        print("\n\n")
-        print("="*25+"[END: Evaluate workflow]"+"="*25)
+        step(name="Evaluate workflow")
 
         choice = evaluation_review(
             agent_decision=self.agent_decision, agent=self.agent, config=self.config,
@@ -890,11 +870,9 @@ class DataGen:
         revised.synthesis_request = self.synthesis_request.model_copy(deep=True)
 
         revised.source_df = self.source_df.copy()
-        revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
         revised.selected_df = self.selected_df.copy()
-        revised.dtype_handled_df = self.dtype_handled_df.copy()
-        revised.train_df = self.train_df.copy()
-        revised.test_df = self.test_df.copy()
+        revised.train = self.train.copy()
+        revised.test = self.test.copy()
 
         revised.python_dtypes = copy.deepcopy(self.python_dtypes)
         revised.semantic_types = copy.deepcopy(self.semantic_types)
@@ -927,11 +905,9 @@ class DataGen:
         revised.synthesis_request = self.synthesis_request.model_copy(deep=True)
 
         revised.source_df = self.source_df.copy()
-        revised.norm_na_df = self.norm_na_df.copy() if self.norm_na_df is not None else None
         revised.selected_df = self.selected_df.copy()
-        revised.dtype_handled_df = self.dtype_handled_df.copy()
-        revised.train_df = self.train_df.copy()
-        revised.test_df = self.test_df.copy()
+        revised.train = self.train.copy()
+        revised.test = self.test.copy()
 
         revised.python_dtypes = copy.deepcopy(self.python_dtypes)
         revised.semantic_types = copy.deepcopy(self.semantic_types)
@@ -984,8 +960,8 @@ class DataGen:
         missing value, or the selection of both options. Additionally, clears the report in the
         altered sections.
         """
-        self.missing_handled_df = None
         self.prepared_df = None
+        self.prepared_test = None
         self.prepared_path = None
         self.metadata_path = None
         self.synthetic_df = None
