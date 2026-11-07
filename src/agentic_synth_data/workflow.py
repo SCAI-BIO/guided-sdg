@@ -61,21 +61,18 @@ class DataGen:
 
         # Workflow decisions and metadata
         self.synthesis_request: SynthesisRequest | None = None
-        self.python_dtypes: dict[Hashable, str] | None = None
-        self.semantic_types: SemanticTypes | None = None
+        self.dtypes: dict[Hashable, str] | None = None
+        self.stypes: SemanticTypes | None = None
         self.agent_decision: AgentEval | None = None
 
         # Dataframes
-        self.source_df: pd.DataFrame | None = None # Input data (optional: with marker replacement)
-        self.selected_df: pd.DataFrame | None = None # Handled dtypes with specified covariates
-
+        self.source: pd.DataFrame | None = None # Input data (optional: with marker replacement)
+        self.selected: pd.DataFrame | None = None # Handled dtypes with specified covariates
         self.train: pd.DataFrame | None = None # Train split of selected
         self.test: pd.DataFrame | None = None # Test split of selected (used in Anonymeter)
-
-        self.prepared_df: pd.DataFrame | None = None # Training data prepared for generator
+        self.prepared_train: pd.DataFrame | None = None # Training data prepared for generator
         self.prepared_test: pd.DataFrame | None = None # Prepared testing data
-
-        self.synthetic_df: pd.DataFrame | None = None # Synthetic data
+        self.synthetic: pd.DataFrame | None = None # Synthetic data
 
         # Generated file paths
         self.metadata_path: Path | None = None
@@ -113,25 +110,25 @@ class DataGen:
 
 
     # ============================================================================
-    # Step 1: Load dataset
+    # Step 0: Load dataset
     # ============================================================================
 
     def load_dataframe(self) -> pd.DataFrame:
-        """Step 1: Setup source dataframe"""
-        self.source_df = load_df(self.data_path)
+        """Start: Setup source dataframe"""
+        self.source = load_df(self.data_path)
         self.report.input.path = self.data_path
-        self.report.input.original_shape = self.source_df.shape
+        self.report.input.original_shape = self.source.shape
         self.report.input.version_id = self.version_id
         self.report.input.parent_version = self.parent_version
-        return self.source_df
+        return self.source
 
 
     # ============================================================================
-    # Step 2: Apply preferences
+    # Step 1: Apply preferences
     # ============================================================================
 
     def apply_preferences(self):
-        """Step 2: Setup preferences"""
+        """Step 1: Setup preferences"""
         step(name="Select preferences", space=False,)
         self.synthesis_request = select_preferences()
         return self.synthesis_request
@@ -150,11 +147,11 @@ class DataGen:
 
 
     # ============================================================================
-    # Step 3: Preprocess dataset and select generator
+    # Step 2: Preprocess dataset and select generator
     # ============================================================================
 
     def preprocess_dtypes(self) -> pd.DataFrame:
-        """Step 3: Preprocess
+        """Step 2: Preprocess
             i. Check for missing value markers
             ii. Handle dtypes (both categories)
             iii. Select covariates and split the dataset (pending)
@@ -162,42 +159,42 @@ class DataGen:
         # i. Check for missing value markers
         step(name="Normalize missing values")
 
-        missing_report = missing_value_precheck(self.source_df.copy())
+        missing_report = missing_value_precheck(self.source.copy())
 
         self.report.prep.missing_markers_detected = missing_report.detected_markers
         self.report.prep.missing_markers_replaced = missing_report.replaced_markers
 
         # Save result whether missing markers have been converted or not.
-        self.source_df = missing_report.df.copy()
+        self.source = missing_report.df.copy()
         print("\n⇨ Dataframe has been saved for use during evaluation.")
 
         # ii. Handle dtypes (both categories)
         step(name="Handle data types")
-        dtype_handled_df, self.python_dtypes = handle_dtypes(self.source_df.copy())
+        dtype_handled_df, self.dtypes = handle_dtypes(self.source.copy())
 
         step(name="Handle semantic types")
-        self.semantic_types = handle_semantic_types(
+        self.stypes = handle_semantic_types(
             df=dtype_handled_df.copy(), agent=self.agent, config=self.config
         )
 
         # iii. Select covariates and split the dataset (pending)
         # TODO: Implement column selection here.
-        self.selected_df = dtype_handled_df.copy()
+        self.selected = dtype_handled_df.copy()
 
         # Update stypes and dtypes to exclude selected cols
-        self.semantic_types = {col: self.semantic_types[col] for col in self.selected_df.columns}
-        self.python_dtypes = {col: self.python_dtypes[col] for col in self.selected_df.columns}
+        self.stypes = {col: self.stypes[col] for col in self.selected.columns}
+        self.dtypes = {col: self.dtypes[col] for col in self.selected.columns}
 
-        self.report.prep.dtypes = self.python_dtypes
-        self.report.prep.stypes = self.semantic_types
+        self.report.prep.dtypes = self.dtypes
+        self.report.prep.stypes = self.stypes
 
-        self.train, self.test = train_test_split(self.selected_df, test_size=0.2, random_state=42,)
+        self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
         print("\n⇨ Created train/test split")
         return self.train
 
 
     def preprocess_dtypes_ui(self) -> pd.DataFrame:
-        """Step 3: Preprocess (UI)
+        """Step 2: Preprocess (UI)
             i. Check for missing value markers
             ii. Handle dtypes (both categories)
             iii. Select covariates and split the dataset
@@ -208,7 +205,7 @@ class DataGen:
             "**Look for any missing value markers that should be encoded as null values within "
             "the dataset prior to analysis.**"
         )
-        missing_report = missing_value_precheck_ui(self.source_df.copy())
+        missing_report = missing_value_precheck_ui(self.source.copy())
 
         if missing_report is None:
             st.stop()
@@ -216,7 +213,7 @@ class DataGen:
         self.report.prep.missing_markers_detected = missing_report.detected_markers
         self.report.prep.missing_markers_replaced = missing_report.replaced_markers
 
-        self.source_df = missing_report.df.copy()
+        self.source = missing_report.df.copy()
         st.info("⇨ Dataframe has been saved for use during evaluation.")
 
         st.write("---")
@@ -227,12 +224,12 @@ class DataGen:
             "Automatically detect the majority Python data types present for each variable "
             "in the dataframe."
         )
-        dtype_result = handle_dtypes_ui(self.source_df.copy())
+        dtype_result = handle_dtypes_ui(self.source.copy())
 
         if dtype_result is None:
             st.stop()
 
-        dtype_handled_df, self.python_dtypes = dtype_result
+        dtype_handled_df, self.dtypes = dtype_result
 
         st.write("---")
 
@@ -246,15 +243,15 @@ class DataGen:
             df=dtype_handled_df.copy(), agent=self.agent, config=self.config,
         )
 
-        self.semantic_types = stype_result
+        self.stypes = stype_result
 
         st.write("---")
         st.subheader("Final data types present in each column")
 
         final_dtypes = pd.DataFrame({
-            "Feature": self.semantic_types.keys(),
-            "Data type": [self.python_dtypes[col] for col in self.semantic_types.keys()],
-            "Semantic type": self.semantic_types.values(),
+            "Feature": self.stypes.keys(),
+            "Data type": [self.dtypes[col] for col in self.stypes.keys()],
+            "Semantic type": self.stypes.values(),
         })
 
         df_formatter_st(final_dtypes)
@@ -293,16 +290,16 @@ class DataGen:
         if not finished:
             st.stop()
 
-        self.selected_df = dtype_handled_df[selected_cols].copy()
+        self.selected = dtype_handled_df[selected_cols].copy()
 
         # Update stypes and dtypes to exclude selected cols
-        self.semantic_types = {col: self.semantic_types[col] for col in self.selected_df.columns}
-        self.python_dtypes = {col: self.python_dtypes[col] for col in self.selected_df.columns}
+        self.stypes = {col: self.stypes[col] for col in self.selected.columns}
+        self.dtypes = {col: self.dtypes[col] for col in self.selected.columns}
 
-        self.report.prep.dtypes = self.python_dtypes
-        self.report.prep.stypes = self.semantic_types
+        self.report.prep.dtypes = self.dtypes
+        self.report.prep.stypes = self.stypes
 
-        self.train, self.test = train_test_split(self.selected_df, test_size=0.2, random_state=42,)
+        self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
 
         st.info(
             f"⇨ Created test/train split: {len(self.train)} training rows and {len(self.test)} "
@@ -312,7 +309,7 @@ class DataGen:
 
 
     def generator_selection(self):
-        """Step 3: Preprocess
+        """Step 2: Preprocess
             iii. Select/verify chosen generator
         """
         step(name="Select data generator")
@@ -321,7 +318,7 @@ class DataGen:
         self.report.prep.profile = profile
         self.synthesis_request = select_generator(
             synthesis_request=self.synthesis_request,
-            semantic_types=self.semantic_types,
+            semantic_types=self.stypes,
             profile=profile,
             agent=self.agent,
             config=self.config,
@@ -330,7 +327,7 @@ class DataGen:
 
 
     def generator_selection_ui(self):
-        """Step 3: Preprocess
+        """Step 2: Preprocess
             iii. Select/verify chosen generator
         """
         profile = generator_profile_ui(self.train.copy())
@@ -338,7 +335,7 @@ class DataGen:
 
         synthesis_request = select_generator_ui(
             synthesis_request=self.synthesis_request,
-            semantic_types=self.semantic_types,
+            semantic_types=self.stypes,
             profile=profile,
             agent=self.agent,
             config=self.config,
@@ -352,10 +349,10 @@ class DataGen:
 
 
     def preprocess_missing_vals(self):
-        """Step 3: Preprocess
+        """Step 2: Preprocess
             iv. Handle missing values (if needed for the generator)
         """
-        self.report.prep.missing_before = self.selected_df.isna().sum().sum()
+        self.report.prep.missing_before = self.selected.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -366,16 +363,16 @@ class DataGen:
                 train=self.train.copy(),
                 test=self.test.copy(),
                 synthesis_request=self.synthesis_request,
-                semantic_types=self.semantic_types,
+                semantic_types=self.stypes,
                 agent=self.agent,
                 config=self.config,
             )
 
             if result is not None:
-                self.prepared_df, self.prepared_test, self.synthesis_request = result
+                self.prepared_train, self.prepared_test, self.synthesis_request = result
 
         else:
-            self.prepared_df = self.train.copy()
+            self.prepared_train = self.train.copy()
             self.prepared_test = self.test.copy()
 
             print(
@@ -392,17 +389,17 @@ class DataGen:
 
             self.synthesis_request.missing_values.mode = None
 
-        self.report.input.prepared_shape = self.prepared_df.shape
-        self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
+        self.report.input.prepared_shape = self.prepared_train.shape
+        self.report.prep.missing_after = self.prepared_train.isna().sum().sum()
 
-        return self.prepared_df, self.synthesis_request
+        return self.prepared_train, self.synthesis_request
 
 
     def preprocess_missing_vals_ui(self):
-        """Step 3: Preprocess
+        """Step 2: Preprocess
             iv. Handle missing values (if needed for the generator) (UI)
         """
-        self.report.prep.missing_before = self.selected_df.isna().sum().sum()
+        self.report.prep.missing_before = self.selected.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -413,16 +410,16 @@ class DataGen:
                 train=self.train.copy(),
                 test=self.test.copy(),
                 synthesis_request=self.synthesis_request,
-                semantic_types=self.semantic_types,
+                semantic_types=self.stypes,
                 agent=self.agent,
                 config=self.config,
             )
 
             if result is not None:
-                self.prepared_df, self.prepared_test, self.synthesis_request = result
+                self.prepared_train, self.prepared_test, self.synthesis_request = result
 
         else:
-            self.prepared_df = self.train.copy()
+            self.prepared_train = self.train.copy()
             self.prepared_test = self.test.copy()
 
             st.info(
@@ -438,19 +435,19 @@ class DataGen:
 
             self.synthesis_request.missing_values.mode = None
 
-        self.report.input.prepared_shape = self.prepared_df.shape
-        self.report.prep.missing_after = self.prepared_df.isna().sum().sum()
+        self.report.input.prepared_shape = self.prepared_train.shape
+        self.report.prep.missing_after = self.prepared_train.isna().sum().sum()
 
-        return self.prepared_df, self.synthesis_request
+        return self.prepared_train, self.synthesis_request
 
 
     # ============================================================================
-    # Step 4: Prepare generator inputs
+    # Step 3: Prepare generator inputs
     # ============================================================================
 
     # TODO combine CLI and UI functions with minimal changes (only print statements have been changed)
     def save_prepared_data(self) -> Path:
-        """ Step 4: Setup tool data
+        """ Step 3: Setup tool data
             i. Save the prepared data
         """
         input_path = Path(self.data_path)
@@ -461,14 +458,14 @@ class DataGen:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self.prepared_path = output_dir / output_filename
-        self.prepared_df.to_csv(self.prepared_path, index=False)
+        self.prepared_train.to_csv(self.prepared_path, index=False)
 
         self.report.gen.prep_path = self.prepared_path
         return self.prepared_path
 
 
     def save_prepared_data_cli(self) -> Path:
-        """ Step 4: Setup tool data
+        """ Step 3: Setup tool data
             i. Save the prepared data (CLI)
         """
         step(name="Create metadata for tool use")
@@ -480,7 +477,7 @@ class DataGen:
 
 
     def save_prepared_data_ui(self) -> Path:
-        """Step 4: Setup tool data
+        """Step 3: Setup tool data
             i. Save the prepared data (UI)
         """
         prepared_path = self.save_prepared_data()
@@ -490,23 +487,23 @@ class DataGen:
 
 
     def create_metadata(self):
-        """Step 4: Setup tool data
+        """Step 3: Setup tool data
             ii. Create metadata for tool use
         """
         strategy = get_generator_strategy(self.synthesis_request.generator.name)
 
         self.metadata_path = strategy.prepare_metadata(
             prep_path=self.prepared_path,
-            semantic_types=self.semantic_types,
+            semantic_types=self.stypes,
         )
 
 
     # ============================================================================
-    # Step 5: Generate synthetic data
+    # Step 4: Generate synthetic data
     # ============================================================================
 
     def run_synthesis(self):
-        """Step 5: Synthesize data"""
+        """Step 4: Synthesize data"""
         step(name="Synthesize synthetic data")
         strategy = get_generator_strategy(self.synthesis_request.generator.name)
 
@@ -514,9 +511,9 @@ class DataGen:
         if self.synthesis_request.sample_size.mode == "fixed_value":
             sample_size = self.synthesis_request.sample_size.fixed_value
         else:
-            sample_size = len(self.source_df)
+            sample_size = len(self.source)
 
-        self.synthetic_path, self.synthetic_df = strategy._run(
+        self.synthetic_path, self.synthetic = strategy._run(
             n_samples=sample_size,
             prep_path=self.prepared_path,
             parameters=self.synthesis_request.generator.parameters,
@@ -524,16 +521,16 @@ class DataGen:
         )
 
         self.report.gen.synth_path = self.synthetic_path
-        self.report.gen.synth_shape = self.synthetic_df.shape
+        self.report.gen.synth_shape = self.synthetic.shape
         self.report.gen.params = self.synthesis_request.generator.parameters
-        return self.synthesis_request, self.synthetic_path, self.synthetic_df
+        return self.synthesis_request, self.synthetic_path, self.synthetic
 
 
     def run_synthesis_ui(self):
-        """Step 5: Synthesize data (UI)"""
+        """Step 4: Synthesize data (UI)"""
         if st.session_state.get(f"generation_complete_{self.version_id}", False):
             self.synthetic_path = st.session_state.synthetic_path
-            self.synthetic_df = st.session_state.synthetic_df
+            self.synthetic = st.session_state.synthetic
 
         else:
             generator = self.synthesis_request.generator.name
@@ -544,13 +541,13 @@ class DataGen:
             if self.synthesis_request.sample_size.mode == "fixed_value":
                 sample_size = self.synthesis_request.sample_size.fixed_value
             else:
-                sample_size = len(self.source_df)
+                sample_size = len(self.source)
 
             with st.status(f"Generating data with {generator}...", expanded=True) as status:
                 output = StreamlitOutput()
 
                 with redirect_stdout(output):
-                    self.synthetic_path, self.synthetic_df = strategy._run(
+                    self.synthetic_path, self.synthetic = strategy._run(
                         n_samples=sample_size,
                         prep_path=self.prepared_path,
                         parameters=self.synthesis_request.generator.parameters,
@@ -565,36 +562,36 @@ class DataGen:
                 )
 
             st.session_state.synthetic_path = self.synthetic_path
-            st.session_state.synthetic_df = self.synthetic_df
+            st.session_state.synthetic = self.synthetic
             st.session_state[f"generation_complete_{self.version_id}"] = True
 
             self.report.gen.synth_path = self.synthetic_path
-            self.report.gen.synth_shape = self.synthetic_df.shape
+            self.report.gen.synth_shape = self.synthetic.shape
             self.report.gen.params = self.synthesis_request.generator.parameters
 
-        df_formatter_st(self.synthetic_df.copy().head())
+        df_formatter_st(self.synthetic.copy().head())
         st.caption(
             "**Note:** Only the first five rows of the synthetic dataset are displayed on this "
             "page."
         )
-        return self.synthesis_request, self.synthetic_path, self.synthetic_df
+        return self.synthesis_request, self.synthetic_path, self.synthetic
 
 
     # ============================================================================
-    # Step 6: Evaluate synthetic data
+    # Step 5: Evaluate synthetic data
     # ============================================================================
 
     def evaluate(self):
-        """Step 6: Evaluate results"""
+        """Step 5: Evaluate results"""
         step(name="Evaluate synthetic data")
 
-        real = self.selected_df.copy()
-        synth = self.synthetic_df.copy()
+        real = self.selected.copy()
+        synth = self.synthetic.copy()
 
         real, synth = prepare_for_syndat(
             real=real,
             synth=synth,
-            stypes=self.semantic_types,
+            stypes=self.stypes,
         )
 
         syndat_metrics = calculate_metrics(real=real, synth=synth,)
@@ -605,8 +602,8 @@ class DataGen:
             train=self.train,
             test=self.test,
             synth=synth,
-            stypes=self.semantic_types,
-            dtypes=self.python_dtypes,
+            stypes=self.stypes,
+            dtypes=self.dtypes,
             agent=self.agent,
             config=self.config,
         )
@@ -641,16 +638,16 @@ class DataGen:
 
 
     def evaluate_ui(self):
-        """Step 6: Evaluate results"""
-        synth = self.synthetic_df.copy()
+        """Step 5: Evaluate results"""
+        synth = self.synthetic.copy()
         if self.norm_na_df is not None:
             real = self.norm_na_df.copy()
         else:
-            real = self.source_df.copy()
+            real = self.source.copy()
 
-        real = real[self.selected_df.columns].copy()
+        real = real[self.selected.columns].copy()
 
-        real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.semantic_types,)
+        real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.stypes,)
 
         col1, col2 = st.columns(2)
 
@@ -673,8 +670,8 @@ class DataGen:
                     train=self.train,
                     test=self.test,
                     synth=synth,
-                    stypes=self.semantic_types,
-                    dtypes=self.python_dtypes,
+                    stypes=self.stypes,
+                    dtypes=self.dtypes,
                     key_prefix=f"calculation_v{self.version_id}",
                     prev_metrics=prev_attack_metrics,
                     agent=self.agent,
@@ -854,9 +851,8 @@ class DataGen:
     # Revision management
     # ============================================================================
 
-    def create_revision(self, update_plan:dict) -> "DataGen":
-        """Copy datagen with the approved revisions."""
-        print("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
+    def _create_revision_base(self, update_plan: dict) -> "DataGen":
+        """Create a revised workflow without executing it."""
         revised = DataGen(self.data_path)
 
         revised.version_id = self.version_id + 1
@@ -869,13 +865,13 @@ class DataGen:
 
         revised.synthesis_request = self.synthesis_request.model_copy(deep=True)
 
-        revised.source_df = self.source_df.copy()
-        revised.selected_df = self.selected_df.copy()
+        revised.source = self.source.copy()
+        revised.selected = self.selected.copy()
         revised.train = self.train.copy()
         revised.test = self.test.copy()
 
-        revised.python_dtypes = copy.deepcopy(self.python_dtypes)
-        revised.semantic_types = copy.deepcopy(self.semantic_types)
+        revised.dtypes = copy.deepcopy(self.dtypes)
+        revised.semantic_types = copy.deepcopy(self.stypes)
 
         revised.report = copy.deepcopy(self.report)
         revised.report.input.version_id = revised.version_id
@@ -885,43 +881,27 @@ class DataGen:
 
         revised._apply_revision_plan(update_plan)
         revised._reset_from_selection(selection)
-        revised._rerun_selection(update_plan)
+
         return revised
 
 
-    def create_revision_ui(self, update_plan:dict) -> "DataGen":
-        """Copy datagen with the approved revisions (UI)."""
+    def create_revision(self, update_plan: dict) -> "DataGen":
+        """Create a copy of DataGen and run the approved revisions."""
+        print("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
+
+        revised = self._create_revision_base(update_plan=update_plan)
+        revised._rerun_selection(update_plan)
+
+        return revised
+
+
+    def create_revision_ui(self, update_plan: dict) -> "DataGen":
+        """Create a copy of DataGen and run the approved revisions (UI)."""
         st.write("\n" + "=" * 25 + "[REVISION: Create and update workflow copy]" + "=" * 25)
-        revised = DataGen(self.data_path)
 
-        revised.version_id = self.version_id + 1
-        revised.parent_version = self.version_id
-
-        revised.model = self.model
-        revised.agent = self.agent
-        revised.checkpointer = self.checkpointer
-        revised.config = copy.deepcopy(self.config)
-
-        revised.synthesis_request = self.synthesis_request.model_copy(deep=True)
-
-        revised.source_df = self.source_df.copy()
-        revised.selected_df = self.selected_df.copy()
-        revised.train = self.train.copy()
-        revised.test = self.test.copy()
-
-        revised.python_dtypes = copy.deepcopy(self.python_dtypes)
-        revised.semantic_types = copy.deepcopy(self.semantic_types)
-
-        revised.report = copy.deepcopy(self.report)
-        revised.report.input.version_id = revised.version_id
-        revised.report.input.parent_version = revised.parent_version
-
-        selection = revised._revision_scope(update_plan)
-
-        revised._apply_revision_plan(update_plan)
-        revised._reset_from_selection(selection)
-
+        revised = self._create_revision_base(update_plan=update_plan)
         revised.pending_revision_plan = update_plan
+
         return revised
 
 
@@ -960,11 +940,11 @@ class DataGen:
         missing value, or the selection of both options. Additionally, clears the report in the
         altered sections.
         """
-        self.prepared_df = None
+        self.prepared_train = None
         self.prepared_test = None
         self.prepared_path = None
         self.metadata_path = None
-        self.synthetic_df = None
+        self.synthetic = None
         self.agent_decision = None
 
         # Covers "generator_selection"
@@ -1047,7 +1027,7 @@ class DataGen:
         self.run_synthesis()
         self.evaluate()
         final_gen = self.post_evaluation_check()
-        return final_gen.synthetic_df
+        return final_gen.synthetic
 
 
     def _rerun_selection_ui(self, update_plan: dict) -> pd.DataFrame:
@@ -1087,7 +1067,7 @@ class DataGen:
         self.run_synthesis_ui()
         self.evaluate_ui()
 
-        return self.synthetic_df
+        return self.synthetic
 
 
     # ============================================================================
@@ -1136,9 +1116,9 @@ class DataGen:
         """Display previously generated and evaluated revision results (UI)."""
 
         # Synthetic dataset
-        if self.synthetic_df is not None:
+        if self.synthetic is not None:
             st.subheader("Synthetic dataset")
-            st.dataframe(self.synthetic_df.head())
+            st.dataframe(self.synthetic.head())
 
         # Retrieve metrics from the previous version
         prev_syndat_metrics, prev_attack_metrics = self.get_prev_evaluation_metrics()
@@ -1191,4 +1171,4 @@ class DataGen:
         # Evaluate results and make report
         self.evaluate()
         final_gen = self.post_evaluation_check()
-        return final_gen.synthetic_df
+        return final_gen.synthetic
