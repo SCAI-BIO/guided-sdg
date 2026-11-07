@@ -71,7 +71,7 @@ class DataGen:
         self.train: pd.DataFrame | None = None # Train split of selected
         self.test: pd.DataFrame | None = None # Test split of selected (used in Anonymeter)
         self.prepared_train: pd.DataFrame | None = None # Training data prepared for generator
-        self.prepared_test: pd.DataFrame | None = None # Prepared testing data
+        self.prepared_test: pd.DataFrame | None = None # Prepared testing data (NOTE: need to confirm before using)
         self.synthetic: pd.DataFrame | None = None # Synthetic data
 
         # Generated file paths
@@ -871,7 +871,7 @@ class DataGen:
         revised.test = self.test.copy()
 
         revised.dtypes = copy.deepcopy(self.dtypes)
-        revised.semantic_types = copy.deepcopy(self.stypes)
+        revised.stypes = copy.deepcopy(self.stypes)
 
         revised.report = copy.deepcopy(self.report)
         revised.report.input.version_id = revised.version_id
