@@ -398,6 +398,17 @@ def display_downloads_ui(version_id: int) -> None:
             st.info(f"No plots available for version {version_id}.")
 
 
+def display_delta_caption(previous_value: float | None) -> None:
+    """Display a caption explaining the metric delta when a previous value exists.
+
+    Args:
+        previous_value (float | None): Previous version's output value for a metric. Defaults to
+            None.
+    """
+    if previous_value is not None:
+        st.caption("Change in metric value in comparison to the previous version.")
+
+
 # ============================================================================
 # Agent helpers
 # ============================================================================

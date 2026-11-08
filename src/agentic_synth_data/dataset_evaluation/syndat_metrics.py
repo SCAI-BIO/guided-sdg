@@ -9,7 +9,8 @@ import syndat
 
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
-from agentic_synth_data.utils import OUTPUT_DIR, calculate_delta, df_formatter_st
+from agentic_synth_data.utils import OUTPUT_DIR, calculate_delta, df_formatter_st, \
+    display_delta_caption
 
 
 # ============================================================================
@@ -206,6 +207,8 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         delta_color="inverse",
     )
 
+    display_delta_caption(previous_value=prev_metrics.jsd["jsd_AVERAGE"])
+
     if metrics.output_messages.jsd:
         with st.expander(
             "**UserWarning:** Some variables may have been excluded during computation."
@@ -235,6 +238,8 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         ),
         delta_color="inverse",
     )
+
+    display_delta_caption(previous_value=prev_metrics.norm_corr_diff)
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander(
@@ -266,6 +271,8 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
             ),
             delta_color="inverse",
         )
+
+        display_delta_caption(previous_value=prev_metrics.discrim_auc)
 
         if metrics.output_messages.discrim_auc:
             with st.expander(

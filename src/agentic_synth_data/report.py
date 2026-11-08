@@ -108,31 +108,6 @@ def write_report(
 
     # TODO: add train/test split information
 
-    def display_plots(paths: list[Path]) -> str:
-        return "\n\n".join(
-            f"![{path.stem}]({path.relative_to(output_dir).as_posix()})"
-            for path in paths
-        )
-
-    # Distribution plots
-    distribution_paths = report.evaluate.plots.get("distributions", [])
-    top_plots = display_plots(distribution_paths[:3])
-    remaining_distributions = display_plots(distribution_paths[3:])
-
-    # Correlation plots
-    correlation_paths = report.evaluate.plots.get("correlations", [])
-
-    original_correlations = display_plots(
-        [path for path in correlation_paths if "real_corr" in path.stem.lower()]
-    )
-
-    synthetic_correlations = display_plots( # NOTE: synthetic_corr is misspelled.
-        [path for path in correlation_paths if "syntehtic_corr" in path.stem.lower()]
-    )
-
-    # SHAP plots
-    shap_plots = display_plots(report.evaluate.plots.get("shap", []))
-
     def fmt(value):
         return pprint.pformat(value, sort_dicts=False)
 
@@ -257,15 +232,6 @@ Summary statistics for numeric values:
 
 {discrim_auc_output}
 
-### Plots
-
-Generated plots are stored in:
-`{output_dir / "plots"}`
-
-The first three plots are displayed below. All additional plots are available at the end of this report.
-
-{top_plots}
-
 ---
 
 **Singling out risk:** {round(attack.singling_out.value, 4)}
@@ -292,28 +258,6 @@ The first three plots are displayed below. All additional plots are available at
 - **Rationale behind the recommendation:** {report.review.rationale}
 
 - **Problem columns:** {report.review.problem_columns}
-
----
-
-## Additional plots
-
-### Distributions
-
-{remaining_distributions or "No additional distribution plots."}
-
-### Correlations
-
-#### Original dataset
-
-{original_correlations or "No original correlation plots."}
-
-#### Synthetic dataset
-
-{synthetic_correlations or "No synthetic correlation plots."}
-
-### SHAP discrimination
-
-{shap_plots or "No SHAP plots."}
 """
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
