@@ -65,7 +65,7 @@ def plan_update(
 
     if effective_generator in ["PrivBayes", "BayesianNet"]:
         print(
-            "\n⇨ The data generator selected allows for missing values. Missing value handling" \
+            "\n🠊 The data generator selected allows for missing values. Missing value handling" \
             " will not be applied."
         )
     else:
@@ -216,7 +216,7 @@ def generator_update(
 
     if choice == "Cancel":
         print(
-            "\n⇨ No revision has been selected for generator choice, continuing to " \
+            "\n🠊 No revision has been selected for generator choice, continuing to " \
             "missing value handling."
         )
         return None
@@ -335,7 +335,7 @@ def parameter_update(
     """
     if selected_mechanism in ["BayesianNet", "CTGAN"]:
         print(
-            f"⇨ {selected_mechanism} can only be set to default." \
+            f"🠊 {selected_mechanism} can only be set to default." \
               " Default parameters retained."
         )
         return None
@@ -352,7 +352,7 @@ def parameter_update(
     changed_params = param_revision.model_dump(exclude_defaults=True)
 
     if not changed_params:
-        print("\n⇨ Default parameters retained.")
+        print("\n🠊 Default parameters retained.")
         return None
 
     if selected_mechanism == "PATEGAN":
@@ -370,7 +370,7 @@ def parameter_update(
         selection = ("epsilon", .1, param_revision.epsilon)
 
     print(
-        f"\n⇨ {selected_mechanism}: {selection[0]} has been updated to {selection[2]} " \
+        f"\n🠊 {selected_mechanism}: {selection[0]} has been updated to {selection[2]} " \
         f"(default = {selection[1]})"
     )
     return mech_params
@@ -493,7 +493,7 @@ def missing_update(
 
     if choice == "Cancel":
         print(
-            "\n⇨ No revision has been selected for missing value handling. " \
+            "\n🠊 No revision has been selected for missing value handling. " \
             "Previously selected settings will be used."
         )
         return None

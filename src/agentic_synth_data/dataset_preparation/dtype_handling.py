@@ -55,10 +55,10 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
     replaced_markers = []
 
     if len(detected_markers) == 0:
-        print("\n⇨ No potential missing value markers have been detected in the dataset.")
+        print("\n🠊 No potential missing value markers have been detected in the dataset.")
         return MissingPrecheckReport(
-            df=df, 
-            has_missing_markers=False, 
+            df=df,
+            has_missing_markers=False,
             detected_markers=detected_markers,
             replaced_markers=replaced_markers
         )
@@ -82,7 +82,7 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
 
             if choice == "Continue without replacement":
                 print(
-                    "\n⇨ None of the markers detected have been replaced with a null value. The" \
+                    "\n🠊 None of the markers detected have been replaced with a null value. The" \
                     " dataset remains unchanged."
                 )
                 return MissingPrecheckReport(
@@ -97,7 +97,7 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
                 print(
-                    f"\n⇨ {replaced_count} of the following markers were replaced with null" \
+                    f"\n🠊 {replaced_count} of the following markers were replaced with null" \
                     " values: {markers}"
                 )
                 replaced_markers = markers

@@ -454,7 +454,7 @@ def write_attack_metric(metric_name: str, metric: "PrivacyRisk",) -> None:
         metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
     """
     print(
-        f"\n⇨ {metric_name} risk:\n "
+        f"\n🠊 {metric_name} risk:\n "
         f"- Value: {round(metric.value*100, 3)}%\n  "
         f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
         f"{round(metric.ci[1]*100,3)}%"

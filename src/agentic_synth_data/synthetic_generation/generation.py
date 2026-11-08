@@ -237,7 +237,7 @@ def select_generator(
                 synthesis_request.generator.name
             )
             choice_confirmed = True
-            print(f"\n⇨ {generation_plan.generator} has been approved.")
+            print(f"\n🠊 {generation_plan.generator} has been approved.")
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(

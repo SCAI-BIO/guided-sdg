@@ -167,13 +167,13 @@ class DataGen:
 
         if missing_report.has_missing_markers:
             self.norm_na_df = missing_report.df.copy()
-            print("\n⇨ Dataframe has been saved for use during evaluation.")
+            print("\n🠊 Dataframe has been saved for use during evaluation.")
 
         norm_df = missing_report.df
 
         if missing_report.replaced_markers:
             self.norm_na_df = norm_df.copy()
-            print("\n⇨ Dataframe has been saved for use during evaluation.")
+            print("\n🠊 Dataframe has been saved for use during evaluation.")
 
         print("\n\n")
         print("="*25+"[STEP: Handle data types]"+"="*25)
@@ -189,7 +189,7 @@ class DataGen:
         self.report.prep.stypes = self.semantic_types
 
         self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
-        print("\n⇨ Created train/test split")
+        print("\n🠊 Created train/test split")
         return self.train_df
 
 

@@ -515,7 +515,7 @@ def generate_plots(
             print(f"\n{plot_type.capitalize()} plot: {paths[0].name}")
             display(Image(filename=str(paths[0])))
 
-        print(f"⇨ {plot_type.capitalize()} plots saved to: {output_dir / plot_type}")
+        print(f"🠊 {plot_type.capitalize()} plots saved to: {output_dir / plot_type}")
 
     return plot_paths
 

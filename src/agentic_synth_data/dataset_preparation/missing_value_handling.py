@@ -219,7 +219,7 @@ def handle_missing_values(
         if confirm == "yes":
             df = df.dropna()
             print(
-                "\n⇨ All samples with missing values have been removed. There are " \
+                "\n🠊 All samples with missing values have been removed. There are " \
                 f"{df.isna().sum().sum()} remaining missing values."
             )
             return df, synthesis_request
@@ -321,7 +321,7 @@ def handle_missing_values(
                 " in the numerical columns."
             )
 
-        print(f"\n⇨ There are {df.isna().sum().sum()} remaining null values in the dataset.")
+        print(f"\n🠊 There are {df.isna().sum().sum()} remaining null values in the dataset.")
         return df, synthesis_request
 
     # 4. Use the agent to suggest the missing value handling strategy.

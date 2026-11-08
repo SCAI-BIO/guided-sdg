@@ -113,7 +113,7 @@ def handle_semantic_types(
 
             semantic_types[col] = choice
 
-            print(f"\n⇨ Updated semantic type for {col}: {semantic_types[col]}")
+            print(f"\n🠊 Updated semantic type for {col}: {semantic_types[col]}")
             print("For reference: Semantic types present in each column:")
             for col, stype in semantic_types.items():
                 print(f"{col}: {stype}")
