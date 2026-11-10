@@ -146,7 +146,7 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
     st.subheader(f"\nCorrelation ({corr_method.capitalize()}):")
     st.write(styled_corr_table)
 
-    st.write("---")
+    st.divider()
 
     profile = {
         "shape": shape,
@@ -343,12 +343,12 @@ def select_generator_ui(
         st.info(f"⇨ {generation_plan.generator} has been approved.")
         return st.session_state.approved_synthesis_request
 
-    st.write("---")
+    st.divider()
 
     st.subheader("Do you approve using the suggested generator?")
     decision = st.selectbox(
-        "Do you approve using the suggested generator?",
-        ["approve", "choose another", "discuss",],
+        label="Do you approve using the suggested generator?",
+        options=["approve", "choose another", "discuss",],
         index=None,
         label_visibility="hidden",
     )
@@ -359,7 +359,7 @@ def select_generator_ui(
     if decision == "approve":
         synthesis_request.generator.name = generation_plan.generator
         synthesis_request.generator.parameters = output_default_parameters(
-            synthesis_request.generator.name
+            generator_name=synthesis_request.generator.name,
         )
 
         st.session_state.approved_synthesis_request = synthesis_request
@@ -371,8 +371,8 @@ def select_generator_ui(
     if decision == "choose another":
         st.write("Enter generator to evaluate:")
         selected_mechanism = st.selectbox(
-            "select another mechanism",
-            get_args(GeneratorName.__value__),
+            label="select another mechanism",
+            options=get_args(GeneratorName.__value__),
             index=None,
             label_visibility="hidden",
         )
@@ -380,7 +380,7 @@ def select_generator_ui(
         if selected_mechanism is None:
             st.stop()
 
-        if st.button( # Not sure whether to keep this button (with or without button)
+        if st.button( # NOTE: Not sure whether to keep this button (with or without button)
             "Evaluate generator",
             key="evaluate_generator_button",
         ):

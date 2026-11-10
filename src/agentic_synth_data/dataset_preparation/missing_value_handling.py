@@ -642,7 +642,7 @@ def handle_missing_values_ui(
 
         df = df.copy()
 
-        st.write("---")
+        st.divider()
 
         st.write("#### Review of missing value handling results:")
 

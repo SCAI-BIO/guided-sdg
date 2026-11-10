@@ -223,7 +223,7 @@ class DataGen:
             self.norm_na_df = norm_df.copy()
             st.info("⇨ Dataframe has been saved for use during evaluation.")
 
-        st.write("---")
+        st.divider()
 
         st.subheader("Handle data types")
         st.write(
@@ -239,7 +239,7 @@ class DataGen:
 
         self.report.prep.dtypes = self.python_dtypes
 
-        st.write("---")
+        st.divider()
 
         st.subheader("Handle semantic types")
         st.write(
@@ -255,7 +255,8 @@ class DataGen:
 
         self.report.prep.stypes = self.semantic_types
 
-        st.write("---")
+        st.divider()
+
         st.subheader("Final data types present in each column")
 
         final_dtypes = pd.DataFrame({
@@ -266,7 +267,7 @@ class DataGen:
 
         df_formatter_st(final_dtypes)
 
-        st.write("---")
+        st.divider()
         # Granted, this deviates from CLI...
         # TODO: include CLI implementation of this
         # TODO: also must consider when missing value handling is applied.
@@ -714,7 +715,7 @@ class DataGen:
 
         self.report.evaluate.attack = attack_metrics
 
-        st.write("---")
+        st.divider()
 
         st.subheader("View syndat plots")
 
@@ -723,7 +724,7 @@ class DataGen:
                 real=real, synth=synth, version_id=self.version_id,
             )
 
-        st.write("---")
+        st.divider()
 
         # Display agent evaluation of results
         self.agent_decision = evaluation_ui(

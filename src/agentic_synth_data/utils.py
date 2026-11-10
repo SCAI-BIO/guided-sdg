@@ -310,7 +310,7 @@ def display_workflow_progress(text: str) -> None:
         st.write(text)
 
 
-def colorize_multiselect(color: str = "#8BD94A") -> None:
+def colorize_multiselect(color: str = "#166534") -> None:
     """Change the background color of selected multiselect tags.
 
     Args:
@@ -442,7 +442,7 @@ def parse_json(
         message = "Agent response could not be parsed. Asking agent to repair the response..."
 
         if ui:
-            with st.expander("Agent JSON response"):
+            with st.expander("Agent JSON response"): # NOTE: this display will likely be temporary
                 st.code(
                     "\n".join(
                         f"{i}: {line}"
@@ -450,10 +450,6 @@ def parse_json(
                     ),
                     language="json",
                 )
-
-            # st.warning(message)
-            # with st.expander("Validation error details"):
-            #     st.code(f"{type(error).__name__}: {error}")
 
         else:
             print(f"\n{message}\nError: {type(error).__name__}: {error}")

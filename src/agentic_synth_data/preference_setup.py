@@ -231,7 +231,7 @@ def select_preferences_ui() -> SynthesisRequest:
     # if sample_size == "same as original": # TODO include a method to display sample size
     #     st.info(f"⇨ {fixed_value} synthetic samples will be generated.") # small delay
 
-    st.write("---")
+    st.divider()
 
     # Privacy
     st.subheader("Is privacy preservation important in your use case?")
@@ -250,7 +250,7 @@ def select_preferences_ui() -> SynthesisRequest:
         key="preferences_privacy",
     )
 
-    st.write("---")
+    st.divider()
 
     # Generator
     st.subheader("Is there a specific data generator that you want to use on your data?")
@@ -274,7 +274,7 @@ def select_preferences_ui() -> SynthesisRequest:
         if generator is not None:
             st.info(f"⇨ Your data will be generated using {generator}.")
 
-    st.write("---")
+    st.divider()
 
     # Missing values
     st.subheader("How would you like missing values to be handled?")
@@ -358,7 +358,7 @@ def select_preferences_ui() -> SynthesisRequest:
                 f"{format_option(numerical_strategy)}."
             )
 
-    st.write("---")
+    st.divider()
 
     complete = (
         sample_size is not None

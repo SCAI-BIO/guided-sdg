@@ -294,7 +294,7 @@ def calculate_attack_metrics_ui(
     if so_risk_output:
         show_anonymeter_warning_ui(so_risk_output)
 
-    st.write("---")
+    st.divider()
 
     # Select columns for inference and linkability risk:
     plan_key = "attack_col_selection_plan"
@@ -319,7 +319,7 @@ def calculate_attack_metrics_ui(
 
     expand_col_selection_ui(cols=attack_col_plan)
 
-    st.write("---")
+    st.divider()
 
     # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
@@ -342,7 +342,7 @@ def calculate_attack_metrics_ui(
     if inference_risk_output:
         show_anonymeter_warning_ui(inference_risk_output)
 
-    st.write("---")
+    st.divider()
 
     # Calculate linkability risk:
     with st.spinner("Evaluating linkability risk..."):

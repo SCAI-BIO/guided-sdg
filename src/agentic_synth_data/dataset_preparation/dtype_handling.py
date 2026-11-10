@@ -381,7 +381,7 @@ def infer_and_convert_dtypes(df:pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
+def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
     """Handles the dtypes for the input dataframe in three main stages:
     1. missing_value_precheck: Initial check for missing value markers, which are intended
                                as (and should be converted to) null values.
@@ -441,11 +441,11 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
     print()
     print("-"*25+"Final data types present in each column"+"-"*25)
     print(df.dtypes)
-    py_dtypes = df.dtypes.astype(str).to_dict()
-    return df, py_dtypes
+
+    return df, df.dtypes.astype(str).to_dict()
 
 
-def handle_dtypes_ui(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]]:
+def handle_dtypes_ui(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
     """Handles the dtypes for the input dataframe in three main stages (UI):
     1. missing_value_precheck_ui: Initial check for missing value markers, which are intended
                                as (and should be converted to) null values.
@@ -536,5 +536,4 @@ def handle_dtypes_ui(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, str]
 
         df_formatter_st(dtype_table)
 
-    py_dtypes = df.dtypes.astype(str).to_dict()
-    return df, py_dtypes
+    return df, df.dtypes.astype(str).to_dict()

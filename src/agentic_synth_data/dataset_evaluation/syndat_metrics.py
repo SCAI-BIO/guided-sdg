@@ -195,19 +195,19 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
 
     df_formatter_st(styled_jsd_table)
 
+    prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
+
     st.metric(
         label="Jensen-Shannon Divergence (average)",
         value=metrics.jsd["jsd_AVERAGE"],
         delta=calculate_delta(
             current=metrics.jsd["jsd_AVERAGE"],
-            previous=(
-                prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
-            ),
+            previous=prev_jsd,
         ),
         delta_color="inverse",
     )
 
-    display_delta_caption(previous_value=prev_metrics.jsd["jsd_AVERAGE"])
+    display_delta_caption(previous_value=prev_jsd)
 
     if metrics.output_messages.jsd:
         with st.expander(
@@ -215,7 +215,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         ):
             st.warning(metrics.output_messages.jsd)
 
-    st.write("---")
+    st.divider()
 
     # Normalized correlation difference:
     st.write("#### Normalized correlation difference:")
@@ -227,19 +227,19 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         "positive and the other negative."
     )
 
+    prev_norm_corr_diff = prev_metrics.norm_corr_diff if prev_metrics is not None else None
+
     st.metric(
         label="Normalized correlation difference",
         value=metrics.norm_corr_diff,
         delta=calculate_delta(
             current=metrics.norm_corr_diff,
-            previous=(
-                prev_metrics.norm_corr_diff if prev_metrics is not None else None
-            ),
+            previous=prev_norm_corr_diff,
         ),
         delta_color="inverse",
     )
 
-    display_delta_caption(previous_value=prev_metrics.norm_corr_diff)
+    display_delta_caption(previous_value=prev_norm_corr_diff)
 
     if metrics.output_messages.norm_corr_diff:
         with st.expander(
@@ -248,7 +248,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         ):
             st.warning(metrics.output_messages.norm_corr_diff)
 
-    st.write("---")
+    st.divider()
 
     # Discriminator AUC:
     if metrics.discrim_auc is None:
@@ -262,17 +262,19 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
             "to distinguish between."
         )
 
+        prev_discrim_auc = prev_metrics.discrim_auc if prev_metrics is not None else None
+
         st.metric(
             label="Discriminator AUC",
             value=metrics.discrim_auc,
             delta=calculate_delta(
                 current=metrics.discrim_auc,
-                previous=prev_metrics.discrim_auc if prev_metrics is not None else None,
+                previous=prev_discrim_auc,
             ),
             delta_color="inverse",
         )
 
-        display_delta_caption(previous_value=prev_metrics.discrim_auc)
+        display_delta_caption(previous_value=prev_discrim_auc)
 
         if metrics.output_messages.discrim_auc:
             with st.expander(
