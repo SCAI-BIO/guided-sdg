@@ -4,6 +4,7 @@ from typing import Any
 
 import pandas as pd
 from pydantic import BaseModel, Field
+import streamlit as st
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics
 from agentic_synth_data.schemas.models import SynthesisRequest
@@ -261,3 +262,21 @@ Summary statistics for numeric values:
 """
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)
+
+
+def display_report_ui(revision: "DataGen") -> None:
+    """Display the generated report for a particular workflow version.
+
+    Args:
+        revision (DataGen): Revision workflow object.
+    """
+    version_id = revision.version_id
+    data_name = Path(revision.data_path).stem
+
+    path = OUTPUT_DIR / f"version_{version_id}" / f"report_{data_name}_v{version_id}.md"
+
+    if not path.is_file():
+        st.info("A report has not yet been generated for this version.")
+        return
+
+    st.markdown(path.read_text())

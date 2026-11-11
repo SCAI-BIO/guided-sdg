@@ -287,7 +287,7 @@ def generator_update_ui(
         key=f"generator_revision_info_{version_id}",
     )
 
-    st.write("Suggested data generators to switch to:")
+    st.write("Suggested data generator(s) to try:")
 
     menu_options = {}
 
@@ -557,18 +557,23 @@ def missing_update_ui(
             label = newline_every_n_words(f"Mode: {option.mode} - {option.reason}", 12)
 
         if option.mode == "impute":
-            st.write(f"- {option.mode}: {option.reason}")
+            st.write(
+                f"* **Mode:** {option.mode}, "
+                f"**Numerical strategy:** {format_option(option.numerical_strategy)}, "
+                f"**Categorical strategy:** {format_option(option.categorical_strategy)}:\n"
+                f" * **Reason:** {option.reason}"
+            )
             label = (
-                f"**Mode:** {option.mode}, **Numerical strategy:** {option.numerical_strategy}, "
-                f"**Categorical strategy:** {format_option(option.categorical_strategy)}\n"
-                f"- {newline_every_n_words(option.reason, 12)}"
+                f"Mode: {option.mode}, "
+                f"Numerical strategy: {format_option(option.numerical_strategy)}, "
+                f"Categorical strategy: {format_option(option.categorical_strategy)}"
             )
 
         menu_options[label] = option
 
     choice = st.selectbox(
-        "Select a missing value revision option:",
-        list(menu_options.keys()) + ["Cancel"],
+        label="Select a missing value revision option:",
+        options=list(menu_options.keys()) + ["Cancel"],
         index=None,
     )
 

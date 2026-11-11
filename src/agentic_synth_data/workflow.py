@@ -575,7 +575,7 @@ class DataGen:
                     )
 
                 status.update(
-                    label=f"⇨ Synthetic generation completed with {generator} (click to view " \
+                    label=f"Synthetic generation completed with {generator} (click to view " \
                         "terminal outputs).",
                     state="complete",
                     expanded=False,
@@ -1082,12 +1082,12 @@ class DataGen:
             # TODO: show previous choices and what specifically was changed, even with an arrow.
 
             if "update_mech" in update_plan:
-                generator_name = update_plan['update_mech'].generator_name
-
                 # TODO: show previous generator if gneerator changed
 
-                st.write(f"**Current generator:** {generator_name}\n\n**Reason:**\n")
-                st.write(update_plan['update_mech'].reason)
+                st.write(
+                    f"**Current generator:** {update_plan['update_mech'].generator_name}\n\n"
+                    f"**Reason:** {update_plan['update_mech'].reason}"
+                )
 
             if "update_params" in update_plan:
                 st.write(f"**New parameter configuration:** {update_plan['update_params']}")
