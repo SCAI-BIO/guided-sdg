@@ -93,7 +93,6 @@ Enter the following into the terminal:
 streamlit run ./src/agentic_synth_data/main.py
 ```
 
-
 ```bash
 podman run --rm --env-file .env -p 8080:8080 guided-sdg
 ```
@@ -117,10 +116,12 @@ docker compose down # ""
 | 2 | | Select preferences. | |
 | 3 | a) | Detect and standardize missing value markers. | |
 | | b) | Infer data types (Python and semantic). | ✓ |
-| | c) | Recommend generator (CTGAN, PATEGAN, BayesianNet, PrivBayes). | ✓ |
-| | d) | Apply missing value handling strategy (if needed). | ✓ |
+| | c) | Select covariates. | |
+| | d) | Train/test split. | |
+| | e) | Recommend generator (CTGAN, PATEGAN, BayesianNet, PrivBayes). | ✓ |
+| | f) | Apply missing value handling strategy (if needed). | ✓ |
 | 4 | a) | Save the prepared dataset. | |
-| | b) | Generate metadata JSON for generator input. | |
+| | b) | Generate metadata file for generator input. | |
 | 5 | | Run the selected synthetic data generator. | |
 | 6 | | Evaluate synthetic data against the original dataset. | ✓ |
 | 7 | | Generate a workflow report. | |

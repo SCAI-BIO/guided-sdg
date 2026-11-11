@@ -560,9 +560,10 @@ def missing_update_ui(
             st.write(
                 f"* **Mode:** {option.mode}, "
                 f"**Numerical strategy:** {format_option(option.numerical_strategy)}, "
-                f"**Categorical strategy:** {format_option(option.categorical_strategy)}:\n"
-                f" * **Reason:** {option.reason}"
+                f"**Categorical strategy:** {format_option(option.categorical_strategy)}\n"
+                f"  * **Reason:** {option.reason}"
             )
+
             label = (
                 f"Mode: {option.mode}, "
                 f"Numerical strategy: {format_option(option.numerical_strategy)}, "
