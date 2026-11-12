@@ -513,12 +513,13 @@ def handle_missing_values_ui(
 
         if updated_plan["categorical_strategy"] is not None:
             st.write(
-                f"- **Categorical strategy:** {format_option(updated_plan['categorical_strategy'])}"
+                "  - **Categorical strategy:** "
+                f"{format_option(updated_plan['categorical_strategy'])}"
             )
 
         if updated_plan["numerical_strategy"]:
             st.write(
-                f"- **Numerical strategy:** {format_option(updated_plan['numerical_strategy'])}"
+                f"  - **Numerical strategy:** {format_option(updated_plan['numerical_strategy'])}"
             )
 
         if len(updated_plan["warning"]) > 0:

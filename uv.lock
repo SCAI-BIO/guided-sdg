@@ -57,7 +57,7 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "st-styled", specifier = ">=0.5.1" },
     { name = "streamlit", specifier = ">=1.64.0" },
-    { name = "syndat", specifier = ">=0.13.6" },
+    { name = "syndat", git = "https://github.com/SCAI-BIO/syndat.git?rev=v0.13.10" },
     { name = "tabulate", specifier = ">=0.10.0" },
 ]
 
@@ -1628,7 +1628,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "python_full_version >= '3.14' or sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -2655,8 +2655,8 @@ wheels = [
 
 [[package]]
 name = "syndat"
-version = "0.13.9"
-source = { registry = "https://pypi.org/simple" }
+version = "0.0.3"
+source = { git = "https://github.com/SCAI-BIO/syndat.git?rev=v0.13.10#4faf0ef627aad01464c1d3260c60ef6f969ec77d" }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
@@ -2666,10 +2666,6 @@ dependencies = [
     { name = "scipy" },
     { name = "seaborn" },
     { name = "shap" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/91/09273498c11c8ec463b67e0e9a20543f8bb9fd5f6fc0f2d735cd95ec0fd1/syndat-0.13.9.tar.gz", hash = "sha256:8852d60415c1266a428bfe43e36004f38ece2a5a89b462a8dba410e0b03a3cee", size = 26275, upload-time = "2026-07-29T11:42:11.46Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/6d/9c92b03a04713972ddf1dffcb4ece88aa6d28fb6a507fdb2e1a7791d0292/syndat-0.13.9-py3-none-any.whl", hash = "sha256:0750aaeaa1975d2bb193fd690dc59d3adc4ce98085f072224e3b4151b45bd62f", size = 30091, upload-time = "2026-07-29T11:42:12.493Z" },
 ]
 
 [[package]]
