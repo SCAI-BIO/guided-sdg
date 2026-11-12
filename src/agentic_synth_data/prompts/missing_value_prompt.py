@@ -6,9 +6,12 @@ from agentic_synth_data.utils import SemanticTypes
 
 
 def missing_value_prompt(
-    proportion_missing: dict[Hashable, Any],
-    rows_with_missing: int,
-    total_rows: int,
+    proportion_missing_train: dict[Hashable, Any],
+    proportion_missing_test: dict[Hashable, Any],
+    rows_with_missing_train: int,
+    rows_with_missing_test: int,
+    total_rows_train: int,
+    total_rows_test: int,
     synthesis_request: dict[str, Any],
     semantic_types: SemanticTypes,
 ) -> str:
@@ -18,7 +21,6 @@ def missing_value_prompt(
     Return exactly one valid JSON object.
     Do not write prose outside the JSON.
 
-
     You must use this exact flat schema.
     Do not use nested "impute" or "threshold" objects.
     Do not return mode "auto".
@@ -26,14 +28,17 @@ def missing_value_prompt(
     Do not return strategy "mode".
     Do not include ```json.
 
-    Missing value proportions per column:
-    {proportion_missing}
+    Missing value proportions per column for:
+    - Training set: {proportion_missing_train}
+    - Test set: {proportion_missing_test}
 
-    Rows with at least one missing value:
-    {rows_with_missing}
+    Rows with at least one missing value for:
+    - Training set: {rows_with_missing_train}
+    - Test set: {rows_with_missing_test}
 
-    Total rows:
-    {total_rows}
+    Total rows for:
+    - Training set: {total_rows_train}
+    - Test set: {total_rows_test}
 
     Current synthesis request:
     {synthesis_request}
@@ -87,7 +92,7 @@ def missing_value_prompt(
     """)
 
 
-def missing_feedback(prompt:str, feedback:str) -> str:
+def missing_feedback(prompt: str, feedback: str) -> str:
     return dedent(f"""
     {prompt}
 

@@ -202,9 +202,9 @@ def handle_missing_values(
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]] | None: 
-        - (pd.DataFrame) The processed (train) dataframe after missing value handling.
-        - (pd.DataFrame) The processed (test) dataframe after missing value handling. 
-        - (SynthesisRequest) The updated synthesis_request.
+        pd.DataFrame: The processed (train) dataframe after missing value handling.
+        pd.DataFrame:The processed (test) dataframe after missing value handling. 
+        SynthesisRequest: The updated synthesis_request.
         None: Agent planned missing value handling, approved by user.
     """
     if train.isna().sum().sum() == 0 and test.isna().sum().sum() == 0:
@@ -215,34 +215,47 @@ def handle_missing_values(
         return train, test, synthesis_request
 
     print(
-        f"\n{train.isna().sum().sum()} samples with missing values have been detected in the dataset."
+        "Samples with missing values have been detected:\n"
+        f"- Training set: {train.isna().sum().sum()}"
+        f"- Test set: {test.isna().sum().sum()}"
     )
+
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 
     # 1. Remove all samples with NA columns.
     if mode == "remove":
-        null_row_count = train.isna().any(axis=1).sum()
+        null_row_train = train.isna().any(axis=1).sum()
+        null_row_test = test.isna().any(axis=1).sum()
+
         print(
-            f"\nWarning: {null_row_count} out of {train.shape[0]} rows (" \
-            f"{null_row_count/train.shape[0]*100}%) will be removed from the dataset."
+            f"\nWarning:\n"
+            f"- Train set: {null_row_train} out of {train.shape[0]} rows "
+            f"({null_row_train/train.shape[0]*100}%) will be removed from the dataset.\n"
+            f"- Test set: {null_row_test} out of {test.shape[0]} rows "
+            f"({null_row_test/test.shape[0]*100}%) will be removed from the dataset."
         )
+
         confirm = pyip.inputYesNo("\nConfirm whether this should be done (yes/no/y/n):\n")
         if confirm == "yes":
             prep_train = train.dropna()
-            print(
-                "\n⇨ All samples with missing values have been removed. There are " \
-                f"{prep_train.isna().sum().sum()} remaining missing values."
-            )
-            # NOTE: Test is not considered here (concern if results in an empty dataset)
-            return prep_train, test, synthesis_request
+            prep_test = test.dropna()
 
-        # If this option is too harsh and the user wants to try another method.
+            print(
+                "\n⇨ All samples with missing values have been removed."
+                f"  - The train set has {prep_train.isna().sum().sum()} remaining missing values.\n"
+                f"  - The test set has {prep_test.isna().sum().sum()} remaining missing values."
+            )
+
+            return prep_train, prep_test, synthesis_request
+
+        # Update method choice if outright removal is too harsh.
         synthesis_request = update_missing_value_choice(synthesis_request)
+
         return handle_missing_values(train, test, synthesis_request, semantic_types, agent, config)
 
     # 2. Remove all samples above a specified threshold of NA columns. 
-    if mode == "threshold":
+    if mode == "threshold":# NOTE: Threshold is outdated (removed on another branch)
         df = train # NOTE: Threshold is outdated (removed on another branch)
         threshold_samples = df.isna().sum(axis=1) > synthesis_request.missing_values.threshold
         count = threshold_samples.sum()
@@ -292,13 +305,11 @@ def handle_missing_values(
         cat_strategy = synthesis_request.missing_values.impute.categorical_strategy
         if cat_cols:
             train_cat = train[cat_cols].astype("object").where(train[cat_cols].notna(), np.nan)
-            test_cat = test[cat_cols].astype("object").where(test[cat_cols].notna(), np.nan)
 
             if cat_strategy == "constant":
                 print(
-                    "\nEnter the fill value that missing values should have. Fill values " \
-                    "must be strings.\nPress enter if you would like to stay with the " \
-                    "default ('Unknown'):"
+                    "\nEnter the fill value that missing values should have. Fill values must be "
+                    "strings.\nPress enter if you would like to stay with the default ('Unknown'):"
                 )
                 fill_value = pyip.inputStr()
 
@@ -317,18 +328,10 @@ def handle_missing_values(
                 index=train.index,
             )
 
-            test[cat_cols] = pd.DataFrame(
-                cast(np.ndarray, cat_imputer.transform(test_cat)),
-                columns=cat_cols,
-                index=test.index,
-            )
-
             print(
-                f"- There are {train[cat_cols].isna().sum().sum()} remaining null values" \
-                " in the categorical columns (train)."
-
-                f"- There are {train[cat_cols].isna().sum().sum()} remaining null values" \
-                " in the categorical columns (test)."
+                "\nRemaining null values in categorical columns for:\n"
+                f"- Train: {train[cat_cols].isna().sum().sum()}\n"
+                f"- Test: {train[cat_cols].isna().sum().sum()} (imputation was not performed)\n"
             )
 
         # Numerical value imputation
@@ -349,13 +352,18 @@ def handle_missing_values(
             )
 
             print(
-                f"- There are {train[num_cols].isna().sum().sum()} remaining null values" \
-                " in the numerical columns (train)."
-                f"- There are {test[num_cols].isna().sum().sum()} remaining null values" \
-                " in the numerical columns (test)."
+                "\nRemaining null values in numerical columns for:\n"
+                f"- Train: {train[num_cols].isna().sum().sum()}\n"
+                f"- Test: {test[num_cols].isna().sum().sum()} (imputation was not performed)"
             )
 
-        print(f"\n⇨ There are {train.isna().sum().sum()} remaining null values in the dataset.")
+        print(
+            f"\n⇨ There are {train.isna().sum().sum() + test.isna().sum().sum()} remaining null "
+            "values in the dataset.\n"
+            f"- Train: {train.isna().sum().sum()}\n"
+            f"- Test: {test.isna().sum().sum()}"
+        )
+
         return train, test, synthesis_request
 
     # 4. Use the agent to suggest the missing value handling strategy.
@@ -364,16 +372,27 @@ def handle_missing_values(
         impute.categorical_strategy == "auto" or
         impute.numerical_strategy == "auto"
     ):
-        proportion_missing = (train.isna().sum() / train.shape[0]).round(4).to_dict()
-        rows_with_missing = int(train.isna().any(axis=1).sum())
-        total_rows = train.shape[0]
+        # Proportion of missing values for each feature (train and test)
+        proportion_missing_train = (train.isna().sum() / train.shape[0]).round(4).to_dict()
+        proportion_missing_test = (test.isna().sum() / test.shape[0]).round(4).to_dict()
+
+        # Count of rows with missing values (train and test)
+        rows_with_missing_train = int(train.isna().any(axis=1).sum())
+        rows_with_missing_test = int(test.isna().any(axis=1).sum())
+
+        # Total rows (train and test)
+        total_rows_train = train.shape[0]
+        total_rows_test = test.shape[0]
 
         request_dict = synthesis_request.model_dump()
 
         prompt = missing_value_prompt(
-            proportion_missing=proportion_missing,
-            rows_with_missing=rows_with_missing,
-            total_rows=total_rows,
+            proportion_missing_train=proportion_missing_train,
+            proportion_missing_test=proportion_missing_test,
+            rows_with_missing_train=rows_with_missing_train,
+            rows_with_missing_test=rows_with_missing_test,
+            total_rows_train=total_rows_train,
+            total_rows_test=total_rows_test,
             synthesis_request=request_dict,
             semantic_types=semantic_types,
         )
@@ -401,16 +420,22 @@ def handle_missing_values(
                 "rationale": missing_plan.rationale,
             }
 
-            print("\nSuggested plan:")
-            print(f"- Mode: {updated_plan['mode']}")
+            print(
+                "\nSuggested plan:\n"
+                f"- Mode: {updated_plan['mode']}"
+            )
+
             if updated_plan["set_threshold"] is not None:
                 print(f"- Threshold: {updated_plan['set_threshold']}")
+
             if updated_plan["imputation_method"] is not None:
                 print(f"- Imputation method: {updated_plan['imputation_method']}")
+
             if updated_plan["categorical_strategy"] is not None:
                 print(
                     f"- Categorical strategy: {format_option(updated_plan['categorical_strategy'])}"
                 )
+            
             if updated_plan["numerical_strategy"]:
                 print(f"- Numerical strategy: {format_option(updated_plan['numerical_strategy'])}")
 
@@ -430,8 +455,8 @@ def handle_missing_values(
                 break
 
             print(
-                "\n\nPlease describe how you would want missing values to be" \
-                " handled and what changes you would make to the suggested plan."
+                "\n\nPlease describe how you would want missing values to be handled and what "
+                "changes you would make to the suggested plan."
             )
 
             feedback = input()
@@ -448,7 +473,7 @@ def handle_missing_values_ui(
     semantic_types: SemanticTypes,
     agent: Optional[CompiledStateGraph],
     config: RunnableConfig,
-) -> tuple[pd.DataFrame, SynthesisRequest] | None:
+) -> tuple[pd.DataFrame, pd.DataFrame, SynthesisRequest] | None:
     """Handle missing values in a dataframe based on user defined preferences (UI).
 
     Missing value strategies include:
@@ -469,20 +494,24 @@ def handle_missing_values_ui(
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]] | None: 
-        - (pd.DataFrame) The processed (train) dataframe after missing value handling.
-        - (pd.DataFrame) The processed (test) dataframe after missing value handling. 
-        - (SynthesisRequest) The updated synthesis_request.
+        pd.DataFrame: The processed (train) dataframe after missing value handling.
+        pd.DataFrame: The processed (test) dataframe after missing value handling. 
+        SynthesisRequest: The updated synthesis_request.
         None: Agent planned missing value handling, approved by user.
     """
-    if df.isna().sum().sum() == 0:
+    if train.isna().sum().sum() == 0 and test.isna().sum().sum() == 0:
         st.write(
-            "\nThere are no missing values in the dataset. Continuing to synthetic data generation."
+            "There are no missing values in either the training or test datasets. Continuing "
+            "to synthetic data generation."
         )
-        return df, synthesis_request
+        return train, test, synthesis_request
 
     st.write(
-        f"\n{df.isna().sum().sum()} samples with missing values have been detected in the dataset."
+        "Samples with missing values have been detected:\n"
+        f"- Training set: {train.isna().sum().sum()}"
+        f"- Test set: {test.isna().sum().sum()}"
     )
+
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 
@@ -493,16 +522,27 @@ def handle_missing_values_ui(
         impute.numerical_strategy == "auto" or
         "missing_plan" in st.session_state
     ):
-        proportion_missing = (df.isna().sum() / df.shape[0]).round(4).to_dict()
-        rows_with_missing = int(df.isna().any(axis=1).sum())
-        total_rows = df.shape[0]
+        # Proportion of missing values for each feature (train and test)
+        proportion_missing_train = (train.isna().sum() / train.shape[0]).round(4).to_dict()
+        proportion_missing_test = (test.isna().sum() / test.shape[0]).round(4).to_dict()
+
+        # Count of rows with missing values (train and test)
+        rows_with_missing_train = int(train.isna().any(axis=1).sum())
+        rows_with_missing_test = int(test.isna().any(axis=1).sum())
+
+        # Total rows (train and test)
+        total_rows_train = train.shape[0]
+        total_rows_test = test.shape[0]
 
         request_dict = synthesis_request.model_dump()
 
         prompt = missing_value_prompt(
-            proportion_missing=proportion_missing,
-            rows_with_missing=rows_with_missing,
-            total_rows=total_rows,
+            proportion_missing_train=proportion_missing_train,
+            proportion_missing_test=proportion_missing_test,
+            rows_with_missing_train=rows_with_missing_train,
+            rows_with_missing_test=rows_with_missing_test,
+            total_rows_train=total_rows_train,
+            total_rows_test=total_rows_test,
             synthesis_request=request_dict,
             semantic_types=semantic_types,
         )
@@ -538,8 +578,10 @@ def handle_missing_values_ui(
             key="missing_handling_info",
         )
 
-        st.write("#### Suggested plan:")
-        st.write(f"- **Mode:** {updated_plan['mode']}")
+        st.write(
+            "#### Suggested plan:\n"
+            f"- **Mode:** {updated_plan['mode']}"
+        )
 
         if updated_plan["set_threshold"] is not None:
             st.write(f"- **Threshold:** {updated_plan['set_threshold']}")
@@ -635,10 +677,15 @@ def handle_missing_values_ui(
 
     # 1. Remove all samples with NA columns.
     if mode == "remove":
-        null_row_count = df.isna().any(axis=1).sum()
+        null_row_train = train.isna().any(axis=1).sum()
+        null_row_test = test.isna().any(axis=1).sum()
+
         st.warning(
-            f"**Warning:** {null_row_count} out of {df.shape[0]} rows "
-            f"({null_row_count/df.shape[0]*100}%) will be removed from the dataset."
+            f"**Warning:**\n"
+            f"- **Train set:** {null_row_train} out of {train.shape[0]} rows "
+            f"({null_row_train/train.shape[0]*100}%) will be removed from the dataset.\n"
+            f"- **Test set:** {null_row_test} out of {test.shape[0]} rows "
+            f"({null_row_test/test.shape[0]*100}%) will be removed from the dataset."
         )
 
         confirm = st.selectbox(
@@ -651,16 +698,20 @@ def handle_missing_values_ui(
             st.stop()
 
         if confirm == "yes":
-            df = df.dropna()
-            st.info(
-                "⇨ All samples with missing values have been removed. There are "
-                f"{df.isna().sum().sum()} remaining missing values."
-            )
-            return df, synthesis_request
+            prep_train = train.dropna()
+            prep_test = test.dropna()
 
-        # If this option is too harsh and the user wants to try another method.
+            st.info(
+                "\n⇨ All samples with missing values have been removed."
+                f"  - The train set has {prep_train.isna().sum().sum()} remaining missing values."
+                f"  - The test set has {prep_test.isna().sum().sum()} remaining missing values."
+            )
+            return prep_train, prep_test, synthesis_request
+
+        # Update method choice if outright removal is too harsh.
         synthesis_request = update_missing_value_choice_ui(synthesis_request)
-        return handle_missing_values_ui(df, synthesis_request, semantic_types, agent, config)
+
+        return handle_missing_values_ui(train, test, synthesis_request, semantic_types, agent, config)
 
     # 2. Perform imputation given there are decided categorical and numerical strategies.
     if (
@@ -676,7 +727,7 @@ def handle_missing_values_ui(
         cat_cols = grouped.get("Categorical", []) + grouped.get("Ordinal", [])
         num_cols = grouped.get("Integer", []) + grouped.get("Float", [])
 
-        df = df.copy()
+        df = train.copy()
 
         st.write("---")
 
@@ -685,7 +736,7 @@ def handle_missing_values_ui(
         # Categorical value imputation
         cat_strategy = synthesis_request.missing_values.impute.categorical_strategy
         if cat_cols:
-            cat_data = df[cat_cols].astype("object").where(df[cat_cols].notna(), np.nan)
+            train_cat = train[cat_cols].astype("object").where(train[cat_cols].notna(), np.nan)
 
             if cat_strategy == "constant":
                 st.write(
@@ -698,38 +749,46 @@ def handle_missing_values_ui(
                 if fill_value == "":
                     fill_value = "Unknown"
 
-                imputer = SimpleImputer(strategy=cat_strategy, fill_value=fill_value)
+                cat_imputer = SimpleImputer(strategy=cat_strategy, fill_value=fill_value)
                 st.write(f"Missing values filled with '{fill_value}'")
 
             else:
-                imputer = SimpleImputer(strategy=cat_strategy)
+                cat_imputer = SimpleImputer(strategy=str(cat_strategy))
 
-            df[cat_cols] = pd.DataFrame(
-                imputer.fit_transform(cat_data),
+            train[cat_cols] = pd.DataFrame(
+                cat_imputer.fit_transform(train_cat),
                 columns=cat_cols,
-                index=df.index
+                index=df.index,
             )
 
             st.write(
-                f"- There are {df[cat_cols].isna().sum().sum()} remaining null values"
-                " in the categorical columns."
+                "Remaining null values in categorical columns for:\n"
+                f"- Train: {train[cat_cols].isna().sum().sum()}\n"
+                f"- Test: {train[cat_cols].isna().sum().sum()} (imputation was not performed)\n"
             )
 
         # Numerical value imputation
         if num_cols:
             num_strategy = synthesis_request.missing_values.impute.numerical_strategy
-            imputer = SimpleImputer(strategy=num_strategy)
+            num_imputer = SimpleImputer(strategy=str(num_strategy))
 
-            df[num_cols] = pd.DataFrame(
-                imputer.fit_transform(df[num_cols]),
+            train[num_cols] = pd.DataFrame(
+                num_imputer.fit_transform(train[num_cols]),
                 columns=df[num_cols].columns,
                 index=df.index
             )
 
             st.write(
-                f"- There are {df[num_cols].isna().sum().sum()} remaining null values in the "
-                "numerical columns."
+                "\nRemaining null values in numerical columns for:\n"
+                f"- Train: {train[num_cols].isna().sum().sum()}\n"
+                f"- Test: {test[num_cols].isna().sum().sum()} (imputation was not performed)"
             )
 
-        st.info(f"⇨ There are {df.isna().sum().sum()} remaining null values in the dataset.")
-        return df, synthesis_request
+        st.info(
+            f"\n⇨ There are {train.isna().sum().sum() + test.isna().sum().sum()} remaining null "
+            "values in the dataset.\n"
+            f"- Train: {train.isna().sum().sum()}\n"
+            f"- Test: {test.isna().sum().sum()}"
+        )
+
+        return train, test, synthesis_request
