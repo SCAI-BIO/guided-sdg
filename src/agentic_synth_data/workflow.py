@@ -185,7 +185,7 @@ class DataGen:
 
         # Save result whether missing markers have been converted or not.
         self.source = missing_report.df.copy()
-        print("\n⇨ Dataframe has been saved for use during evaluation.")
+        print("\n🠊 Dataframe has been saved for use during evaluation.")
 
         # ii. Handle dtypes (both categories)
         step(name="Handle data types")
@@ -205,7 +205,7 @@ class DataGen:
             df=dtype_handled_df.copy(), selected_cols=selected_cols,
         )
 
-        print("\n⇨ Created train/test split")
+        print("\n🠊 Created train/test split")
         return train
 
 
@@ -234,7 +234,7 @@ class DataGen:
         self.source = missing_report.df.copy()
         st.info("⇨ Dataframe has been saved for use during evaluation.")
 
-        st.write("---")
+        st.divider()
 
         # ii. Handle dtypes (both categories)
         st.subheader("Handle data types")
@@ -249,7 +249,7 @@ class DataGen:
 
         dtype_handled_df, self.dtypes = dtype_result
 
-        st.write("---")
+        st.divider()
 
         st.subheader("Handle semantic types")
         st.write(
@@ -263,7 +263,8 @@ class DataGen:
 
         self.stypes = stype_result
 
-        st.write("---")
+        st.divider()
+
         st.subheader("Final data types present in each column")
 
         final_dtypes = pd.DataFrame({
@@ -274,10 +275,9 @@ class DataGen:
 
         df_formatter_st(df=final_dtypes)
 
-        st.write("---")
+        st.divider()
 
         # iii. Select covariates
-        # TODO: also must consider when missing value handling is applied.
         st.subheader("Covariate exclusion")
 
         st.write(
@@ -566,7 +566,7 @@ class DataGen:
                     )
 
                 status.update(
-                    label=f"⇨ Synthetic generation completed with {generator} (click to view " \
+                    label=f"Synthetic generation completed with {generator} (click to view " \
                         "terminal outputs).",
                     state="complete",
                     expanded=False,
@@ -712,7 +712,7 @@ class DataGen:
 
         self.report.evaluate.attack = attack_metrics
 
-        st.write("---")
+        st.divider()
 
         st.subheader("View syndat plots")
 
@@ -721,7 +721,7 @@ class DataGen:
                 real=real_syndat, synth=synth_syndat, version_id=self.version_id,
             )
 
-        st.write("---")
+        st.divider()
 
         # iii. Evaluate results
         self.agent_decision = evaluation_ui(
@@ -1057,12 +1057,12 @@ class DataGen:
             # TODO: show previous choices and what specifically was changed, even with an arrow.
 
             if "update_mech" in update_plan:
-                generator_name = update_plan['update_mech'].generator_name
-
                 # TODO: show previous generator if gneerator changed
 
-                st.write(f"**Current generator:** {generator_name}\n\n**Reason:**\n")
-                st.write(update_plan['update_mech'].reason)
+                st.write(
+                    f"**Current generator:** {update_plan['update_mech'].generator_name}\n\n"
+                    f"**Reason:** {update_plan['update_mech'].reason}"
+                )
 
             if "update_params" in update_plan:
                 st.write(f"**New parameter configuration:** {update_plan['update_params']}")

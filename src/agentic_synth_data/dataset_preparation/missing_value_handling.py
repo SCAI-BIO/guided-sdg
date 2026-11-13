@@ -271,7 +271,7 @@ def handle_missing_values(
             prep_test = test.dropna()
 
             print(
-                "\n⇨ All samples with missing values have been removed."
+                "\n🠊 All samples with missing values have been removed."
                 f"  - The train set has {prep_train.isna().sum().sum()} remaining missing values.\n"
                 f"  - The test set has {prep_test.isna().sum().sum()} remaining missing values."
             )
@@ -377,7 +377,7 @@ def handle_missing_values(
             )
 
         print(
-            f"\n⇨ There are {train.isna().sum().sum() + test.isna().sum().sum()} remaining missing "
+            f"\n🠊 There are {train.isna().sum().sum() + test.isna().sum().sum()} remaining missing "
             f"values (Train: {train.isna().sum().sum()}, Test: {test.isna().sum().sum()})."
         )
 
@@ -749,7 +749,7 @@ def handle_missing_values_ui(
         cat_cols = grouped.get("Categorical", []) + grouped.get("Ordinal", [])
         num_cols = grouped.get("Integer", []) + grouped.get("Float", [])
 
-        st.write("---")
+        st.divider()
 
         st.write("#### Review of missing value handling results:")
 

@@ -1,4 +1,5 @@
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from typing import Optional
 
 from anonymeter.evaluators import InferenceEvaluator, LinkabilityEvaluator, SinglingOutEvaluator
@@ -11,7 +12,7 @@ import plotly.graph_objects as go
 from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetrics, AttackColumns, \
     AttackOutputs
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
-from agentic_synth_data.utils import SemanticTypes, calculate_delta, format_response, \
+from agentic_synth_data.utils import SemanticTypes, calculate_delta, display_delta_caption, format_response, \
     info_helper_message, invoke_agent, comma_sep
 from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message
 
@@ -185,30 +186,40 @@ def calculate_attack_metrics(
         config=config,
     )
 
-    print(f"\nSelected columns:\n- Linkability:\n  - Auxiliary columns: " \
-        f"{cols.linkability_aux_cols}\n- Inference:\n  - Auxiliary" \
-        f" columns: {cols.inference_aux_cols}\n  - Secret " \
-        f"column: {cols.secret}\n\nRationale:")
+    print(
+        "Columns selected for the following privacy metric calculation:\n"
+        "- Linkability:\n"
+        f"  - First auxiliary set: {comma_sep(cols.linkability_aux_cols[0])}\n"
+        f"  - Second auxiliary set: {comma_sep(cols.linkability_aux_cols[1])}\n"
+        "- Inference:\n"
+        f"  - Auxiliary columns: {comma_sep(cols.inference_aux_cols)}\n"
+        f"  - Secret column: {cols.secret}\n\n"
+        f"Rationale:"
+    )
     format_response(cols.rationale)
 
     # Calculate inference risk:
     print("\nEvaluating inference risk...")
 
-    inference_risk, inference_risk_output = _calculate_inference(train, test, synth, cols,)
+    inference_risk, inference_risk_output = _calculate_inference(
+        train=train, test=test, synth=synth, cols=cols,
+    )
 
     write_attack_metric(metric_name="Inference", metric=inference_risk,)
 
     # Calculate linkability risk:
     print("\nEvaluating linkability risk...")
 
-    linkability_risk, link_risk_output = _calculate_inference(train, test, synth, cols,)
+    linkability_risk, link_risk_output = _calculate_linkability(
+        train=train, test=test, synth=synth, cols=cols,
+    )
 
     write_attack_metric(metric_name="Linkability", metric=linkability_risk,)
 
     outputs = AttackOutputs(
-        singling_out=so_risk_output or None,
-        inference=inference_risk_output or None,
-        linkability=link_risk_output or None,
+        singling_out=anonymize_paths(so_risk_output),
+        inference=anonymize_paths(inference_risk_output),
+        linkability=anonymize_paths(link_risk_output),
     )
 
     return AttackMetrics(
@@ -283,7 +294,7 @@ def calculate_attack_metrics_ui(
     if so_risk_output:
         show_anonymeter_warning_ui(so_risk_output)
 
-    st.write("---")
+    st.divider()
 
     # Select columns for inference and linkability risk:
     plan_key = "attack_col_selection_plan"
@@ -308,7 +319,7 @@ def calculate_attack_metrics_ui(
 
     expand_col_selection_ui(cols=attack_col_plan)
 
-    st.write("---")
+    st.divider()
 
     # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
@@ -331,7 +342,7 @@ def calculate_attack_metrics_ui(
     if inference_risk_output:
         show_anonymeter_warning_ui(inference_risk_output)
 
-    st.write("---")
+    st.divider()
 
     # Calculate linkability risk:
     with st.spinner("Evaluating linkability risk..."):
@@ -355,9 +366,9 @@ def calculate_attack_metrics_ui(
         show_anonymeter_warning_ui(link_risk_output)
 
     outputs = AttackOutputs(
-        singling_out=so_risk_output or None,
-        inference=inference_risk_output or None,
-        linkability=link_risk_output or None,
+        singling_out=anonymize_paths(so_risk_output),
+        inference=anonymize_paths(inference_risk_output),
+        linkability=anonymize_paths(link_risk_output),
     )
 
     return AttackMetrics(
@@ -454,11 +465,30 @@ def write_attack_metric(metric_name: str, metric: "PrivacyRisk",) -> None:
         metric (PrivacyRisk): Details (e.g., value and confidence interval) for each metric.
     """
     print(
-        f"\n⇨ {metric_name} risk:\n "
+        f"\n🠊 {metric_name} risk:\n "
         f"- Value: {round(metric.value*100, 3)}%\n  "
         f"- Confidence interval: between {round(metric.ci[0]*100,3)}% and "
         f"{round(metric.ci[1]*100,3)}%"
     )
+
+
+def anonymize_paths(message: str | None) -> str | None:
+    """Anonymize the current user's home directory in output messages.
+
+    Args:
+        message (str): Anonymeter warning output.
+
+    Returns:
+        str | None: 
+        - str: Anonymized path.
+        - None: Input message was None, return None.
+    """
+    if message is None:
+        return None
+
+    home = Path.home()
+    replacement = home.parent / "usr"
+    return message.replace(str(home), str(replacement))
 
 
 def show_anonymeter_warning_ui(output: str) -> None:
@@ -471,7 +501,7 @@ def show_anonymeter_warning_ui(output: str) -> None:
     start = output.find("UserWarning:")
 
     if start != -1:
-        warning_summary = output[start:]
+        warning_summary = output[start:].replace("UserWarning", "**UserWarning**")
 
         with st.expander(warning_summary):
             st.warning(output)
@@ -506,6 +536,8 @@ def display_privacy_risk_ui(
         ),
         delta_color="inverse",
     )
+
+    display_delta_caption(previous_value=previous_value)
 
     fig = go.Figure()
 
