@@ -308,7 +308,6 @@ class DataGen:
         if not finished:
             st.stop()
 
-
         # iv. Apply feature selection and create train/test split
         train = self._select_features_and_split(df=dtype_handled_df, selected_cols=selected_cols,)
 
@@ -604,7 +603,7 @@ class DataGen:
 
         # i. Syndat metric calculation
         real_syndat, synth_syndat = prepare_for_syndat(
-            real=self.prep_train.copy(),
+            real=self.train.copy(),
             synth=self.synthetic.copy(),
             stypes=self.stypes,
         )
@@ -664,7 +663,7 @@ class DataGen:
         """
         # i. Syndat metric calculation
         real_syndat, synth_syndat = prepare_for_syndat(
-            real=self.prep_train.copy(),
+            real=self.train.copy(),
             synth=self.synthetic.copy(),
             stypes=self.stypes,
         )
