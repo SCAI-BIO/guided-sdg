@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.config import SynthesisRequest
 from agentic_synth_data.schemas.eval_model import AgentEval
 
 from agentic_synth_data.schemas.attack_model import AttackMetrics

@@ -1,7 +1,7 @@
 from textwrap import dedent
 from typing import Any
 
-from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.config import SynthesisRequest
 from agentic_synth_data.utils import SemanticTypes
 
 
