@@ -2,8 +2,8 @@ import streamlit as st
 
 from agentic_synth_data.revision import version_tabs_ui
 from agentic_synth_data.utils import display_workflow_progress, page_navigation
-from agentic_synth_data.dataset_evaluation.fidelity import display_metrics_ui
-from agentic_synth_data.dataset_evaluation.privacy import ANONYMETER_METRIC_DESCRIPTION, \
+from agentic_synth_data.dataset_evaluation.syndat_metrics import display_metrics_ui
+from agentic_synth_data.dataset_evaluation.attack_metrics import ANONYMETER_METRIC_DESCRIPTION, \
     display_attack_metrics_ui
 
 

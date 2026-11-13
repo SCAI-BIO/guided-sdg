@@ -7,11 +7,11 @@ import streamlit as st
 
 from agentic_synth_data.report import Report
 from agentic_synth_data.schemas.eval_model import AgentEval
-from agentic_synth_data.schemas.generator_model import GeneratorRevisionOption, \
+from agentic_synth_data.schemas.generator import GeneratorRevisionOption, \
     GeneratorRevisionPlan, PATEGANConfig, PrivBayesConfig
-from agentic_synth_data.schemas.missing_model import MissingRevisionOption, MissingRevisionPlan
-from agentic_synth_data.preference_setup import SynthesisRequest
-from agentic_synth_data.prompts.revision_prompt import revision_message, missing_revision_message, \
+from agentic_synth_data.schemas.missing_values import MissingRevisionOption, MissingRevisionPlan
+from agentic_synth_data.config import SynthesisRequest
+from agentic_synth_data.prompts.revision import revision_message, missing_revision_message, \
     parameter_revision_message
 from agentic_synth_data.utils import GeneratorName, format_option, info_helper_message, invoke_agent, \
     newline_every_n_words

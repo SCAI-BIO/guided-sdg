@@ -8,7 +8,7 @@ import pyinputplus as pyip
 from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
 
-from agentic_synth_data.prompts.stype_prompt import semantic_type_message
+from agentic_synth_data.prompts.stype import semantic_type_message
 from agentic_synth_data.utils import SemanticType, SemanticTypes, df_formatter_st, invoke_agent, \
     info_helper_message
 
