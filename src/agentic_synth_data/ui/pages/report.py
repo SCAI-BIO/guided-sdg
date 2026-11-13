@@ -1,6 +1,6 @@
 import streamlit as st
 
-from agentic_synth_data.rerun_workflow import version_tabs_ui
+from agentic_synth_data.revision import version_tabs_ui
 from agentic_synth_data.dataset_evaluation.plotting import compile_metrics, plot_metrics
 from agentic_synth_data.report import display_report_ui
 from agentic_synth_data.utils import display_downloads_ui, display_workflow_progress
