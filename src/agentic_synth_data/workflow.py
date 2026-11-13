@@ -68,10 +68,10 @@ class DataGen:
         # Dataframes
         self.source: pd.DataFrame | None = None # Input data (optional: with marker replacement)
         self.selected: pd.DataFrame | None = None # Handled dtypes with specified covariates
-        self.train: pd.DataFrame | None = None # Train split of selected
-        self.test: pd.DataFrame | None = None # Test split of selected (used in Anonymeter)
-        self.prepared_train: pd.DataFrame | None = None # Training data prepared for generator
-        self.prepared_test: pd.DataFrame | None = None # Prepared testing data (NOTE: need to confirm before using)
+        self.train: pd.DataFrame | None = None # Initial train split of selected
+        self.test: pd.DataFrame | None = None # Initial test split of selected
+        self.prep_train: pd.DataFrame | None = None # Preprocessed train split (for generator input)
+        self.prep_test: pd.DataFrame | None = None # Preprocessed test split (remove missing values only)
         self.synthetic: pd.DataFrame | None = None # Synthetic data
 
         # Generated file paths
@@ -150,16 +150,35 @@ class DataGen:
     # Step 2: Preprocess dataset and select generator
     # ============================================================================
 
+    def _select_features_and_split(
+        self, df: pd.DataFrame, selected_cols: list[str],
+    ) -> pd.DataFrame:
+        """Apply covariate selection, update metadata, and create the train/test split."""
+        self.selected = df[selected_cols].copy()
+
+        # Retain metadata for selected covariates only
+        self.stypes = {col: self.stypes[col] for col in selected_cols}
+        self.dtypes = {col: self.dtypes[col] for col in selected_cols}
+
+        self.report.prep.dtypes = self.dtypes
+        self.report.prep.stypes = self.stypes
+
+        # Create train/test split
+        self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
+        return self.train
+
+
     def preprocess_dtypes(self) -> pd.DataFrame:
         """Step 2: Preprocess
-            i. Check for missing value markers
-            ii. Handle dtypes (both categories)
-            iii. Select covariates and split the dataset (pending)
+            i. Missing value marker check
+            ii. dtype handling (both categories)
+            iii. Covariate selection
+            iv. Apply feature selection and create train/test split
         """
-        # i. Check for missing value markers
+        # i. Initial check for missing value markers (can affect dtypes)
         step(name="Normalize missing values")
 
-        missing_report = missing_value_precheck(self.source.copy())
+        missing_report = missing_value_precheck(df=self.source.copy())
 
         self.report.prep.missing_markers_detected = missing_report.detected_markers
         self.report.prep.missing_markers_replaced = missing_report.replaced_markers
@@ -170,34 +189,32 @@ class DataGen:
 
         # ii. Handle dtypes (both categories)
         step(name="Handle data types")
-        dtype_handled_df, self.dtypes = handle_dtypes(self.source.copy())
+        dtype_handled_df, self.dtypes = handle_dtypes(df=self.source.copy())
 
         step(name="Handle semantic types")
         self.stypes = handle_semantic_types(
-            df=dtype_handled_df.copy(), agent=self.agent, config=self.config
+            df=dtype_handled_df.copy(), agent=self.agent, config=self.config,
         )
 
-        # iii. Select covariates and split the dataset (pending)
+        # iii. Select covariates
         # TODO: Implement column selection here.
-        self.selected = dtype_handled_df.copy()
+        selected_cols = dtype_handled_df.columns.to_list()
 
-        # Update stypes and dtypes to exclude selected cols
-        self.stypes = {col: self.stypes[col] for col in self.selected.columns}
-        self.dtypes = {col: self.dtypes[col] for col in self.selected.columns}
+        # iv. Apply feature selection and create train/test split
+        train = self._select_features_and_split(
+            df=dtype_handled_df.copy(), selected_cols=selected_cols,
+        )
 
-        self.report.prep.dtypes = self.dtypes
-        self.report.prep.stypes = self.stypes
-
-        self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
         print("\n⇨ Created train/test split")
-        return self.train
+        return train
 
 
     def preprocess_dtypes_ui(self) -> pd.DataFrame:
         """Step 2: Preprocess (UI)
-            i. Check for missing value markers
-            ii. Handle dtypes (both categories)
-            iii. Select covariates and split the dataset
+            i. Missing value marker check
+            ii. dtype handling (both categories)
+            iii. Covariate selection
+            iv. Apply feature selection and create train/test split
         """
         # i. Check for missing value markers
         st.subheader("Normalize missing values")
@@ -205,7 +222,8 @@ class DataGen:
             "**Look for any missing value markers that should be encoded as null values within "
             "the dataset prior to analysis.**"
         )
-        missing_report = missing_value_precheck_ui(self.source.copy())
+
+        missing_report = missing_value_precheck_ui(df=self.source.copy())
 
         if missing_report is None:
             st.stop()
@@ -224,7 +242,7 @@ class DataGen:
             "Automatically detect the majority Python data types present for each variable "
             "in the dataframe."
         )
-        dtype_result = handle_dtypes_ui(self.source.copy())
+        dtype_result = handle_dtypes_ui(df=self.source.copy())
 
         if dtype_result is None:
             st.stop()
@@ -254,11 +272,11 @@ class DataGen:
             "Semantic type": self.stypes.values(),
         })
 
-        df_formatter_st(final_dtypes)
+        df_formatter_st(df=final_dtypes)
 
         st.write("---")
 
-        # iii. Select covariates and split the dataset
+        # iii. Select covariates
         # TODO: also must consider when missing value handling is applied.
         st.subheader("Covariate exclusion")
 
@@ -290,27 +308,21 @@ class DataGen:
         if not finished:
             st.stop()
 
-        self.selected = dtype_handled_df[selected_cols].copy()
 
-        # Update stypes and dtypes to exclude selected cols
-        self.stypes = {col: self.stypes[col] for col in self.selected.columns}
-        self.dtypes = {col: self.dtypes[col] for col in self.selected.columns}
-
-        self.report.prep.dtypes = self.dtypes
-        self.report.prep.stypes = self.stypes
-
-        self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
+        # iv. Apply feature selection and create train/test split
+        train = self._select_features_and_split(df=dtype_handled_df, selected_cols=selected_cols,)
 
         st.info(
             f"⇨ Created test/train split: {len(self.train)} training rows and {len(self.test)} "
             "testing rows."
         )
-        return self.train
+
+        return train
 
 
     def generator_selection(self):
         """Step 2: Preprocess
-            iii. Select/verify chosen generator
+            v. Select/verify chosen generator
         """
         step(name="Select data generator")
         print()
@@ -328,7 +340,7 @@ class DataGen:
 
     def generator_selection_ui(self):
         """Step 2: Preprocess
-            iii. Select/verify chosen generator
+            v. Select/verify chosen generator
         """
         profile = generator_profile_ui(self.train.copy())
         self.report.prep.profile = profile
@@ -350,7 +362,7 @@ class DataGen:
 
     def preprocess_missing_vals(self):
         """Step 2: Preprocess
-            iv. Handle missing values (if needed for the generator)
+            vi. Handle missing values (if needed for the generator)
         """
         self.report.prep.missing_before = self.selected.isna().sum().sum()
 
@@ -369,11 +381,11 @@ class DataGen:
             )
 
             if result is not None:
-                self.prepared_train, self.prepared_test, self.synthesis_request = result
+                self.prep_train, self.prep_test, self.synthesis_request = result
 
         else:
-            self.prepared_train = self.train.copy()
-            self.prepared_test = self.test.copy()
+            self.prep_train = self.train.copy()
+            self.prep_test = self.test.copy()
 
             print(
                 "\nThe selected data generator does not require missing value handling: "
@@ -389,15 +401,15 @@ class DataGen:
 
             self.synthesis_request.missing_values.mode = None
 
-        self.report.input.prepared_shape = self.prepared_train.shape
-        self.report.prep.missing_after = self.prepared_train.isna().sum().sum()
+        self.report.input.prepared_shape = self.prep_train.shape
+        self.report.prep.missing_after = self.prep_train.isna().sum().sum()
 
-        return self.prepared_train, self.synthesis_request
+        return self.prep_train, self.synthesis_request
 
 
     def preprocess_missing_vals_ui(self):
         """Step 2: Preprocess
-            iv. Handle missing values (if needed for the generator) (UI)
+            vi. Handle missing values (if needed for the generator) (UI)
         """
         self.report.prep.missing_before = self.selected.isna().sum().sum()
 
@@ -416,11 +428,11 @@ class DataGen:
             )
 
             if result is not None:
-                self.prepared_train, self.prepared_test, self.synthesis_request = result
+                self.prep_train, self.prep_test, self.synthesis_request = result
 
         else:
-            self.prepared_train = self.train.copy()
-            self.prepared_test = self.test.copy()
+            self.prep_train = self.train.copy()
+            self.prep_test = self.test.copy()
 
             st.info(
                 f"The selected data generator does not require missing value handling: {mechanism}."
@@ -435,10 +447,10 @@ class DataGen:
 
             self.synthesis_request.missing_values.mode = None
 
-        self.report.input.prepared_shape = self.prepared_train.shape
-        self.report.prep.missing_after = self.prepared_train.isna().sum().sum()
+        self.report.input.prepared_shape = self.prep_train.shape
+        self.report.prep.missing_after = self.prep_train.isna().sum().sum()
 
-        return self.prepared_train, self.synthesis_request
+        return self.prep_train, self.synthesis_request
 
 
     # ============================================================================
@@ -458,7 +470,7 @@ class DataGen:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         self.prepared_path = output_dir / output_filename
-        self.prepared_train.to_csv(self.prepared_path, index=False)
+        self.prep_train.to_csv(self.prepared_path, index=False)
 
         self.report.gen.prep_path = self.prepared_path
         return self.prepared_path
@@ -582,26 +594,30 @@ class DataGen:
     # ============================================================================
 
     def evaluate(self):
-        """Step 5: Evaluate results"""
+        """Step 5: Evaluate results
+            i. Calculate three main Syndat metrics
+            ii. Calculate three main Anonymeter metrics
+            iii. Evaluate results
+            iv. Write report
+        """
         step(name="Evaluate synthetic data")
 
-        real = self.selected.copy()
-        synth = self.synthetic.copy()
-
-        real, synth = prepare_for_syndat(
-            real=real,
-            synth=synth,
+        # i. Syndat metric calculation
+        real_syndat, synth_syndat = prepare_for_syndat(
+            real=self.prep_train.copy(),
+            synth=self.synthetic.copy(),
             stypes=self.stypes,
         )
 
-        syndat_metrics = calculate_metrics(real=real, synth=synth,)
+        syndat_metrics = calculate_metrics(real=real_syndat, synth=synth_syndat,)
 
         self.report.evaluate.syndat = syndat_metrics
 
+        # ii. Anonymeter metric calculation
         attack_metrics = calculate_attack_metrics(
-            train=self.train,
-            test=self.test,
-            synth=synth,
+            train=self.prep_train.copy(),
+            test=self.prep_test.copy(),
+            synth=self.synthetic.copy(),
             stypes=self.stypes,
             dtypes=self.dtypes,
             agent=self.agent,
@@ -611,9 +627,10 @@ class DataGen:
         self.report.evaluate.attack = attack_metrics
 
         self.report.evaluate.plots = generate_plots(
-            real=real, synth=synth, version_id=self.version_id,
+            real=real_syndat, synth=synth_syndat, version_id=self.version_id,
         )
 
+        # iii. Evaluate results
         self.agent_decision = evaluation(
             synthesis_request=self.synthesis_request,
             syndat_metrics=syndat_metrics,
@@ -629,6 +646,7 @@ class DataGen:
             rationale=self.agent_decision.rationale,
         )
 
+        # iv. Write report
         write_report(
             report=self.report,
             synthesis_request=self.synthesis_request,
@@ -638,38 +656,41 @@ class DataGen:
 
 
     def evaluate_ui(self):
-        """Step 5: Evaluate results"""
-        synth = self.synthetic.copy()
-        if self.norm_na_df is not None:
-            real = self.norm_na_df.copy()
-        else:
-            real = self.source.copy()
-
-        real = real[self.selected.columns].copy()
-
-        real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.stypes,)
-
-        col1, col2 = st.columns(2)
+        """Step 5: Evaluate results
+            i. Calculate three main Syndat metrics
+            ii. Calculate three main Anonymeter metrics
+            iii. Evaluate results
+            iv. Write report
+        """
+        # i. Syndat metric calculation
+        real_syndat, synth_syndat = prepare_for_syndat(
+            real=self.prep_train.copy(),
+            synth=self.synthetic.copy(),
+            stypes=self.stypes,
+        )
 
         # Retrieve metrics from the previous version (if available)
         prev_syndat_metrics, prev_attack_metrics = self.get_prev_evaluation_metrics()
 
+        col1, col2 = st.columns(2)
+
         with col1:
             syndat_metrics = calculate_metrics_ui(
-                real=real, synth=synth, prev_metrics=prev_syndat_metrics,
+                real=real_syndat, synth=synth_syndat, prev_metrics=prev_syndat_metrics,
             )
 
             self.report.evaluate.syndat = syndat_metrics
 
         attack_key = f"attack_metrics_{self.version_id}"
 
-        # Anonymeter metrics take longer to load, so they are saved for display upon page reload.
         with col2:
+            # Saved calculated Anonymeter metrics, which take longer to load.
             if attack_key not in st.session_state:
+                # ii. Anonymeter metric calculation
                 attack_metrics = calculate_attack_metrics_ui(
-                    train=self.train,
-                    test=self.test,
-                    synth=synth,
+                    train=self.prep_train.copy(),
+                    test=self.prep_test.copy(),
+                    synth=self.synthetic.copy(),
                     stypes=self.stypes,
                     dtypes=self.dtypes,
                     key_prefix=f"calculation_v{self.version_id}",
@@ -698,12 +719,12 @@ class DataGen:
 
         with st.spinner("Loading plots..."):
             self.report.evaluate.plots = generate_plots_ui(
-                real=real, synth=synth, version_id=self.version_id,
+                real=real_syndat, synth=synth_syndat, version_id=self.version_id,
             )
 
         st.write("---")
 
-        # Display agent evaluation of results
+        # iii. Evaluate results
         self.agent_decision = evaluation_ui(
             synthesis_request=self.synthesis_request,
             syndat_metrics=syndat_metrics,
@@ -712,7 +733,6 @@ class DataGen:
             config=self.config,
         )
 
-        # Write report
         self.report.review = ReviewReport(
             problem_columns=self.agent_decision.problem_columns,
             status=self.agent_decision.status,
@@ -720,6 +740,7 @@ class DataGen:
             rationale=self.agent_decision.rationale,
         )
 
+        # iv. Write report
         write_report(
             report=self.report,
             synthesis_request=self.synthesis_request,
@@ -727,7 +748,7 @@ class DataGen:
             version_id=self.version_id,
         )
 
-        data_name = Path(self.data_path.stem)
+        data_name = Path(self.data_path).stem
 
         report_dir = (
             OUTPUT_DIR / f"version_{self.version_id}" / f"report_{data_name}_v{self.version_id}.md"
@@ -940,8 +961,8 @@ class DataGen:
         missing value, or the selection of both options. Additionally, clears the report in the
         altered sections.
         """
-        self.prepared_train = None
-        self.prepared_test = None
+        self.prep_train = None
+        self.prep_test = None
         self.prepared_path = None
         self.metadata_path = None
         self.synthetic = None
