@@ -66,13 +66,13 @@ class DataGen:
         self.agent_decision: AgentEval | None = None
 
         # Dataframes
-        self.source: pd.DataFrame | None = None # Input data (optional: with marker replacement)
-        self.selected: pd.DataFrame | None = None # Handled dtypes with specified covariates
-        self.train: pd.DataFrame | None = None # Initial train split of selected
-        self.test: pd.DataFrame | None = None # Initial test split of selected
-        self.prep_train: pd.DataFrame | None = None # Preprocessed train split (for generator input)
-        self.prep_test: pd.DataFrame | None = None # Preprocessed test split (remove missing values only)
-        self.synthetic: pd.DataFrame | None = None # Synthetic data
+        self.source: pd.DataFrame # Input data (optional: with marker replacement)
+        self.selected: pd.DataFrame # Handled dtypes with specified covariates
+        self.train: pd.DataFrame # Initial train split of selected
+        self.test: pd.DataFrame # Initial test split of selected
+        self.prep_train: pd.DataFrame # Preprocessed train split (for generator input)
+        self.prep_test: pd.DataFrame # Preprocessed test split (remove missing values only)
+        self.synthetic: pd.DataFrame # Synthetic data
 
         # Generated file paths
         self.metadata_path: Path | None = None
