@@ -14,7 +14,7 @@ from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetri
 from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.utils import SemanticTypes, calculate_delta, display_delta_caption, format_response, \
     info_helper_message, invoke_agent, comma_sep
-from agentic_synth_data.prompts.evaluation_prompt import attack_column_selection_message
+from agentic_synth_data.prompts.evaluation import attack_column_selection_message
 
 
 # ============================================================================

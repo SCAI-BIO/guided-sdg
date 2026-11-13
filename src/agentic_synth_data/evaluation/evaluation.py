@@ -10,8 +10,8 @@ from agentic_synth_data.schemas.eval_model import AgentEval
 from agentic_synth_data.schemas.syndat_model import SyndatMetrics
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
     invoke_agent, format_option, comma_sep
-from agentic_synth_data.prompts.evaluation_prompt import eval_review_message, evaluation_prompt
-from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.prompts.evaluation import eval_review_message, evaluation_prompt
+from agentic_synth_data.config import SynthesisRequest
 
 
 def evaluation(

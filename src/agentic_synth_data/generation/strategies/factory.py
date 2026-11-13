@@ -1,5 +1,5 @@
-from agentic_synth_data.strategies.base import GeneratorStrategy
-from agentic_synth_data.strategies.synthetic_data_release import SyntheticDataReleaseStrategy
+from agentic_synth_data.generation.strategies.base import GeneratorStrategy
+from agentic_synth_data.generation.strategies.synthetic_data_release import SyntheticDataReleaseStrategy
 
 
 GENERATOR_BACKENDS = {

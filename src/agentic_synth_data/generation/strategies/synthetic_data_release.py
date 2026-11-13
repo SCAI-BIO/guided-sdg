@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import requests
 
-from agentic_synth_data.strategies.base import GeneratorStrategy
+from agentic_synth_data.generation.strategies.base import GeneratorStrategy
 from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, SDR_URL, SemanticTypes
 
 

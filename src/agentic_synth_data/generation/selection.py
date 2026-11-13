@@ -6,12 +6,12 @@ import pandas as pd
 import pyinputplus as pyip
 import streamlit as st
 
-from agentic_synth_data.prompts.generator_selection_prompt import generator_selection_message, \
+from agentic_synth_data.prompts.generator_selection import generator_selection_message, \
     generator_review_message
-from agentic_synth_data.schemas.generator_model import SelectGenerator
+from agentic_synth_data.schemas.generator import SelectGenerator
 from agentic_synth_data.utils import GeneratorName, SemanticTypes, format_response, \
     info_helper_message, invoke_agent, output_default_parameters
-from agentic_synth_data.preference_setup import SynthesisRequest
+from agentic_synth_data.config import SynthesisRequest
 
 
 # ============================================================================
