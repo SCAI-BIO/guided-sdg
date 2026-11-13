@@ -6,9 +6,9 @@ import pandas as pd
 from pydantic import BaseModel, Field
 import streamlit as st
 
-from agentic_synth_data.schemas.attack_model import AttackMetrics
-from agentic_synth_data.schemas.models import SynthesisRequest
-from agentic_synth_data.schemas.syndat_model import SyndatMetrics
+from agentic_synth_data.schemas.privacy import AttackMetrics
+from agentic_synth_data.schemas.synthesis_request import SynthesisRequest
+from agentic_synth_data.schemas.syndat import SyndatMetrics
 from agentic_synth_data.utils import OUTPUT_DIR
 
 

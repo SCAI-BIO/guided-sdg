@@ -13,29 +13,29 @@ from langchain.chat_models import init_chat_model, BaseChatModel
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
-from agentic_synth_data.dataset_evaluation.evaluation import display_agent_evaluation_ui, \
+from agentic_synth_data.evaluation.assessment import display_agent_evaluation_ui, \
     evaluation, evaluation_ui, evaluation_review_ui, evaluation_review
-from agentic_synth_data.dataset_evaluation.attack_metrics import calculate_attack_metrics, \
+from agentic_synth_data.evaluation.attack_metrics import calculate_attack_metrics, \
     calculate_attack_metrics_ui, display_attack_metrics_ui, ANONYMETER_METRIC_DESCRIPTION
 from agentic_synth_data.report import write_report
-from agentic_synth_data.dataset_evaluation.syndat_metrics import calculate_metrics, \
+from agentic_synth_data.evaluation.syndat_metrics import calculate_metrics, \
     calculate_metrics_ui, generate_plots, generate_plots_ui, display_metrics_ui
-from agentic_synth_data.dataset_preparation.dtype_handling import handle_dtypes, handle_dtypes_ui, \
+from agentic_synth_data.preparation.dtypes import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
-from agentic_synth_data.dataset_preparation.load_dataframe import load_df
-from agentic_synth_data.dataset_preparation.semantic_type_handling import handle_semantic_types, \
+from agentic_synth_data.preparation.load import load_df
+from agentic_synth_data.preparation.stypes import handle_semantic_types, \
     handle_semantic_types_ui, prepare_for_syndat
-from agentic_synth_data.dataset_preparation.missing_value_handling import handle_missing_values, \
+from agentic_synth_data.preparation.missing_values import handle_missing_values, \
     handle_missing_values_ui
-from agentic_synth_data.preference_setup import select_preferences, select_preferences_ui
-from agentic_synth_data.prompts.system_prompt import SYSTEM_PROMPT
+from agentic_synth_data.config import select_preferences, select_preferences_ui
+from agentic_synth_data.prompts.system import SYSTEM_PROMPT
 from agentic_synth_data.report import Report, ReviewReport
-from agentic_synth_data.rerun_workflow import plan_update, plan_update_ui
-from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
-from agentic_synth_data.schemas.eval_model import AgentEval
-from agentic_synth_data.schemas.streamlit_helpers import StreamlitOutput
-from agentic_synth_data.strategies.factory import get_generator_strategy
-from agentic_synth_data.synthetic_generation.generation import select_generator, \
+from agentic_synth_data.revision import plan_update, plan_update_ui
+from agentic_synth_data.schemas.synthesis_request import SynthesisRequest, ImputationConfig
+from agentic_synth_data.schemas.agent_evaluation import AgentEval
+from agentic_synth_data.ui.helpers import StreamlitOutput
+from agentic_synth_data.generation.strategies.factory import get_generator_strategy
+from agentic_synth_data.generation.selection import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
 from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, SemanticTypes, df_formatter_st, \
     format_response, output_default_parameters, comma_sep

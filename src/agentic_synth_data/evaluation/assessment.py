@@ -5,9 +5,9 @@ from langgraph.graph.state import CompiledStateGraph
 import pyinputplus as pyip
 import streamlit as st
 
-from agentic_synth_data.schemas.attack_model import AttackMetrics
-from agentic_synth_data.schemas.eval_model import AgentEval
-from agentic_synth_data.schemas.syndat_model import SyndatMetrics
+from agentic_synth_data.schemas.privacy import AttackMetrics
+from agentic_synth_data.schemas.agent_evaluation import AgentEval
+from agentic_synth_data.schemas.syndat import SyndatMetrics
 from agentic_synth_data.utils import format_response, extract_output, info_helper_message, \
     invoke_agent, format_option, comma_sep
 from agentic_synth_data.prompts.evaluation import eval_review_message, evaluation_prompt

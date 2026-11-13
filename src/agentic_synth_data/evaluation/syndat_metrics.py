@@ -7,8 +7,8 @@ import pandas as pd
 import streamlit as st
 import syndat
 
-from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
-from agentic_synth_data.schemas.syndat_model import SyndatMetrics, SyndatOutputs
+from agentic_synth_data.ui.helpers import CapturedOutput, StreamlitOutput
+from agentic_synth_data.schemas.syndat import SyndatMetrics, SyndatOutputs
 from agentic_synth_data.utils import OUTPUT_DIR, calculate_delta, df_formatter_st, \
     display_delta_caption
 

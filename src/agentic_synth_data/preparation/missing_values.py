@@ -12,7 +12,7 @@ from agentic_synth_data.utils import CategoricalChoiceAuto, NumericalChoiceAuto,
     format_response, info_helper_message, invoke_agent, display_synthesis_request, SemanticTypes
 from agentic_synth_data.prompts.missing_value import missing_value_prompt, missing_feedback
 from agentic_synth_data.schemas.missing_values import MissingHandling
-from agentic_synth_data.schemas.models import SynthesisRequest, ImputationConfig
+from agentic_synth_data.schemas.synthesis_request import SynthesisRequest, ImputationConfig
 
 
 def update_missing_value_choice(synthesis_request: SynthesisRequest) -> SynthesisRequest:

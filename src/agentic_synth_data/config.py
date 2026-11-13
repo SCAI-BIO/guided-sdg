@@ -3,7 +3,7 @@ from typing import Literal, get_args
 import pyinputplus as pyip
 import streamlit as st
 
-from agentic_synth_data.schemas.models import SynthesisRequest
+from agentic_synth_data.schemas.synthesis_request import SynthesisRequest
 from agentic_synth_data.utils import GeneratorNameAuto, display_synthesis_request, \
     display_synthesis_request_st, format_option, format_response, output_default_parameters, \
     CategoricalChoiceAuto, NumericalChoiceAuto

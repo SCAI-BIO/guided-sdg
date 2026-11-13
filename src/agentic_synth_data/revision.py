@@ -6,7 +6,7 @@ import pyinputplus as pyip
 import streamlit as st
 
 from agentic_synth_data.report import Report
-from agentic_synth_data.schemas.eval_model import AgentEval
+from agentic_synth_data.schemas.agent_evaluation import AgentEval
 from agentic_synth_data.schemas.generator import GeneratorRevisionOption, \
     GeneratorRevisionPlan, PATEGANConfig, PrivBayesConfig
 from agentic_synth_data.schemas.missing_values import MissingRevisionOption, MissingRevisionPlan

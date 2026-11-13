@@ -13,7 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
 import st_yled
 
-from agentic_synth_data.prompts.system_prompt import json_repair_prompt
+from agentic_synth_data.prompts.system import json_repair_prompt
 
 
 # ============================================================================

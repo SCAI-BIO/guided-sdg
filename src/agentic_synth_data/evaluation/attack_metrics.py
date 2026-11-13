@@ -9,9 +9,9 @@ import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
 
-from agentic_synth_data.schemas.attack_model import AnonymeterInput, AttackMetrics, AttackColumns, \
+from agentic_synth_data.schemas.privacy import AnonymeterInput, AttackMetrics, AttackColumns, \
     AttackOutputs
-from agentic_synth_data.schemas.streamlit_helpers import CapturedOutput, StreamlitOutput
+from agentic_synth_data.ui.helpers import CapturedOutput, StreamlitOutput
 from agentic_synth_data.utils import SemanticTypes, calculate_delta, display_delta_caption, format_response, \
     info_helper_message, invoke_agent, comma_sep
 from agentic_synth_data.prompts.evaluation import attack_column_selection_message
