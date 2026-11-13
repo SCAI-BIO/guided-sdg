@@ -165,6 +165,8 @@ class DataGen:
 
         # Create train/test split
         self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
+        self.report.input.train_shape = self.train.shape
+        self.report.input.test_shape = self.test.shape
         return self.train
 
 
@@ -363,7 +365,8 @@ class DataGen:
         """Step 2: Preprocess
             vi. Handle missing values (if needed for the generator)
         """
-        self.report.prep.missing_before = self.selected.isna().sum().sum()
+        self.report.prep.train_missing_before = self.train.isna().sum().sum()
+        self.report.prep.test_missing_before = self.test.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -400,8 +403,10 @@ class DataGen:
 
             self.synthesis_request.missing_values.mode = None
 
-        self.report.input.prepared_shape = self.prep_train.shape
-        self.report.prep.missing_after = self.prep_train.isna().sum().sum()
+        self.report.input.prep_train_shape = self.prep_train.shape
+        self.report.input.prep_test_shape = self.prep_test.shape
+        self.report.prep.train_missing_after = self.prep_train.isna().sum().sum()
+        self.report.prep.test_missing_after = self.prep_test.isna().sum().sum()
 
         return self.prep_train, self.synthesis_request
 
@@ -410,7 +415,8 @@ class DataGen:
         """Step 2: Preprocess
             vi. Handle missing values (if needed for the generator) (UI)
         """
-        self.report.prep.missing_before = self.selected.isna().sum().sum()
+        self.report.prep.train_missing_before = self.train.isna().sum().sum()
+        self.report.prep.test_missing_before = self.test.isna().sum().sum()
 
         mechanism = self.synthesis_request.generator.name
 
@@ -446,8 +452,10 @@ class DataGen:
 
             self.synthesis_request.missing_values.mode = None
 
-        self.report.input.prepared_shape = self.prep_train.shape
-        self.report.prep.missing_after = self.prep_train.isna().sum().sum()
+        self.report.input.prep_train_shape = self.prep_train.shape
+        self.report.input.prep_test_shape = self.prep_test.shape
+        self.report.prep.train_missing_after = self.prep_train.isna().sum().sum()
+        self.report.prep.test_missing_after = self.prep_test.isna().sum().sum()
 
         return self.prep_train, self.synthesis_request
 
@@ -986,8 +994,11 @@ class DataGen:
             "parameter_missing_selection",
             "all",
         }:
-            self.report.prep.missing_before = {}
-            self.report.prep.missing_after = {}
+            self.report.prep.train_missing_before = {}
+            self.report.prep.test_missing_before = {}
+
+            self.report.prep.train_missing_after = {}
+            self.report.prep.test_missing_after = {}
 
         self.report.review = ReviewReport()
 

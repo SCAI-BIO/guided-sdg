@@ -16,7 +16,10 @@ class InputReport(BaseModel):
     """Initial dataset review and version for report."""
     path: str | None = None
     original_shape: tuple[int, int] | None = None
-    prepared_shape: tuple[int, int] | None = None
+    train_shape: tuple[int, int] | None = None
+    test_shape: tuple[int, int] | None = None
+    prep_train_shape: tuple[int, int] | None = None
+    prep_test_shape: tuple[int, int] | None = None
     version_id: int | None = None
     parent_version: int | None = None
 
@@ -28,8 +31,10 @@ class PrepReport(BaseModel):
     dtypes: dict = Field(default_factory=dict)
     stypes: dict = Field(default_factory=dict)
     profile: dict = Field(default_factory=dict)
-    missing_before: dict = Field(default_factory=dict)
-    missing_after: dict = Field(default_factory=dict)
+    train_missing_before: dict = Field(default_factory=dict)
+    test_missing_before: dict = Field(default_factory=dict)
+    test_missing_after: dict = Field(default_factory=dict)
+    train_missing_after: dict = Field(default_factory=dict)
 
 
 class GenerationReport(BaseModel):
@@ -107,8 +112,6 @@ def write_report(
         "Semantic type": report.prep.stypes.values(),
     })
 
-    # TODO: add train/test split information
-
     def fmt(value):
         return pprint.pformat(value, sort_dicts=False)
 
@@ -157,6 +160,31 @@ Replaced markers:
         if attack_output.linkability else ""
     )
 
+    def missing_summary(count: int, shape: tuple[int, int]) -> str:
+        """Format missing values as count, total cells, and percentage."""
+        total = shape[0] * shape[1]
+        percentage = f"{count / total:.2%}" if total else "N/A"
+        return f"{count:,} / {total:,} ({percentage})"
+
+    train_before = report.prep.train_missing_before
+    test_before = report.prep.test_missing_before
+    train_after = report.prep.train_missing_after
+    test_after = report.prep.test_missing_after
+
+    remaining = train_after + test_after
+
+    cardinalities = {
+        col: values["n_unique"] for col, values in report.prep.profile["col_nunique"].items()
+    }
+
+    highest_cardinality = sorted(
+        cardinalities.items(), key=lambda item: item[1], reverse=True,
+    )[:2]
+
+    highest_cardinality_text = ", ".join(
+        f"`{col}` ({count} unique values)" for col, count in highest_cardinality
+    )
+
     # Main structure of the report and information content
     content = f"""# SYNTHETIC DATA GENERATION REPORT
 (version_{version_id}{parent})
@@ -169,43 +197,57 @@ Replaced markers:
 ## Preprocessing:
 {missing_markers}
 
-
 ### Data types
 {dtype_table.to_markdown()}
 
+### Train/test split information
+The dataset was split into training (80%) and testing (20%) subsets using a random seed of 42.
 
-### Profile
+| Dataset | Original shape | Prepared shape |
+|---|---|---|
+| Training | {report.input.train_shape[0]} rows, {report.input.train_shape[1]} columns | {report.input.prep_train_shape[0]} rows, {report.input.prep_train_shape[1]} columns |
+| Testing | {report.input.test_shape[0]} rows, {report.input.test_shape[1]} columns | {report.input.prep_test_shape[0]} rows, {report.input.prep_test_shape[1]} columns |
 
-This information was gathered to inform the generator choice by viewing the characteristics of the original dataset before imputation.
-- Shape of the original dataframe (before missing handling) after an 80% train 20% test split: {
-    report.prep.profile['shape'][0]
-} rows and {report.prep.profile['shape'][1]} columns.
+**Dataset usage:**
+- **Original training:** Syndat fidelity evaluation.
+- **Prepared training:** Synthetic generation and Anonymeter privacy evaluation.
+- **Prepared testing:** Held-out reference for Anonymeter privacy evaluation.
+
+### Training data profile
+
+The following characteristics were calculated from the original training subset before missing-value handling to inform generator selection.
+
+**Dataset characteristics**
+- **Features:** {report.input.train_shape[1]}
+- **Highest cardinality:** {highest_cardinality_text}
+
+**Feature cardinality**
 
 The number of unique values per feature (cardinality):
 ```python
 {fmt(report.prep.profile['col_nunique'])}
 ```
 
-Summary statistics for numeric values:
+**Summary statistics for numeric values:**
 ```python
 {fmt(report.prep.profile['num_summary'])}
 ```
 
-{report.prep.profile['corr_method'].capitalize()}'s correlation for numeric features:
+**{report.prep.profile['corr_method'].capitalize()}'s correlation for numeric features:**
 ```python
 {fmt(report.prep.profile['num_corr'])}
 ```
 
-### Missing Value Handling
-- Number of missing values found before missing value handling was applied: {
-    report.prep.missing_before
-}
+### Missing-value handling
 
-- Number of missing values after missing value handling was applied: {report.prep.missing_after}
+**Selected method:** {synthesis_request.missing_values.mode}
 
-- Prepared dataset shape (this is input to the generator model for synthetic generation): {
-    report.input.prepared_shape[0]
-} rows, {report.input.prepared_shape[1]} columns.
+| Dataset | Before handling | After handling |
+|---|---|---|
+| Training | {missing_summary(train_before, report.input.train_shape)} | {missing_summary(train_after, report.input.prep_train_shape)} |
+| Testing | {missing_summary(test_before, report.input.test_shape)} | {missing_summary(test_after, report.input.prep_test_shape)} |
+
+**Total remaining:** {remaining:,} missing values (Train: {train_after:,}; Test: {test_after:,}).
 
 ### Generation:
 **Chosen generator:** {synthesis_request.generator.name}
