@@ -153,13 +153,13 @@ def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
         Args:
             synthesis_request (SynthesisRequest): User preferences for data synthesis.
     """
-    print(f"\nSample size mode: {synthesis_request.sample_size.mode}")
+    print(f"Sample size mode: {format_option(synthesis_request.sample_size.mode)}")
 
     if synthesis_request.sample_size.fixed_value is not None:
         print(f"Sample size: {synthesis_request.sample_size.fixed_value}")
 
     print(
-        f"Privacy mode: {synthesis_request.privacy.mode}\n"
+        f"Privacy mode: {format_option(synthesis_request.privacy.mode)}\n"
         f"Generator: {synthesis_request.generator.name}\n"
         f"Missing value handling: {synthesis_request.missing_values.mode}"
     )
