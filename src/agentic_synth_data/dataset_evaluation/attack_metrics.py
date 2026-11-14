@@ -526,7 +526,7 @@ def display_privacy_risk_ui(
             the previous version. Defaults to None (initial version).
     """
     st.metric(
-        label=label,
+        label=f"**{label}**",
         value=f"{value:.2%}",
         delta=calculate_delta(
             current=value,

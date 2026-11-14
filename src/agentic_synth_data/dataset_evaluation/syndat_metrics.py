@@ -198,7 +198,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
 
     st.metric(
-        label="Jensen-Shannon Divergence (average)",
+        label="**Average Jensen-Shannon Divergence**",
         value=metrics.jsd["jsd_AVERAGE"],
         delta=calculate_delta(
             current=metrics.jsd["jsd_AVERAGE"],
@@ -230,7 +230,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     prev_norm_corr_diff = prev_metrics.norm_corr_diff if prev_metrics is not None else None
 
     st.metric(
-        label="Normalized correlation difference",
+        label="**Normalized correlation difference**",
         value=metrics.norm_corr_diff,
         delta=calculate_delta(
             current=metrics.norm_corr_diff,
@@ -265,7 +265,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         prev_discrim_auc = prev_metrics.discrim_auc if prev_metrics is not None else None
 
         st.metric(
-            label="Discriminator AUC",
+            label="**Discriminator AUC**",
             value=metrics.discrim_auc,
             delta=calculate_delta(
                 current=metrics.discrim_auc,
