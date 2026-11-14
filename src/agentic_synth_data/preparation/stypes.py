@@ -14,7 +14,7 @@ from agentic_synth_data.utils import SemanticType, SemanticTypes, df_formatter_s
 
 
 class STypeInference(RootModel[SemanticTypes]):
-    pass
+    """Structured output schema for semantic types inferred by the agent."""
 
 
 def semantic_type_profile(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
@@ -39,6 +39,7 @@ def semantic_type_profile(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
             "unique_values": df[col].value_counts(dropna=False).head(15).to_dict(),
             "n_unique": df[col].nunique(dropna=False),
         }
+
     return profiles
 
 
@@ -81,9 +82,11 @@ def handle_semantic_types(
     # - Output must match existing column names
     # - Existing column count must match
     # NOTE: No issues have been observed with this, but good to keep an eye out for.
-    print("\nDetected semantic types for each column:")
-    print("Note: Supported types are Integer, Float, Boolean, Categorical, and Ordinal.")
-    print()
+    print(
+        "\nDetected semantic types for each column:\n"
+        "Note: Supported types are Integer, Float, Boolean, Categorical, and Ordinal.\n"
+    )
+
     for col, stype in semantic_types.items():
         print(f"{col}: {stype}")
 
@@ -95,33 +98,41 @@ def handle_semantic_types(
     if confirm == "no":
         while True:
             print(
-                "\nInput column name/number to modify (enter 'exit' (not case-sensitive) or 1 to" \
-                " finish)"
+                "\nInput column name/number to modify (enter 'exit' (not case-sensitive) or 1 to "
+                "finish)"
             )
+
             col = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
 
             if col == "Exit":
                 break
 
-            print(f"\nSelected the following column: {col}")
             print(
-                f"Current semantic type is '{semantic_types[col]}'. What should this be modified" \
-                " to?"
+                f"\nSelected the following column: {col}\n"
+                f"Current semantic type is '{semantic_types[col]}'. What should this be modified "
+                "to?"
             )
 
-            choice = pyip.inputMenu(get_args(SemanticType.__value__), numbered=True,)
+            choice = pyip.inputMenu(get_args(SemanticType.__value__), numbered=True,) # pylint: disable=no-member
 
             semantic_types[col] = choice
 
-            print(f"\n🠊 Updated semantic type for {col}: {semantic_types[col]}")
-            print("For reference: Semantic types present in each column:")
+            print(
+                f"\n🠊 Updated semantic type for {col}: {semantic_types[col]}\n"
+                "For reference: Semantic types present in each column:"
+            )
+
             for col, stype in semantic_types.items():
                 print(f"{col}: {stype}")
+
             print("-"*40)
+
     print()
-    print("-"*25+"Final data types present in each column"+"-"*25)
+    print("-" * 25 + "Final data types present in each column" + "-" * 25)
+
     for col, stype in semantic_types.items():
         print(f"{col}: {stype}")
+
     return semantic_types
 
 
@@ -228,7 +239,7 @@ def handle_semantic_types_ui(
 
         with st.form("semantic_type_correction_form"):
             semantic_type_choices = {}
-            options = get_args(SemanticType.__value__)
+            options = get_args(SemanticType.__value__) # pylint: disable=no-member
 
             for col in df.columns:
                 current_type = semantic_types[col]
@@ -259,6 +270,7 @@ def handle_semantic_types_ui(
 
     st.session_state.semantic_types = semantic_types
     st.session_state.semantic_types_complete = True
+
     return semantic_types
 
 
@@ -276,8 +288,8 @@ def prepare_for_syndat(
 
     Returns:
         tuple[pd.DataFrame, pd.DataFrame]:
-        - pd.DataFrame: The real dataframe with prepared dtypes.
-        - pd.DataFrame: The synthetic dataframe with prepared dtypes.
+        pd.DataFrame: The real dataframe with prepared dtypes.
+        pd.DataFrame: The synthetic dataframe with prepared dtypes.
     """
     real = real.copy()
     synth = synth.copy()

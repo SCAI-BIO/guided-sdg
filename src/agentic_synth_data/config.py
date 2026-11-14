@@ -48,6 +48,7 @@ def build_synthesis_request(
     if sample_size == "fixed value":
         request.sample_size.mode = "fixed_value"
         request.sample_size.fixed_value = fixed_value
+
     else:
         request.sample_size.mode = "same_as_original"
 
@@ -73,6 +74,7 @@ def build_synthesis_request(
 
         request.missing_values.impute.categorical_strategy = categorical_strategy
         request.missing_values.impute.numerical_strategy = numerical_strategy
+
     return request
 
 
@@ -95,8 +97,8 @@ def select_preferences() -> SynthesisRequest:
 
     # Sample size
     format_response(
-        "Would you like to generate the same amount of samples as the dataset or a fixed number" \
-        " of samples?"
+        "Would you like to generate the same amount of samples as the dataset or a fixed number "
+        "of samples?"
     )
     sample_size = pyip.inputMenu(["fixed value", "same as original"], numbered=True)
 
@@ -111,11 +113,11 @@ def select_preferences() -> SynthesisRequest:
     # Generator
     print()
     format_response(
-        "Is there a specific data generator that you want to use on your data? Select " \
+        "Is there a specific data generator that you want to use on your data? Select "
         "'auto' if you would like a suggestion."
     )
 
-    generator = pyip.inputMenu(get_args(GeneratorNameAuto.__value__), numbered=True,)
+    generator = pyip.inputMenu(get_args(GeneratorNameAuto.__value__), numbered=True,) # pylint: disable=no-member
 
     if generator == "auto":
         print("\t🠊 You will receive a recommendation based on the dataset's characteristics.")
@@ -127,9 +129,10 @@ def select_preferences() -> SynthesisRequest:
     # Missing values
     print()
     format_response(
-        "How would you like missing values to be handled? Select 'auto' if you would like a" \
-        " suggestion."
+        "How would you like missing values to be handled? Select 'auto' if you would like a "
+        "suggestion."
     )
+
     missing_values = pyip.inputMenu(["auto", "impute", "remove"], numbered=True)
     if missing_values == "auto":
         print("\t🠊 You will receive a recommendation based on the dataset's characteristics.")
@@ -139,18 +142,19 @@ def select_preferences() -> SynthesisRequest:
         format_response(
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
+
         impute_method = "SimpleImputer"
         print("\t🠊 Your missing data will be imputed by SimpleImputer.")
 
         # Categorical handling
         print()
         format_response(
-            "How would you like to handle missing categorical values? Select 'auto' if you " \
+            "How would you like to handle missing categorical values? Select 'auto' if you "
             "would like a suggestion."
         )
 
         categorical_strategy = pyip.inputMenu(
-            get_args(CategoricalChoiceAuto.__value__), numbered=True,
+            get_args(CategoricalChoiceAuto.__value__), numbered=True, # pylint: disable=no-member
         )
 
         if categorical_strategy == "auto":
@@ -164,12 +168,12 @@ def select_preferences() -> SynthesisRequest:
         # Numerical handling
         print()
         format_response(
-            "How would you like to handle missing numerical values? Select 'auto' if you " \
+            "How would you like to handle missing numerical values? Select 'auto' if you "
             "would like a suggestion."
         )
 
         numerical_strategy = pyip.inputMenu(
-            get_args(NumericalChoiceAuto.__value__), numbered=True,
+            get_args(NumericalChoiceAuto.__value__), numbered=True, # pylint: disable=no-member
         )
 
         if numerical_strategy == "auto":
@@ -188,9 +192,11 @@ def select_preferences() -> SynthesisRequest:
         categorical_strategy=categorical_strategy,
         numerical_strategy=numerical_strategy,
     )
+
     print()
     print("-"*25+"Your preferences have been recorded"+"-"*25)
     display_synthesis_request(request)
+
     return request
 
 
@@ -261,7 +267,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
     generator = st.selectbox(
         label="data generator",
-        options=get_args(GeneratorNameAuto.__value__),
+        options=get_args(GeneratorNameAuto.__value__), # pylint: disable=no-member
         label_visibility="hidden",
         index=None,
         key="preferences_generator_choice",
@@ -299,6 +305,7 @@ def select_preferences_ui() -> SynthesisRequest:
         st.write(
             "Currently, only the SimpleImputer imputation method is currently supported."
         )
+
         impute_method = "SimpleImputer"
         st.info("⇨ Your missing data will be imputed by SimpleImputer.")
 
@@ -310,7 +317,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
         categorical_strategy = st.selectbox(
             label="categorical strategy",
-            options=get_args(CategoricalChoiceAuto.__value__),
+            options=get_args(CategoricalChoiceAuto.__value__), # pylint: disable=no-member
             format_func=format_option,
             index=None,
             key="preferences_categorical_strategy",
@@ -337,7 +344,7 @@ def select_preferences_ui() -> SynthesisRequest:
 
         numerical_strategy = st.selectbox(
             label="numerical strategy",
-            options=get_args(NumericalChoiceAuto.__value__),
+            options=get_args(NumericalChoiceAuto.__value__), # pylint: disable=no-member
             index=None,
             format_func=format_option,
             key="preferences_numerical_strategy",
@@ -361,10 +368,10 @@ def select_preferences_ui() -> SynthesisRequest:
     st.divider()
 
     complete = (
-        sample_size is not None
-        and privacy is not None
-        and generator is not None
-        and missing_values is not None
+        sample_size is not None and
+        privacy is not None and
+        generator is not None and
+        missing_values is not None
     )
 
     if missing_values == "impute":
@@ -391,4 +398,5 @@ def select_preferences_ui() -> SynthesisRequest:
 
     st.header("Your preferences have been recorded")
     display_synthesis_request_st(request)
+
     return request

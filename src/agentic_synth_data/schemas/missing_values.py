@@ -1,6 +1,8 @@
+from collections.abc import Hashable
 from typing import Literal
 
-from pydantic import BaseModel, Field
+import pandas as pd
+from pydantic import BaseModel, ConfigDict, Field
 
 from agentic_synth_data.utils import CategoricalChoice, NumericalChoice
 
@@ -29,3 +31,11 @@ class MissingHandling(BaseModel):
     numerical_strategy: str | None = None
     warning: list[str] = Field(default_factory=list)
     rationale: str
+
+
+class MissingPrecheckReport(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True) # Allow pd.DataFrame type
+    df: pd.DataFrame
+    has_missing_markers: bool
+    detected_markers: dict[Hashable, int] = Field(default_factory=dict)
+    replaced_markers: list[Hashable] = Field(default_factory=list)

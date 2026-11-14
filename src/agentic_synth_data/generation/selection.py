@@ -18,7 +18,7 @@ from agentic_synth_data.config import SynthesisRequest
 # 1. Dataset profiling
 # ============================================================================
 
-def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
+def generator_profile(dtype_df: pd.DataFrame) -> dict[str, Any]:
     """Prior to selecting the generator, view correlations and summary statistics 
     of numeric columns, which could help to inform data generator choice.
 
@@ -67,6 +67,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
     # NOTE: could decide on the percentage of highly skewed columns
     if num_df.skew().abs().max() > 2:
         corr_method = "spearman"
+
     else:
         corr_method = "pearson"
 
@@ -82,6 +83,7 @@ def generator_profile(dtype_df:pd.DataFrame) -> dict[str, Any]:
         "num_corr": num_corr,
         "corr_method": corr_method,
     }
+
     return profile
 
 
@@ -134,6 +136,7 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
     # NOTE: could decide on the percentage of highly skewed columns
     if num_df.skew().abs().max() > 2:
         corr_method = "spearman"
+
     else:
         corr_method = "pearson"
 
@@ -155,6 +158,7 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
         "num_corr": num_corr,
         "corr_method": corr_method,
     }
+
     return profile
 
 
@@ -190,10 +194,10 @@ def select_generator(
 
     print()
     format_response(
-        "Agent is coming up with a generator suggestion based on your preferences," \
-        " the dataset's semantic types, the cardinality of the columns, and" \
-        " potential summary statistics and correlations..."
-        )
+        "Agent is coming up with a generator suggestion based on your preferences, "
+        "the dataset's semantic types, the cardinality of the columns, and "
+        "potential summary statistics and correlations..."
+    )
 
     while not choice_confirmed:
         message = generator_selection_message(
@@ -237,21 +241,26 @@ def select_generator(
                 synthesis_request.generator.name
             )
             choice_confirmed = True
+
             print(f"\n🠊 {generation_plan.generator} has been approved.")
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                get_args(GeneratorName.__value__),
+                get_args(GeneratorName.__value__), # pylint: disable=no-member
                 "\nEnter generator to evaluate:\n", 
                 numbered=True,
-                )
+            )
+
             print("\nWaiting for agent response...\n")
+
             continue
 
         else: # discuss
             feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
             feedback_hist.append(feedback)
+
             print("\nWaiting for agent response...\n")
+
             continue
 
     return synthesis_request
@@ -341,6 +350,7 @@ def select_generator_ui(
 
     if st.session_state.get("generator_selection_complete", False,):
         st.info(f"⇨ {generation_plan.generator} has been approved.")
+
         return st.session_state.approved_synthesis_request
 
     st.divider()
@@ -366,13 +376,14 @@ def select_generator_ui(
         st.session_state.generator_selection_complete = True
 
         st.info(f"⇨ {generation_plan.generator} has been approved.")
+
         return synthesis_request
 
     if decision == "choose another":
         st.write("Enter generator to evaluate:")
         selected_mechanism = st.selectbox(
             label="select another mechanism",
-            options=get_args(GeneratorName.__value__),
+            options=get_args(GeneratorName.__value__), # pylint: disable=no-member
             index=None,
             label_visibility="hidden",
         )
@@ -385,7 +396,6 @@ def select_generator_ui(
             key="evaluate_generator_button",
         ):
             st.session_state.pending_generator_review = selected_mechanism
-
             st.session_state.pop("generator_plan", None)
 
             st.rerun()

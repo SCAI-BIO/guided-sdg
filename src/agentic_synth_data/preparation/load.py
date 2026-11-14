@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def load_df(data_path:str) -> pd.DataFrame:
+def load_df(data_path: str) -> pd.DataFrame:
     """Load a dataset file into a pandas DataFrame.
 
     Args:
@@ -21,7 +21,6 @@ def load_df(data_path:str) -> pd.DataFrame:
         try:
             df = pd.read_csv(data_path, delimiter=sep)
             if df.shape[0] > 1 and df.shape[1] > 1:
-                #print("=> The dataframe was successfully made.")
                 return df
 
         except Exception:

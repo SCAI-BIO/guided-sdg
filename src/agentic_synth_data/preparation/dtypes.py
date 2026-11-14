@@ -2,22 +2,14 @@ from collections.abc import Hashable
 
 import pandas as pd
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
 import pyinputplus as pyip
 import streamlit as st
 
+from agentic_synth_data.schemas.missing_values import MissingPrecheckReport
 from agentic_synth_data.utils import df_formatter_st
 
 
-class MissingPrecheckReport(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True) # Allow pd.DataFrame type
-    df: pd.DataFrame
-    has_missing_markers: bool
-    detected_markers: dict[Hashable, int] = Field(default_factory=dict)
-    replaced_markers: list[Hashable] = Field(default_factory=list)
-
-
-def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
+def missing_value_precheck(df: pd.DataFrame) -> MissingPrecheckReport:
     """Prior to assessing dtypes, convert any entries that are flagged as
     potential missing values to np.nan with user approval.
 
@@ -32,12 +24,12 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
 
     Returns:
         MissingPrecheckReport: Report indicating whether missing value markers were detected.
-        - pd.DataFrame: The dataframe where missing value markers have been replaced
-                        with np.nan or the unchanged dataframe if no markers were found.
-        - bool: Indicator of whether missing value markers where detected.
-        - dict[Hashable, int]: Dictionary of missing value markers detected in the 
-                               dataframe and their counts.
-        - list[Hashable]: Missing value markers that were replaced.
+        pd.DataFrame: The dataframe where missing value markers have been replaced
+            with np.nan or the unchanged dataframe if no markers were found.
+        bool: Indicator of whether missing value markers where detected.
+        dict[Hashable, int]: Dictionary of missing value markers detected in the 
+            dataframe and their counts.
+        list[Hashable]: Missing value markers that were replaced.
     """
     df = df.copy()
     # TODO: Add more possible missing values that could be detected.
@@ -46,16 +38,18 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
             "-", "--", "", "`", "?", "??", ".", "...", 
             -999, None,
     }
+
     df_norm = df.map(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
     norm_stack = df_norm.stack() # Flatten the df into a Series to vertically count values.
     detected_markers = norm_stack[
         norm_stack.isin(possible_missing_values)
     ].value_counts(dropna=False).to_dict()
-    replaced_markers = []
 
+    replaced_markers = []
     if len(detected_markers) == 0:
         print("\n🠊 No potential missing value markers have been detected in the dataset.")
+
         return MissingPrecheckReport(
             df=df,
             has_missing_markers=False,
@@ -66,25 +60,29 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
     markers = list(detected_markers)
     # If more than one potential missing value marker is found
     if len(detected_markers) > 1:
-        print("\nThe following potential missing value marker(s) were detected:")
-        print(detected_markers)
+        print(
+            f"\nThe following potential missing value marker(s) were detected: {detected_markers}"
+        )
 
         while True:
             print("\nSelect what you would like to do, given the markers detected:")
+
             options = [
                 "Continue without replacement", 
                 "Replace all",
                 #"Replace specific marker(s)",
             ]
+
             # TODO: Add an option to replace only specific markers out of the detected list.
             # TODO: Add an option to view the column distribution for each marker (for this multiple case)
             choice = pyip.inputMenu(options, numbered=True)
 
             if choice == "Continue without replacement":
                 print(
-                    "\n🠊 None of the markers detected have been replaced with a null value. The" \
-                    " dataset remains unchanged."
+                    "\n🠊 None of the markers detected have been replaced with a null value. The "
+                    "dataset remains unchanged."
                 )
+
                 return MissingPrecheckReport(
                     df=df,
                     has_missing_markers=False,
@@ -96,10 +94,12 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                 mask = df_norm.isin(markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
+
                 print(
-                    f"\n🠊 {replaced_count} of the following markers were replaced with null" \
-                    " values: {markers}"
+                    f"\n🠊 {replaced_count} of the following markers were replaced with null "
+                    f"values: {markers}"
                 )
+
                 replaced_markers = markers
                 return MissingPrecheckReport(
                     df=df,
@@ -114,8 +114,9 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
 
     # Only one potential missing value marker was found.
     else:
-        print("\nThe following potential missing value marker was detected:")
-        print(detected_markers)
+        print(
+            f"\nThe following potential missing value marker(s) were detected: {detected_markers}"
+        )
 
         while True:
             options = [
@@ -123,13 +124,14 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                 "Replace marker",
                 #"View column distribution",
             ]
-                # TODO: Add an option to view the column distribution for the marker.
+
+            # TODO: Add an option to view the column distribution for the marker.
             choice = pyip.inputMenu(options, numbered=True)
 
             if choice == "Continue without replacement":
                 print("\n\tNo values were replaced.")
                 return MissingPrecheckReport(
-                    df=df, 
+                    df=df,
                     has_missing_markers=False,
                     detected_markers=detected_markers,
                     replaced_markers=replaced_markers,
@@ -140,20 +142,22 @@ def missing_value_precheck(df:pd.DataFrame) -> MissingPrecheckReport:
                 mask = df_norm.isin(markers)
                 replaced_count = int(mask.sum().sum())
                 df = df.mask(mask, np.nan)
+
                 print(
-                    f"\t{replaced_count} of the following marker were replaced with null" \
-                    " values: {markers}"
+                    f"\t{replaced_count} of the following marker were replaced with null "
+                    f"values: {markers}"
                 )
+
                 replaced_markers = markers
                 return MissingPrecheckReport(
                     df=df,
-                    has_missing_markers=True, 
+                    has_missing_markers=True,
                     detected_markers=detected_markers,
-                    replaced_markers=replaced_markers
+                    replaced_markers=replaced_markers,
                 )
 
 
-def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
+def missing_value_precheck_ui(df: pd.DataFrame) -> MissingPrecheckReport:
     """Prior to assessing dtypes, convert any entries that are flagged as
     potential missing values to np.nan with user approval (UI).
 
@@ -168,12 +172,12 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
 
     Returns:
         MissingPrecheckReport: Report indicating whether missing value markers were detected.
-        - pd.DataFrame: The dataframe where missing value markers have been replaced
-                        with np.nan or the unchanged dataframe if no markers were found.
-        - bool: Indicator of whether missing value markers where detected.
-        - dict[Hashable, int]: Dictionary of missing value markers detected in the 
-                               dataframe and their counts.
-        - list[Hashable]: Missing value markers that were replaced.
+        pd.DataFrame: The dataframe where missing value markers have been replaced
+            with np.nan or the unchanged dataframe if no markers were found.
+        bool: Indicator of whether missing value markers where detected.
+        dict[Hashable, int]: Dictionary of missing value markers detected in the 
+            dataframe and their counts.
+        list[Hashable]: Missing value markers that were replaced.
     """
     st.write(
         "All missing values within the dataset should be encoded uniformly as null values. If "
@@ -182,23 +186,27 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
         "groups. This step checks for any character that might be a placeholder for "
         "a missing value in your dataset (e.g., `n/a`, `?`, `...`, `-999`)."
     )
+
     df = df.copy()
+
     # TODO: Add more possible missing values that could be detected.
     possible_missing_values = {
             "na", "n/a", "nan", "none", "null", 
             "-", "--", "", "`", "?", "??", ".", "...", 
             -999, None,
     }
+
     df_norm = df.map(lambda x: x.lower().strip() if isinstance(x, str) else x)
 
     norm_stack = df_norm.stack() # Flatten the df into a Series to vertically count values.
     detected_markers = norm_stack[
         norm_stack.isin(possible_missing_values)
     ].value_counts(dropna=False).to_dict()
-    replaced_markers = []
 
+    replaced_markers = []
     if len(detected_markers) == 0:
         st.info("\n⇨ No potential missing value markers have been detected in the dataset.")
+
         return MissingPrecheckReport(
             df=df,
             has_missing_markers=False,
@@ -221,6 +229,7 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
             "Replace all",
             #"Replace specific marker(s)",
         ]
+
         # TODO: Add an option to replace only specific markers out of the detected list.
         # TODO: Add an option to view the column distribution for each marker (for this multiple case)
         choice = st.selectbox(
@@ -236,6 +245,7 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
                 "⇨ None of the markers detected have been replaced with a null value. The"
                 " dataset remains unchanged."
             )
+
             return MissingPrecheckReport(
                 df=df,
                 has_missing_markers=False,
@@ -247,10 +257,12 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
             mask = df_norm.isin(markers)
             replaced_count = int(mask.sum().sum())
             df = df.mask(mask, np.nan)
+
             st.write(
                 f"⇨ {replaced_count} of the following markers were replaced with null"
                 f" values: {markers}"
             )
+
             replaced_markers = markers
             return MissingPrecheckReport(
                 df=df,
@@ -268,7 +280,6 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
         st.write("The following potential missing value marker was detected:")
 
         single_marker_table = pd.DataFrame(detected_markers.items(), columns=["Marker", "Count"],)
-
         df_formatter_st(single_marker_table)
 
         st.write("How would you like to handle this missing value marker?")
@@ -278,7 +289,8 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
             "Replace marker",
             #"View column distribution",
         ]
-            # TODO: Add an option to view the column distribution for the marker.
+
+        # TODO: Add an option to view the column distribution for the marker.
         choice = st.selectbox(
             "markers",
             options,
@@ -289,6 +301,7 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
 
         if choice == "Continue without replacement":
             st.info("No values were replaced.")
+
             return MissingPrecheckReport(
                 df=df,
                 has_missing_markers=False,
@@ -298,13 +311,16 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
 
         if choice == "Replace marker":
             st.write("\nReplacing marker...")
+
             mask = df_norm.isin(markers)
             replaced_count = int(mask.sum().sum())
             df = df.mask(mask, np.nan)
+
             st.info(
                 f"{replaced_count} of the following marker were replaced with null"
                 f" values: {markers}"
             )
+
             replaced_markers = markers
             return MissingPrecheckReport(
                 df=df,
@@ -314,7 +330,7 @@ def missing_value_precheck_ui(df:pd.DataFrame) -> MissingPrecheckReport:
             )
 
 
-def infer_dtype(series:pd.Series) -> str:
+def infer_dtype(series: pd.Series) -> str:
     """Infer pandas storage dtypes by taking the majority type of each column.
 
     Args:
@@ -346,19 +362,20 @@ def infer_dtype(series:pd.Series) -> str:
         whole_numbers = ((numeric_values % 1) == 0).all()
         if whole_numbers:
             return "int64"
+
         return "float64"
 
     # TODO: add additional data types datetime
     return "string"
 
 
-def infer_and_convert_dtypes(df:pd.DataFrame) -> pd.DataFrame:
+def infer_and_convert_dtypes(df: pd.DataFrame) -> pd.DataFrame:
     """For each column in a dataframe, check for majority data type and convert all
     values to the primary dtype.
 
     Args:
         df (pd.DataFrame): The updated dataframe after screening for potential missing value 
-                           markers.
+            markers.
 
     Returns:
         pd.DataFrame: The dataframe with corrected dtypes.
@@ -411,8 +428,8 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
     if confirm == "no":
         while True:
             print(
-                "\nInput column name/number to modify (enter exit (not case-sensitive) or 1" \
-                " to finish)\n"
+                "\nInput column name/number to modify (enter exit (not case-sensitive) or 1 "
+                "to finish)\n"
             )
             var = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
 
@@ -435,17 +452,22 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
             elif choice == "String":
                 df[var] = df[var].astype("string")
 
-            print(f"\nUpdated dtype for {var}: {df[var].dtype}")
-            print(f"For reference: Data types present in each column:\n{df.dtypes}")
-            print("-"*40)
+            print(
+                f"\nUpdated dtype for {var}: {df[var].dtype}\n"
+                f"For reference: Data types present in each column:\n{df.dtypes}"
+            )
+
+            print("-" * 40)
+
     print()
     print("-"*25+"Final data types present in each column"+"-"*25)
+
     print(df.dtypes)
 
     return df, df.dtypes.astype(str).to_dict()
 
 
-def handle_dtypes_ui(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
+def handle_dtypes_ui(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
     """Handles the dtypes for the input dataframe in three main stages (UI):
     1. missing_value_precheck_ui: Initial check for missing value markers, which are intended
                                as (and should be converted to) null values.
@@ -458,8 +480,8 @@ def handle_dtypes_ui(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool
 
     Returns:
         tuple[pd.DataFrame, dict[Hashable, str]]:
-        - pd.DataFrame: The updated dataframe after dtype verification.
-        - dict[Hashable, str]: Dictionary with the dtype of each column in the dataframe.
+        pd.DataFrame: The updated dataframe after dtype verification.
+        dict[Hashable, str]: Dictionary with the dtype of each column in the dataframe.
     """
     df = df.copy()
 
@@ -529,6 +551,7 @@ def handle_dtypes_ui(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool
             st.stop()
 
         st.subheader("Final data types present in each column")
+
         dtype_table = pd.DataFrame({
             "Column": df.columns,
             "Data type": [str(dtype) for dtype in df.dtypes],

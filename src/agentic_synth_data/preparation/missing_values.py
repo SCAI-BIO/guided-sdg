@@ -30,6 +30,7 @@ def update_missing_value_choice(synthesis_request: SynthesisRequest) -> Synthesi
         prompt="\nPlease select another method to handle missing values:\n",
         numbered=True
     )
+
     synthesis_request.missing_values.mode = choice
 
     if choice == "threshold":
@@ -37,12 +38,13 @@ def update_missing_value_choice(synthesis_request: SynthesisRequest) -> Synthesi
             "\nSet the maximum number of missing values allowed per row:\n",
             min=0,
         )
+
         synthesis_request.missing_values.threshold = value
         synthesis_request.missing_values.impute = ImputationConfig()
 
     elif choice == "impute":
         cat_choice = pyip.inputMenu(
-            choices=get_args(CategoricalChoiceAuto.__value__),
+            choices=get_args(CategoricalChoiceAuto.__value__), # pylint: disable=no-member
             prompt="\nHow would you like to handle missing categorical values? Select 'auto' " \
                 "if you would like a suggestion.\n",
             numbered=True,
@@ -52,7 +54,7 @@ def update_missing_value_choice(synthesis_request: SynthesisRequest) -> Synthesi
             cat_choice = "most_frequent"
 
         num_choice = pyip.inputMenu(
-            choices=get_args(NumericalChoiceAuto.__value__),
+            choices=get_args(NumericalChoiceAuto.__value__), # pylint: disable=no-member
             prompt=(
                 "\nHow would you like to handle missing numerical values? Select 'auto' if you "
                 "would like a suggestion.\n"
@@ -86,6 +88,7 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
         SynthesisRequest: Updated synthesis request.
     """
     st.write("Please select another method to handle missing values:")
+
     choice = st.selectbox(
         label="Update missing value handling choice",
         options=["auto", "impute",],
@@ -104,7 +107,7 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
 
         cat_choice = st.selectbox(
             label="Update missing value handling choice",
-            options=get_args(CategoricalChoiceAuto.__value__),
+            options=get_args(CategoricalChoiceAuto.__value__), # pylint: disable=no-member
             index=None,
             format_func=format_option,
             key="update_categorical_strategy",
@@ -112,7 +115,7 @@ def update_missing_value_choice_ui(synthesis_request: SynthesisRequest) -> Synth
 
         num_choice = st.selectbox(
             label="Update missing value handling choice",
-            options=get_args(NumericalChoiceAuto.__value__),
+            options=get_args(NumericalChoiceAuto.__value__), # pylint: disable=no-member
             index=None,
             format_func=format_option,
             key="update_numerical_strategy",
@@ -162,6 +165,7 @@ def auto_update_missing_plan(
     miss.impute.categorical_strategy = missing_plan["categorical_strategy"]
     miss.impute.numerical_strategy = missing_plan["numerical_strategy"]
     miss.threshold = missing_plan["set_threshold"]
+
     return synthesis_request
 
 
@@ -200,11 +204,13 @@ def handle_missing_values(
         print(
             "\nThere are no missing values in the dataset. Continuing to synthetic data generation."
         )
+
         return df, synthesis_request
 
     print(
         f"\n{df.isna().sum().sum()} samples with missing values have been detected in the dataset."
     )
+
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 
@@ -212,29 +218,31 @@ def handle_missing_values(
     if mode == "remove":
         null_row_count = df.isna().any(axis=1).sum()
         print(
-            f"\nWarning: {null_row_count} out of {df.shape[0]} rows (" \
+            f"\nWarning: {null_row_count} out of {df.shape[0]} rows ("
             f"{null_row_count/df.shape[0]*100}%) will be removed from the dataset."
         )
+
         confirm = pyip.inputYesNo("\nConfirm whether this should be done (yes/no/y/n):\n")
         if confirm == "yes":
             df = df.dropna()
             print(
-                "\n🠊 All samples with missing values have been removed. There are " \
+                "\n🠊 All samples with missing values have been removed. There are "
                 f"{df.isna().sum().sum()} remaining missing values."
             )
             return df, synthesis_request
 
         # If this option is too harsh and the user wants to try another method.
         synthesis_request = update_missing_value_choice(synthesis_request)
+
         return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
 
-    # 2. Remove all samples above a specified threshold of NA columns. 
+    # 2. Remove all samples above a specified threshold of NA columns.
     if mode == "threshold":
         threshold_samples = df.isna().sum(axis=1) > synthesis_request.missing_values.threshold
         count = threshold_samples.sum()
 
         print(
-            f"Warning: {count} out of {df.shape[0]} ({count/df.shape[0]*100}%) will be removed " \
+            f"Warning: {count} out of {df.shape[0]} ({count/df.shape[0]*100}%) will be removed "
             "from the dataset."
         )
 
@@ -271,7 +279,9 @@ def handle_missing_values(
         num_cols = grouped.get("Integer", []) + grouped.get("Float", [])
 
         df = df.copy()
+
         print("\nReview of missing value handling results:")
+
         # Categorical value imputation
         cat_strategy = synthesis_request.missing_values.impute.categorical_strategy
         if cat_cols:
@@ -279,20 +289,21 @@ def handle_missing_values(
 
             if cat_strategy == "constant":
                 print(
-                    "\nEnter the fill value that missing values should have. Fill values " \
-                    "must be strings.\nPress enter if you would like to stay with the " \
+                    "\nEnter the fill value that missing values should have. Fill values "
+                    "must be strings.\nPress enter if you would like to stay with the "
                     "default ('Unknown'):"
                 )
+
                 fill_value = pyip.inputStr()
 
                 if fill_value == "":
                     fill_value = "Unknown"
 
-                imputer = SimpleImputer(strategy=cat_strategy, fill_value=fill_value)
+                imputer = SimpleImputer(strategy=str(cat_strategy), fill_value=fill_value)
                 print(f"Missing values filled with '{fill_value}'")
 
             else:
-                imputer = SimpleImputer(strategy=cat_strategy)
+                imputer = SimpleImputer(strategy=str(cat_strategy))
 
             df[cat_cols] = pd.DataFrame(
                 imputer.fit_transform(cat_data),
@@ -301,27 +312,28 @@ def handle_missing_values(
             )
 
             print(
-                f"- There are {df[cat_cols].isna().sum().sum()} remaining null values" \
-                " in the categorical columns."
+                f"- There are {df[cat_cols].isna().sum().sum()} remaining null values "
+                "in the categorical columns."
             )
 
         # Numerical value imputation
         if num_cols:
             num_strategy = synthesis_request.missing_values.impute.numerical_strategy
-            imputer = SimpleImputer(strategy=num_strategy)
+            imputer = SimpleImputer(strategy=str(num_strategy))
 
             df[num_cols] = pd.DataFrame(
-                imputer.fit_transform(df[num_cols]), 
-                columns=df[num_cols].columns, 
-                index=df.index
+                imputer.fit_transform(df[num_cols]),
+                columns=df[num_cols].columns,
+                index=df.index,
             )
 
             print(
-                f"- There are {df[num_cols].isna().sum().sum()} remaining null values" \
-                " in the numerical columns."
+                f"- There are {df[num_cols].isna().sum().sum()} remaining null values "
+                "in the numerical columns."
             )
 
         print(f"\n🠊 There are {df.isna().sum().sum()} remaining null values in the dataset.")
+
         return df, synthesis_request
 
     # 4. Use the agent to suggest the missing value handling strategy.
@@ -342,13 +354,15 @@ def handle_missing_values(
             total_rows=total_rows, 
             synthesis_request=request_dict, 
             semantic_types=semantic_types, 
-            )
+        )
 
         print("\nAgent is coming up with a suggestion for missing value handling...")
+
         feedback = None
         while True:
             if feedback is None:
                 current_prompt = prompt
+
             else:
                 current_prompt = missing_feedback(prompt, feedback)
                 print("Waiting for agent response...")
@@ -367,16 +381,22 @@ def handle_missing_values(
                 "rationale": missing_plan.rationale,
             }
 
-            print("\nSuggested plan:")
-            print(f"- Mode: {updated_plan['mode']}")
+            print(
+                "\nSuggested plan:\n"
+                f"- Mode: {updated_plan['mode']}"
+            )
+
             if updated_plan["set_threshold"] is not None:
                 print(f"- Threshold: {updated_plan['set_threshold']}")
+
             if updated_plan["imputation_method"] is not None:
                 print(f"- Imputation method: {updated_plan['imputation_method']}")
+
             if updated_plan["categorical_strategy"] is not None:
                 print(
                     f"- Categorical strategy: {format_option(updated_plan['categorical_strategy'])}"
                 )
+
             if updated_plan["numerical_strategy"]:
                 print(f"- Numerical strategy: {format_option(updated_plan['numerical_strategy'])}")
 
@@ -384,14 +404,15 @@ def handle_missing_values(
                 print("\nWarning:")
                 format_response(f"- Warning: {updated_plan['warning'][0]}")
 
-            print(f"\nReasoning behind the suggestion:")
+            print("\nReasoning behind the suggestion:")
             format_response(updated_plan["rationale"])
 
             confirm = pyip.inputYesNo("\nWould you like to proceed with the suggestion?")
             if confirm == "yes":
                 # Update synthesis request with new specifications
                 synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
-                print(f"\n\nThe missing value handling plan has been updated to the following:")
+                print("\n\nThe missing value handling plan has been updated to the following:")
+
                 display_synthesis_request(synthesis_request)
                 break
 
@@ -404,6 +425,7 @@ def handle_missing_values(
 
         # Update synthesis request with new specifications
         synthesis_request = auto_update_missing_plan(synthesis_request, updated_plan)
+
         return handle_missing_values(df, synthesis_request, semantic_types, agent, config)
 
 
@@ -442,11 +464,13 @@ def handle_missing_values_ui(
         st.write(
             "\nThere are no missing values in the dataset. Continuing to synthetic data generation."
         )
+
         return df, synthesis_request
 
     st.write(
         f"\n{df.isna().sum().sum()} samples with missing values have been detected in the dataset."
     )
+
     mode = synthesis_request.missing_values.mode
     impute = synthesis_request.missing_values.impute
 
@@ -502,8 +526,10 @@ def handle_missing_values_ui(
             key="missing_handling_info",
         )
 
-        st.write("#### Suggested plan:")
-        st.write(f"- **Mode:** {updated_plan['mode']}")
+        st.write(
+            "#### Suggested plan:\n"
+            f"- **Mode:** {updated_plan['mode']}"
+        )
 
         if updated_plan["set_threshold"] is not None:
             st.write(f"- **Threshold:** {updated_plan['set_threshold']}")
@@ -525,11 +551,14 @@ def handle_missing_values_ui(
         if len(updated_plan["warning"]) > 0:
             st.warning(f"- **Warning:** {updated_plan['warning'][0]}")
 
-        st.write("#### Rationale behind the suggestion:")
-        st.write(updated_plan["rationale"])
+        st.write(
+            "#### Rationale behind the suggestion:\n"
+            f"{updated_plan["rationale"]}"
+        )
 
         if st.session_state.get("missing_handling_complete", False):
             st.info("⇨ Missing value handling plan has been approved.")
+
             synthesis_request = st.session_state.approved_missing_request
 
         else:
@@ -621,10 +650,12 @@ def handle_missing_values_ui(
                 "⇨ All samples with missing values have been removed. There are "
                 f"{df.isna().sum().sum()} remaining missing values."
             )
+
             return df, synthesis_request
 
         # If this option is too harsh and the user wants to try another method.
         synthesis_request = update_missing_value_choice_ui(synthesis_request)
+
         return handle_missing_values_ui(df, synthesis_request, semantic_types, agent, config)
 
     # 2. Perform imputation given there are decided categorical and numerical strategies.
@@ -658,16 +689,18 @@ def handle_missing_values_ui(
                     "must be strings.\nPress enter if you would like to stay with the "
                     "default ('Unknown'):"
                 )
+
                 fill_value = st.text_input("fill_value")
 
                 if fill_value == "":
                     fill_value = "Unknown"
 
-                imputer = SimpleImputer(strategy=cat_strategy, fill_value=fill_value)
+                imputer = SimpleImputer(strategy=str(cat_strategy), fill_value=fill_value)
+
                 st.write(f"Missing values filled with '{fill_value}'")
 
             else:
-                imputer = SimpleImputer(strategy=cat_strategy)
+                imputer = SimpleImputer(strategy=str(cat_strategy))
 
             df[cat_cols] = pd.DataFrame(
                 imputer.fit_transform(cat_data),
@@ -683,7 +716,7 @@ def handle_missing_values_ui(
         # Numerical value imputation
         if num_cols:
             num_strategy = synthesis_request.missing_values.impute.numerical_strategy
-            imputer = SimpleImputer(strategy=num_strategy)
+            imputer = SimpleImputer(strategy=str(num_strategy))
 
             df[num_cols] = pd.DataFrame(
                 imputer.fit_transform(df[num_cols]),
@@ -697,4 +730,5 @@ def handle_missing_values_ui(
             )
 
         st.info(f"⇨ There are {df.isna().sum().sum()} remaining null values in the dataset.")
+
         return df, synthesis_request
