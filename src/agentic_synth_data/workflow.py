@@ -1,7 +1,6 @@
 import copy
 from contextlib import redirect_stdout
 from pathlib import Path
-from collections.abc import Hashable
 import os
 
 from langchain_core.runnables import RunnableConfig
@@ -37,7 +36,7 @@ from agentic_synth_data.ui.helpers import StreamlitOutput
 from agentic_synth_data.generation.strategies.factory import get_generator_strategy
 from agentic_synth_data.generation.selection import select_generator, \
     select_generator_ui, generator_profile, generator_profile_ui
-from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, SemanticTypes, df_formatter_st, \
+from agentic_synth_data.utils import DATA_DIR, OUTPUT_DIR, df_formatter_st, \
     format_response, output_default_parameters, comma_sep
 
 
@@ -61,9 +60,10 @@ class DataGen:
 
         # Workflow decisions and metadata
         self.request: SynthesisRequest | None = None
-        self.python_dtypes: dict[Hashable, str] | None = None
-        self.stypes: SemanticTypes | None = None
         self.agent_decision: AgentEval | None = None
+
+        # Workflow report
+        self.report: Report = Report()
 
         # Dataframes
         self.source_df: pd.DataFrame | None = None # Original data
@@ -78,6 +78,7 @@ class DataGen:
 
         # Generated file paths
         self.metadata_path: Path | None = None
+        # TODO: record paths in report only (no need for additional attributes if already recorded)
         self.prepared_path: Path | None = None # What is input into the tool (either with or without missing value handling)
         self.synthetic_path: Path | None = None
 
@@ -87,9 +88,6 @@ class DataGen:
         self.config: RunnableConfig = {"configurable": {"thread_id": 1}}
         self.agent: CompiledStateGraph = self.create_agent()
 
-        # Workflow report
-        self.report: Report = Report()
-
 
     def create_model(self) -> BaseChatModel:
         """Initialize the selected large language model."""
@@ -98,6 +96,7 @@ class DataGen:
             model_provider="openai",
             base_url=os.environ.get("BASE_URL"),
         )
+
         return model
 
 
@@ -108,6 +107,7 @@ class DataGen:
             checkpointer=self.checkpointer,
             system_prompt=SYSTEM_PROMPT,
         )
+
         return agent
 
 
@@ -118,10 +118,12 @@ class DataGen:
     def load_dataframe(self) -> pd.DataFrame:
         """Step 1: Setup source dataframe"""
         self.source_df = load_df(self.data_path)
+
         self.report.input.path = self.data_path
         self.report.input.original_shape = self.source_df.shape
         self.report.input.version_id = self.version_id
         self.report.input.parent_version = self.parent_version
+
         return self.source_df
 
 
@@ -133,6 +135,7 @@ class DataGen:
         """Step 2: Setup preferences"""
         print("="*25+"[STEP: Select preferences]"+"="*25)
         self.request = select_preferences()
+
         return self.request
 
 
@@ -177,16 +180,13 @@ class DataGen:
 
         print("\n\n")
         print("="*25+"[STEP: Handle data types]"+"="*25)
-        self.dtype_handled_df, self.python_dtypes = handle_dtypes(norm_df)
-
-        self.report.prep.dtypes = self.python_dtypes
+        self.dtype_handled_df, self.report.prep.dtypes = handle_dtypes(norm_df)
 
         print("\n\n")
         print("="*25+"[STEP: Handle semantic types]"+"="*25)
-        self.stypes = handle_semantic_types(
+        self.report.prep.stypes = handle_semantic_types(
             df=self.dtype_handled_df, agent=self.agent, config=self.config
         )
-        self.report.prep.stypes = self.stypes
 
         self.train_df, self.test_df = train_test_split(self.dtype_handled_df, test_size=0.2)
         print("\n🠊 Created train/test split")
@@ -235,9 +235,7 @@ class DataGen:
         if dtype_result is None:
             st.stop()
 
-        self.dtype_handled_df, self.python_dtypes = dtype_result
-
-        self.report.prep.dtypes = self.python_dtypes
+        self.dtype_handled_df, self.report.prep.dtypes = dtype_result
 
         st.divider()
 
@@ -247,22 +245,18 @@ class DataGen:
             "information found in the dataset."
         )
 
-        stype_result = handle_semantic_types_ui(
+        self.report.prep.stypes = handle_semantic_types_ui(
             df=self.dtype_handled_df, agent=self.agent, config=self.config,
         )
-
-        self.stypes = stype_result
-
-        self.report.prep.stypes = self.stypes
 
         st.divider()
 
         st.subheader("Final data types present in each column")
 
         final_dtypes = pd.DataFrame({
-            "Feature": self.stypes.keys(),
-            "Data type": [self.python_dtypes[col] for col in self.stypes.keys()],
-            "Semantic type": self.stypes.values(),
+            "Feature": self.report.prep.stypes.keys(),
+            "Data type": [self.report.prep.dtypes[col] for col in self.report.prep.stypes.keys()],
+            "Semantic type": self.report.prep.stypes.values(),
         })
 
         df_formatter_st(final_dtypes)
@@ -304,11 +298,8 @@ class DataGen:
         self.selected_df = self.dtype_handled_df[selected_cols].copy()
 
         # Update stypes and dtypes to exclude selected cols
-        self.stypes = {col: self.stypes[col] for col in self.selected_df.columns}
-        self.python_dtypes = {col: self.python_dtypes[col] for col in self.selected_df.columns}
-
-        self.report.prep.dtypes = self.python_dtypes # possibly delete previous values...
-        self.report.prep.stypes = self.stypes
+        self.report.prep.stypes = {col: self.report.prep.stypes[col] for col in self.selected_df.columns}
+        self.report.prep.dtypes = {col: self.report.prep.dtypes[col] for col in self.selected_df.columns}
 
         self.train_df, self.test_df = train_test_split(self.selected_df, test_size=0.2)
 
@@ -331,7 +322,7 @@ class DataGen:
         self.report.prep.profile = profile
         self.request = select_generator(
             request=self.request,
-            stypes=self.stypes,
+            stypes=self.report.prep.stypes,
             profile=profile,
             agent=self.agent,
             config=self.config,
@@ -349,7 +340,7 @@ class DataGen:
 
         request = select_generator_ui(
             request=self.request,
-            stypes=self.stypes,
+            stypes=self.report.prep.stypes,
             profile=profile,
             agent=self.agent,
             config=self.config,
@@ -377,7 +368,7 @@ class DataGen:
             result = handle_missing_values(
                 df=self.train_df.copy(),
                 request=self.request,
-                stypes=self.stypes,
+                stypes=self.report.prep.stypes,
                 agent=self.agent,
                 config=self.config,
             )
@@ -425,7 +416,7 @@ class DataGen:
             result = handle_missing_values_ui(
                 df=self.train_df.copy(),
                 request=self.request,
-                stypes=self.stypes,
+                stypes=self.report.prep.stypes,
                 agent=self.agent,
                 config=self.config,
             )
@@ -513,7 +504,7 @@ class DataGen:
 
         self.metadata_path = strategy.prepare_metadata(
             prep_path=self.prepared_path,
-            stypes=self.stypes,
+            stypes=self.report.prep.stypes,
         )
 
 
@@ -543,6 +534,7 @@ class DataGen:
         self.report.gen.synth_path = self.synthetic_path
         self.report.gen.synth_shape = self.synthetic_df.shape
         self.report.gen.params = self.request.generator.parameters
+
         return self.request, self.synthetic_path, self.synthetic_df
 
 
@@ -608,13 +600,14 @@ class DataGen:
         synth = self.synthetic_df.copy()
         if self.norm_na_df is not None:
             real = self.norm_na_df.copy()
+
         else:
             real = self.source_df.copy()
 
         real, synth = prepare_for_syndat(
             real=real,
             synth=synth,
-            stypes=self.stypes,
+            stypes=self.report.prep.stypes,
         )
 
         syndat_metrics = calculate_metrics(real=real, synth=synth,)
@@ -625,8 +618,8 @@ class DataGen:
             train=self.train_df,
             test=self.test_df,
             synth=synth,
-            stypes=self.stypes,
-            dtypes=self.python_dtypes,
+            stypes=self.report.prep.stypes,
+            dtypes=self.report.prep.dtypes,
             agent=self.agent,
             config=self.config,
         )
@@ -670,7 +663,7 @@ class DataGen:
 
         real = real[self.selected_df.columns].copy()
 
-        real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.stypes,)
+        real, synth = prepare_for_syndat(real=real, synth=synth, stypes=self.report.prep.stypes,)
 
         col1, col2 = st.columns(2)
 
@@ -693,8 +686,8 @@ class DataGen:
                     train=self.train_df,
                     test=self.test_df,
                     synth=synth,
-                    stypes=self.stypes,
-                    dtypes=self.python_dtypes,
+                    stypes=self.report.prep.stypes,
+                    dtypes=self.report.prep.dtypes,
                     key_prefix=f"calculation_v{self.version_id}",
                     prev_metrics=prev_attack_metrics,
                     agent=self.agent,
@@ -787,6 +780,7 @@ class DataGen:
                 for key, value in selected_updates.items():
                     if key == "update_params":
                         self.report.update.selected_plan_updates[key] = value
+
                     else:
                         self.report.update.selected_plan_updates[key] = value.model_dump()
 
@@ -897,9 +891,6 @@ class DataGen:
         revised.train_df = self.train_df.copy()
         revised.test_df = self.test_df.copy()
 
-        revised.python_dtypes = copy.deepcopy(self.python_dtypes)
-        revised.stypes = copy.deepcopy(self.stypes)
-
         revised.report = copy.deepcopy(self.report)
         revised.report.input.version_id = revised.version_id
         revised.report.input.parent_version = revised.parent_version
@@ -933,9 +924,6 @@ class DataGen:
         revised.dtype_handled_df = self.dtype_handled_df.copy()
         revised.train_df = self.train_df.copy()
         revised.test_df = self.test_df.copy()
-
-        revised.python_dtypes = copy.deepcopy(self.python_dtypes)
-        revised.stypes = copy.deepcopy(self.stypes)
 
         revised.report = copy.deepcopy(self.report)
         revised.report.input.version_id = revised.version_id
@@ -1103,6 +1091,7 @@ class DataGen:
         for key, value in update_plan.items():
             if key == "update_params":
                 self.report.update.selected_plan_updates[key] = value
+
             else:
                 self.report.update.selected_plan_updates[key] = value.model_dump()
 
