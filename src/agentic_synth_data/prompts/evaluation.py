@@ -9,7 +9,7 @@ from agentic_synth_data.utils import SemanticTypes
 
 
 def evaluation_prompt(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     syndat_metrics: SyndatMetrics,
     attack_metrics: AttackMetrics,
 ) -> str:
@@ -21,10 +21,10 @@ def evaluation_prompt(
     No explanation outside of JSON.
 
     Synthesis request:
-    {synthesis_request.model_dump()}
+    {request.model_dump()}
 
     Generator used:
-    {synthesis_request.generator.name}
+    {request.generator.name}
 
     Jensen-Shannon Distance results:
     * {syndat_metrics.jsd}
@@ -148,7 +148,7 @@ def evaluation_prompt(
     """)
 
 
-def eval_review_message(agent_decision:AgentEval, response:str):
+def eval_review_message(agent_decision: AgentEval, response: str):
     return dedent(f"""
     You are answering a question about the synthetic data evaluation notes.
 

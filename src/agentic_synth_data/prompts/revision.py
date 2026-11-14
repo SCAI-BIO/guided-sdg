@@ -7,7 +7,7 @@ from agentic_synth_data.utils import GeneratorName
 
 
 def revision_message(
-    synthesis_request: SynthesisRequest, report: Report, agent_decision: AgentEval,
+    request: SynthesisRequest, report: Report, agent_decision: AgentEval,
 ) -> str:
     """Remind agent of all steps taken so far the latest attempt in the workflow and other outputs
     associated with that attempt. This then prompts the agent to recommend a generator update
@@ -19,28 +19,35 @@ def revision_message(
             - Detected (character and count): {report.prep.missing_markers_detected}
             - Replaced as null (character): {report.prep.missing_markers_replaced}
         """)
+
     else:
         missing_markers = "No missing value markers were detected."
 
-    if synthesis_request.missing_values.mode is not None:
+    if request.missing_values.mode is not None:
         missing_handling = dedent(f"""
             Missing value handling:
             - Number of missing values before: {report.prep.missing_before}
             - Number of missing values after: {report.prep.missing_after}
 
             Type of missing value handling applied:
-            {synthesis_request.missing_values.model_dump()}
+            {request.missing_values.model_dump()}
         """)
+
     else:
         if report.prep.missing_before == 0:
-            missing_handling = "- Missing value handling was not applied, no missing values" \
-            " present."
-        if synthesis_request.generator.name in ["PrivBayes", "BayesianNet"]:
-            missing_handling = "- Missing value handling was not applied, the generator used" \
-            " allows for missing values."
+            missing_handling = (
+                "- Missing value handling was not applied, no missing values present."
+            )
+
+        if request.generator.name in ["PrivBayes", "BayesianNet"]:
+            missing_handling = (
+                "- Missing value handling was not applied, the generator used "
+                "allows for missing values."
+            )
+
         else:
             missing_handling = "Missing value  handling was not applied."
-    
+
     return dedent(f"""
     The workflow should be revised. For now, only start with generator selection.
     Input dataframe shape: {report.input.original_shape}
@@ -59,7 +66,7 @@ def revision_message(
     Correlations (numerical values only):
     {report.prep.profile}
 
-    Chosen generator: {synthesis_request.generator.name}
+    Chosen generator: {request.generator.name}
 
     {missing_handling}
 
@@ -133,12 +140,12 @@ def parameter_revision_message(selected_mechanism: GeneratorName) -> str:
 
 
 # NOTE: have not included threshold as an option here (not stable with the current setup)
-def missing_revision_message(synthesis_request:SynthesisRequest):
+def missing_revision_message(request: SynthesisRequest) -> str:
     return dedent(f"""
     The workflow should be revised. A generator was selected that does not allow for missing values.
 
     The previous missing value handling strategy was:
-    {synthesis_request.missing_values.model_dump()}
+    {request.missing_values.model_dump()}
 
     Pay attention to the number of missing values present as well as your previous assessments and 
     potential conversations to inform your suggestion. Decide whether any changes are recommended.

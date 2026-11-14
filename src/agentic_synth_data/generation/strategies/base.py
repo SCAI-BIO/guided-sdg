@@ -45,12 +45,12 @@ class GeneratorStrategy(ABC):
 
 
     @abstractmethod
-    def prepare_metadata(self, prep_path: Path, semantic_types: SemanticTypes,) -> Path:
+    def prepare_metadata(self, prep_path: Path, stypes: SemanticTypes,) -> Path:
         """Prepare metadata for tool use.
 
         Args:
             prep_path (Path): Prepared dataset path.
-            semantic_types (dict[str,str]): Semantic types assigned to each column.
+            stypes (dict[str,str]): Semantic types assigned to each column.
 
         Returns:
             Path: Metadata path.

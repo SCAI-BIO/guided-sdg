@@ -15,7 +15,7 @@ from agentic_synth_data.config import SynthesisRequest
 
 
 def evaluation(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     syndat_metrics: SyndatMetrics,
     attack_metrics: AttackMetrics,
     agent: Optional[CompiledStateGraph] | None = None,
@@ -27,7 +27,7 @@ def evaluation(
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
             missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
+        request (SynthesisRequest): Dictionary of the user's preferences. This is used as
             a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
             synthetic data based on SYNDAT metrics. Defaults to None.
@@ -41,7 +41,7 @@ def evaluation(
 
     eval_plan = invoke_agent(
         prompt=evaluation_prompt(
-            synthesis_request=synthesis_request,
+            request=request,
             syndat_metrics=syndat_metrics,
             attack_metrics=attack_metrics,
         ),
@@ -52,17 +52,21 @@ def evaluation(
 
     print("\nEvaluation:")
     print(f"- Status: {eval_plan.status}")
+
     if len(eval_plan.problem_columns) > 0:
         print(f"- Problem columns: {comma_sep(eval_plan.problem_columns)}")
+
     print("- Recommendation:")
     format_response(eval_plan.recommendation)
+
     print("- Rationale:")
     format_response(eval_plan.rationale)
+
     return eval_plan
 
 
 def evaluation_ui(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     syndat_metrics: SyndatMetrics,
     attack_metrics: AttackMetrics,
     agent: Optional[CompiledStateGraph] | None = None,
@@ -74,7 +78,7 @@ def evaluation_ui(
         real_df (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
             missing value markers replaced with nan (norm_na_df).
         synthetic_df (pd.DataFrame): The synthetically generated dataframe.
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences. This is used as
+        request (SynthesisRequest): Dictionary of the user's preferences. This is used as
             a record of the processing done to generate the synthetic data.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to evaluate the
             synthetic data based on SYNDAT metrics. Defaults to None.
@@ -88,7 +92,7 @@ def evaluation_ui(
         with st.spinner("Agent is evaluating the results..."):
             eval_plan = invoke_agent(
                 prompt=evaluation_prompt(
-                    synthesis_request=synthesis_request,
+                    request=request,
                     syndat_metrics=syndat_metrics,
                     attack_metrics=attack_metrics,
                 ),
@@ -127,8 +131,10 @@ def display_agent_evaluation_ui(agent_decision: AgentEval) -> None:
     """
     st.subheader("Evaluation:")
     st.write(f"- **Status:** {format_option(agent_decision.status)}")
+
     if len(agent_decision.problem_columns) > 0:
         st.write(f"- **Problem columns:** {comma_sep(agent_decision.problem_columns)}")
+
     st.write(
         "#### Recommendation:\n"
         f"{agent_decision.recommendation}\n"
@@ -158,7 +164,9 @@ def evaluation_review(
 
     while confirm == "yes":
         response = pyip.inputStr("\nEnter your question/concern:\n")
+
         print("\nAgent is preparing its response...")
+
         prompt = eval_review_message(agent_decision, response)
         raw_response = agent.invoke(
             {"messages": [{"role": "user", "content": prompt,}]},

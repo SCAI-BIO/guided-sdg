@@ -9,8 +9,8 @@ def missing_value_prompt(
     proportion_missing: dict[Hashable, Any],
     rows_with_missing: int,
     total_rows: int,
-    synthesis_request: dict[str, Any],
-    semantic_types: SemanticTypes,
+    request: dict[str, Any],
+    stypes: SemanticTypes,
 ) -> str:
     return dedent(f"""
     Current workflow step: missing value handling only.
@@ -36,11 +36,11 @@ def missing_value_prompt(
     {total_rows}
 
     Current synthesis request:
-    {synthesis_request}
-    - The synthesis request states the desired number of samples to be generated if fixed is selected (i.e., synthesis_request['sample_size']['fixed']['value']).
+    {request}
+    - The synthesis request states the desired number of samples to be generated if fixed is selected (i.e., request['sample_size']['fixed']['value']).
 
     Semantic types:
-    {semantic_types}
+    {stypes}
 
     Allowed modes:
     - remove
@@ -87,7 +87,7 @@ def missing_value_prompt(
     """)
 
 
-def missing_feedback(prompt:str, feedback:str) -> str:
+def missing_feedback(prompt: str, feedback: str) -> str:
     return dedent(f"""
     {prompt}
 

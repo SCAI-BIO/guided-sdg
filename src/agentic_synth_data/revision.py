@@ -26,7 +26,7 @@ CONFIG_MAP = {
 
 
 def plan_update(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
@@ -39,23 +39,23 @@ def plan_update(
     - Missing handling
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
         agent_decision (AgentEval): Agent decision based on results.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
-                        synthesis plan.
+            synthesis plan.
         config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         dict | None: If a revision was chosen, returns the update_plan dict. Otherwise, None.
     """
     # Select mechanism
-    update_mech = generator_update(synthesis_request, agent_decision, report, agent, config)
+    update_mech = generator_update(request, agent_decision, report, agent, config)
 
     if update_mech is not None:
         effective_generator = update_mech.generator_name
     else:
-        effective_generator = synthesis_request.generator.name
+        effective_generator = request.generator.name
 
     # Mechanism parameters
     update_params = parameter_update(effective_generator, agent, config)
@@ -69,7 +69,7 @@ def plan_update(
             " will not be applied."
         )
     else:
-        update_missing = missing_update(synthesis_request, agent, config)
+        update_missing = missing_update(request, agent, config)
 
     update_plan = {}
     if update_mech:
@@ -85,7 +85,7 @@ def plan_update(
 
 
 def plan_update_ui(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
@@ -99,7 +99,7 @@ def plan_update_ui(
     - Missing handling
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
         agent_decision (AgentEval): Agent decision based on results.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to update the current data
@@ -112,7 +112,7 @@ def plan_update_ui(
     """
     # Update generator
     update_mech = generator_update_ui(
-        synthesis_request=synthesis_request,
+        request=request,
         agent_decision=agent_decision,
         report=report,
         agent=agent,
@@ -126,7 +126,7 @@ def plan_update_ui(
     if update_mech is not None:
         effective_generator = update_mech.generator_name
     else:
-        effective_generator = synthesis_request.generator.name
+        effective_generator = request.generator.name
 
     # Update generator parameters
     update_params = parameter_update_ui(
@@ -149,7 +149,7 @@ def plan_update_ui(
         )
     else:
         update_missing = missing_update_ui(
-            synthesis_request=synthesis_request,
+            request=request,
             agent=agent,
             config=config,
             version_id=version_id,
@@ -173,7 +173,7 @@ def plan_update_ui(
 
 
 def generator_update(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
@@ -183,9 +183,9 @@ def generator_update(
     the user.
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
         agent_decision (AgentEval): Agent decision on results: satisfactory | not_satisfactory |
-                                    needs_review.
+            needs_review.
         report (Report): Report containing information gathered throughout the workflow steps.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a generator.
         config (RunnableConfig): Configuration passed to the agent during invocation.
@@ -193,11 +193,11 @@ def generator_update(
     Returns:
         GeneratorRevisionOption | None: Selected generator revision, or None if cancelled.
     """
-    print(f"Current generator: {synthesis_request.generator.name}")
+    print(f"Current generator: {request.generator.name}")
     print("\nAgent is coming up with a generator revision options...")
 
     revision_plan = invoke_agent(
-        prompt=revision_message(synthesis_request, report, agent_decision),
+        prompt=revision_message(request, report, agent_decision),
         model_cls=GeneratorRevisionPlan,
         agent=agent,
         config=config,
@@ -225,7 +225,7 @@ def generator_update(
 
 
 def generator_update_ui(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     agent_decision: AgentEval,
     report: Report,
     agent: Optional[CompiledStateGraph],
@@ -236,7 +236,7 @@ def generator_update_ui(
     the user (UI).
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
         agent_decision (AgentEval): Agent decision on results: satisfactory | not_satisfactory |
             needs_review.
         report (Report): Report containing information gathered throughout the workflow steps.
@@ -256,12 +256,12 @@ def generator_update_ui(
 
     st.subheader("Select a generator revision option")
 
-    st.write(f"**Current generator:** {synthesis_request.generator.name}")
+    st.write(f"**Current generator:** {request.generator.name}")
 
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with a generator revision options..."):
             revision_plan = invoke_agent(
-                prompt=revision_message(synthesis_request, report, agent_decision),
+                prompt=revision_message(request, report, agent_decision),
                 model_cls=GeneratorRevisionPlan,
                 agent=agent,
                 config=config,
@@ -446,7 +446,7 @@ def parameter_update_ui(
 
 
 def missing_update(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     agent: Optional[CompiledStateGraph],
     config: RunnableConfig,
 ) -> MissingRevisionOption | None:
@@ -455,19 +455,19 @@ def missing_update(
     user.
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a strategy for 
-                                              missing values.
+            missing values.
         config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
         MissingRevisionOption | None: Selected generator revision, or None if cancelled.
     """
-    print(f"Current missing handling method: {synthesis_request.generator.name}")
+    print(f"Current missing handling method: {request.generator.name}")
     print("\nAgent is coming up with missing value handling options...")
 
     revision_plan = invoke_agent(
-        prompt=missing_revision_message(synthesis_request),
+        prompt=missing_revision_message(request),
         model_cls=MissingRevisionPlan,
         agent=agent,
         config=config,
@@ -502,7 +502,7 @@ def missing_update(
 
 
 def missing_update_ui(
-    synthesis_request: SynthesisRequest,
+    request: SynthesisRequest,
     agent: Optional[CompiledStateGraph],
     config: RunnableConfig,
     version_id: int,
@@ -512,7 +512,7 @@ def missing_update_ui(
     user (UI).
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
         agent (Optional[CompiledStateGraph]): LangGraph agent used to recommend a strategy for 
             missing values.
         config (RunnableConfig): Configuration passed to the agent during invocation.
@@ -528,7 +528,7 @@ def missing_update_ui(
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with missing value handling options..."):
             revision_plan = invoke_agent(
-                prompt=missing_revision_message(synthesis_request),
+                prompt=missing_revision_message(request),
                 model_cls=MissingRevisionPlan,
                 agent=agent,
                 config=config,

@@ -7,8 +7,8 @@ from agentic_synth_data.utils import SemanticTypes
 
 # NOTE: missingness per column could also be input here
 def generator_selection_message(
-    synthesis_request: SynthesisRequest,
-    semantic_types: SemanticTypes,
+    request: SynthesisRequest,
+    stypes: SemanticTypes,
     profile: dict[str, Any],
 ) -> str:
     return dedent(f"""
@@ -26,10 +26,10 @@ def generator_selection_message(
     Use the following information to select a data generator:
 
     Current synthesis request (also indicates desired synthetic row count):
-    {synthesis_request.model_dump()}
+    {request.model_dump()}
 
     Semantic types:
-    {semantic_types}
+    {stypes}
 
     Unique values per column: 
     {profile['col_nunique']}
@@ -42,7 +42,7 @@ def generator_selection_message(
     {profile['num_corr']}
 
     General selection rules:
-    - If synthesis_request["generator"]["name"] is not "auto", use that generator:
+    - If request["generator"]["name"] is not "auto", use that generator:
     - If privacy mode is differentially_private:
       - mostly categorical data: PrivBayes
       - mostly numerical or mixed data: PATEGAN
@@ -63,7 +63,7 @@ def generator_selection_message(
     - PrivBayes
 
     Selection rules:
-    - If synthesis_request["generator"]["name"] is not "auto":
+    - If request["generator"]["name"] is not "auto":
       - Use the requested generator.
       - Do not override the user's choice.
       - If the generator appears unsuitable, explain the concern in "warning".

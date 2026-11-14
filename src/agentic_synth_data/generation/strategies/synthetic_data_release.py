@@ -34,8 +34,8 @@ def to_sdr_path(path: Path) -> Path:
 
 class SyntheticDataReleaseStrategy(GeneratorStrategy):
     """For Synthetic Data Release models: CTGAN, PATEGAN, BayesianNet, and PrivBayes"""
-    def prepare_metadata(self,prep_path: Path, semantic_types: SemanticTypes,):
-        return self._write_metadata_json(prep_path=prep_path, semantic_types=semantic_types)
+    def prepare_metadata(self, prep_path: Path, stypes: SemanticTypes,):
+        return self._write_metadata_json(prep_path=prep_path, stypes=stypes)
 
 
     def run(
@@ -60,7 +60,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
         return synth_path, synth_df
 
 
-    def _write_metadata_json(self, prep_path: Path, semantic_types: SemanticTypes,) -> Path:
+    def _write_metadata_json(self, prep_path: Path, stypes: SemanticTypes,) -> Path:
         """Store information about the prepared dataset in JSON file format for use
         of the synthetic generator tool, incorporating the defined semantic types of the data.
 
@@ -68,7 +68,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
 
         Args:
             prep_path (Path): Path of the original dataset. This is used to name the JSON.
-            semantic_types (SemanticTypes): The defined semantic types of the dataset. This is
+            stypes (SemanticTypes): The defined semantic types of the dataset. This is
                 used to gather appropriate information in the JSON for each column.
 
         Returns:
@@ -79,22 +79,22 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
         columns = []
 
         for col in df.columns:
-            semantic_type = semantic_types[col]
+            stype = stypes[col]
 
-            if semantic_type == "Boolean":
-                semantic_type = "Categorical"
+            if stype == "Boolean":
+                stype = "Categorical"
 
-            if semantic_type in ["Categorical", "Ordinal"]:
+            if stype in ["Categorical", "Ordinal"]:
                 values = sorted(df[col].dropna().astype(str).unique().tolist())
 
                 columns.append({
                     "name": col,
-                    "type": semantic_type,
+                    "type": stype,
                     "i2s": values,
                     "size": len(values)
                     })
 
-            elif semantic_type == "Float":
+            elif stype == "Float":
                 columns.append({
                     "name": col,
                     "type": "Float",
@@ -102,7 +102,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
                     "max": float(df[col].max())
                     })
 
-            elif semantic_type == "Integer":
+            elif stype == "Integer":
                 columns.append({
                     "name": col,
                     "type": "Integer",
@@ -114,7 +114,9 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
 
         with open(json_path, "w") as f:
             json.dump(metadata, f, indent=2)
+
         print(f"- Created JSON for generator input: {json_path}")
+
         return json_path
 
 
@@ -152,4 +154,5 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
             )
 
         print(f"\n🠊 {mechanism}: {n_samples} synthetic samples successfully generated.")
+
         return synth_path

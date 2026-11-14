@@ -70,7 +70,7 @@ def handle_semantic_types(
         "infer semantic types..."
     )
 
-    semantic_types = invoke_agent(
+    stypes = invoke_agent(
         prompt=semantic_type_message(profiles),
         model_cls=STypeInference,
         agent=agent,
@@ -87,7 +87,7 @@ def handle_semantic_types(
         "Note: Supported types are Integer, Float, Boolean, Categorical, and Ordinal.\n"
     )
 
-    for col, stype in semantic_types.items():
+    for col, stype in stypes.items():
         print(f"{col}: {stype}")
 
     # 3. User confirmation.
@@ -109,20 +109,19 @@ def handle_semantic_types(
 
             print(
                 f"\nSelected the following column: {col}\n"
-                f"Current semantic type is '{semantic_types[col]}'. What should this be modified "
-                "to?"
+                f"Current semantic type is '{stypes[col]}'. What should this be modified to?"
             )
 
             choice = pyip.inputMenu(get_args(SemanticType.__value__), numbered=True,) # pylint: disable=no-member
 
-            semantic_types[col] = choice
+            stypes[col] = choice
 
             print(
-                f"\n🠊 Updated semantic type for {col}: {semantic_types[col]}\n"
+                f"\n🠊 Updated semantic type for {col}: {stypes[col]}\n"
                 "For reference: Semantic types present in each column:"
             )
 
-            for col, stype in semantic_types.items():
+            for col, stype in stypes.items():
                 print(f"{col}: {stype}")
 
             print("-"*40)
@@ -130,10 +129,10 @@ def handle_semantic_types(
     print()
     print("-" * 25 + "Final data types present in each column" + "-" * 25)
 
-    for col, stype in semantic_types.items():
+    for col, stype in stypes.items():
         print(f"{col}: {stype}")
 
-    return semantic_types
+    return stypes
 
 
 def handle_semantic_types_ui(
@@ -161,7 +160,7 @@ def handle_semantic_types_ui(
 
         # Agent infers the semantic type of columns based on their profile.
         with st.spinner("Agent is analyzing dataset characteristics to infer semantic types..."):
-            inferred_semantic_types = invoke_agent(
+            inferred_stypes = invoke_agent(
                 prompt=semantic_type_message(profiles),
                 model_cls=STypeInference,
                 agent=agent,
@@ -170,11 +169,11 @@ def handle_semantic_types_ui(
                 ui=True,
             )
 
-        st.session_state.semantic_types_inference = inferred_semantic_types.copy()
+        st.session_state.semantic_types_inference = inferred_stypes.copy()
 
     # 2. Reuse and display saved agent inference.
     else:
-        inferred_semantic_types = st.session_state.semantic_types_inference.copy()
+        inferred_stypes = st.session_state.semantic_types_inference.copy()
 
     info_helper_message(
         message="Agent semantic type inference completed.",
@@ -190,27 +189,27 @@ def handle_semantic_types_ui(
     st.write("Detected semantic types for each column:")
 
     stype_table = pd.DataFrame({
-        "Column": inferred_semantic_types.keys(),
-        "Semantic type": inferred_semantic_types.values(),
+        "Column": inferred_stypes.keys(),
+        "Semantic type": inferred_stypes.values(),
     })
 
     df_formatter_st(stype_table)
 
     # 3. If already completed, return the final saved result.
     if st.session_state.get("semantic_types_complete", False):
-        semantic_types = st.session_state.semantic_types.copy()
+        stypes = st.session_state.semantic_types.copy()
 
-        if semantic_types != inferred_semantic_types:
+        if stypes != inferred_stypes:
             st.subheader("Final semantic types for each column:")
 
             final_stype_table = pd.DataFrame({
-                "Column": semantic_types.keys(),
-                "Semantic type": semantic_types.values(),
+                "Column": stypes.keys(),
+                "Semantic type": stypes.values(),
             })
 
             df_formatter_st(final_stype_table)
 
-        return semantic_types
+        return stypes
 
     # 4. User confirmation.
     confirm = st.selectbox(
@@ -231,7 +230,7 @@ def handle_semantic_types_ui(
     if confirm is None:
         st.stop()
 
-    semantic_types = inferred_semantic_types.copy()
+    stypes = inferred_stypes.copy()
 
     # 5. If corrections are needed, the user can manually update column types.
     if confirm == "no":
@@ -242,7 +241,7 @@ def handle_semantic_types_ui(
             options = get_args(SemanticType.__value__) # pylint: disable=no-member
 
             for col in df.columns:
-                current_type = semantic_types[col]
+                current_type = stypes[col]
                 col1, col2, col3 = st.columns([2, 1, 1])
 
                 with col1:
@@ -266,12 +265,12 @@ def handle_semantic_types_ui(
             st.stop()
 
         for col, choice in semantic_type_choices.items():
-            semantic_types[col] = choice
+            stypes[col] = choice
 
-    st.session_state.semantic_types = semantic_types
+    st.session_state.semantic_types = stypes
     st.session_state.semantic_types_complete = True
 
-    return semantic_types
+    return stypes
 
 
 def prepare_for_syndat(

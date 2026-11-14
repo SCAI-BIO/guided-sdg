@@ -78,13 +78,13 @@ class Report(BaseModel):
 # Note: tabulate package is required for dtype_table.to_markdown(), think if needed/alternative can be used
 # possible TODO: break into section pieces, but first determine what the report should look like/sections should look like...
 def write_report(
-    report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
+    report: Report, request: SynthesisRequest, data_path: str, version_id: int,
 ) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
         report (Report): Dictionary containing information gathered throughout the workflow steps.
-        synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
+        request (SynthesisRequest): Dictionary with the user's preferences.
         data_path (str): Initial path of the data (used for naming the report).
         version_id (int): Denotes the version of the workflow attempt.
     """
@@ -208,7 +208,7 @@ Summary statistics for numeric values:
 } rows, {report.input.prepared_shape[1]} columns.
 
 ### Generation:
-**Chosen generator:** {synthesis_request.generator.name}
+**Chosen generator:** {request.generator.name}
 
 **Parameters:** {report.gen.params}
 

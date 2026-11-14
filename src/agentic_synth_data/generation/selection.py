@@ -168,8 +168,8 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
 
 # TODO: Expand to parameter selection.
 def select_generator(
-    synthesis_request: SynthesisRequest,
-    semantic_types: SemanticTypes,
+    request: SynthesisRequest,
+    stypes: SemanticTypes,
     profile: dict[str, Any],
     agent: CompiledStateGraph,
     config: RunnableConfig,
@@ -178,8 +178,8 @@ def select_generator(
     selects a data generator mechanism.
 
     Args:
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
+        request (SynthesisRequest): Dictionary of the user's preferences.
+        stypes (SemanticTypes): The semantic dtypes for each column in the dataset.
         profile (dict[str, Any]): Dataset profile containing summary statistics and
             correlations used to inform generator selection.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
@@ -201,9 +201,7 @@ def select_generator(
 
     while not choice_confirmed:
         message = generator_selection_message(
-            synthesis_request=synthesis_request,
-            semantic_types=semantic_types,
-            profile=profile
+            request=request, stypes=stypes, profile=profile,
         )
 
         if selected_mechanism is not None:
@@ -236,9 +234,9 @@ def select_generator(
         decision = pyip.inputMenu(["approve", "choose another", "discuss",], numbered=True,)
 
         if decision == "approve":
-            synthesis_request.generator.name = generation_plan.generator
-            synthesis_request.generator.parameters = output_default_parameters(
-                synthesis_request.generator.name
+            request.generator.name = generation_plan.generator
+            request.generator.parameters = output_default_parameters(
+                request.generator.name,
             )
             choice_confirmed = True
 
@@ -263,12 +261,12 @@ def select_generator(
 
             continue
 
-    return synthesis_request
+    return request
 
 
 def select_generator_ui(
-    synthesis_request: SynthesisRequest,
-    semantic_types: SemanticTypes,
+    request: SynthesisRequest,
+    stypes: SemanticTypes,
     profile: dict[str, Any],
     agent: CompiledStateGraph,
     config: RunnableConfig,
@@ -277,8 +275,8 @@ def select_generator_ui(
     selects a data generator mechanism (UI).
 
     Args:
-        synthesis_request (SynthesisRequest): Dictionary of the user's preferences.
-        semantic_types (SemanticTypes): The semantic dtypes for each column in the dataset.
+        request (SynthesisRequest): Dictionary of the user's preferences.
+        stypes (SemanticTypes): The semantic dtypes for each column in the dataset.
         profile (dict[str, Any]): Dataset profile containing summary statistics and
             correlations used to inform generator selection.
         agent (CompiledStateGraph): LangGraph agent used to recommend a mechanism/generator.
@@ -292,8 +290,8 @@ def select_generator_ui(
 
     if "generator_plan" not in st.session_state:
         message = generator_selection_message(
-            synthesis_request=synthesis_request,
-            semantic_types=semantic_types,
+            request=request,
+            stypes=stypes,
             profile=profile,
         )
 
@@ -367,17 +365,17 @@ def select_generator_ui(
         st.stop()
 
     if decision == "approve":
-        synthesis_request.generator.name = generation_plan.generator
-        synthesis_request.generator.parameters = output_default_parameters(
-            generator_name=synthesis_request.generator.name,
+        request.generator.name = generation_plan.generator
+        request.generator.parameters = output_default_parameters(
+            generator_name=request.generator.name,
         )
 
-        st.session_state.approved_synthesis_request = synthesis_request
+        st.session_state.approved_synthesis_request = request
         st.session_state.generator_selection_complete = True
 
         st.info(f"⇨ {generation_plan.generator} has been approved.")
 
-        return synthesis_request
+        return request
 
     if decision == "choose another":
         st.write("Enter generator to evaluate:")
