@@ -1,3 +1,5 @@
+from io import BytesIO
+from matplotlib import pyplot as plt
 import streamlit as st
 
 from agentic_synth_data.rerun_workflow import version_tabs_ui
@@ -41,6 +43,7 @@ for version_id, tab in revision_tabs.items():
             continue
 
         display_report_ui(revision)
+
         display_downloads_ui(version_id)
 
 if comparison_tab is not None and comparison_tab.open:
@@ -95,7 +98,20 @@ if comparison_tab is not None and comparison_tab.open:
                     "weighted unless otherwise specified."
                 )
 
+                buffer = BytesIO()
+                fig.savefig(buffer, format="png",)
+
+                VERSION_SUFFIX = "_".join(f"v{v}" for v in sorted(selected_versions))
+
+                st.download_button(
+                    label="Download version comparison plot",
+                    data=buffer.getvalue(),
+                    file_name=f"version_comparison_{VERSION_SUFFIX}.png",
+                    mime="image/png",
+                    on_click="ignore",
+                )
+
+                plt.close(fig)
+
             else:
                 st.info("Select at least one version to display the figure.")
-
-            # NOTE: possibly also option for downloading?
