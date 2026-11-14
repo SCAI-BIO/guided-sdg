@@ -29,7 +29,7 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
 
         metrics = {
             "syndat": {
-                "JSD (average)": syndat.jsd["jsd_AVERAGE"],
+                "Average JSD": syndat.jsd["jsd_AVERAGE"],
                 "Normalized correlation difference": syndat.norm_corr_diff,
                 "Discriminator AUC": syndat.discrim_auc,
             },
@@ -50,22 +50,48 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
     return pd.DataFrame(records, columns=["version", "category", "metric", "score"])
 
 
+def summarize_tradeoff(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate the fidelity–privacy trade-off for each workflow version.
+
+    The trade-off is calculated as the mean of available normalized Syndat fidelity scores
+    minus the mean of available Anonymeter privacy risks. Missing scores are excluded from
+    the averages.
+
+    Args:
+        df (pd.DataFrame): Dataframe with version, category, metric, and score.
+
+    Returns:
+        pd.DataFrame: Dataframe with version, mean Syndat score, mean Anonymeter risk, and
+            calculated trade-off.
+    """
+    summary = df.groupby(["version", "category"])["score"].mean().unstack()
+
+    # Both fidelity and privacy must have at least one valid metric
+    summary = summary.dropna(subset=["syndat", "anonymeter"])
+
+    summary["tradeoff"] = summary["syndat"] - summary["anonymeter"]
+
+    return summary.reset_index()
+
 
 def plot_metrics(df: pd.DataFrame) -> Figure:
-    """Plot syndat and anonymeter metrics across workflow versions.
+    """Plot normalized fidelity, privacy risk, and trade-off scores across workflow versions.
+    The trade-off represents mean fidelity minus mean privacy risk.
 
     Args:
         df (pd.DataFrame): Dataframe containing version, category, metric and score.
 
     Returns:
-        Figure: Matplotlib figure comparing metrics across versions.
+        Figure: Matplotlib figure comparing individual metrics and the
+            fidelity–privacy trade-off across workflow versions.
     """
     df = df.copy()
 
     metric_groups = {
-        "syndat": ["JSD (average)", "Normalized correlation difference", "Discriminator AUC"],
+        "syndat": ["Average JSD", "Normalized correlation difference", "Discriminator AUC"],
         "anonymeter": ["Singling out risk", "Linkability risk", "Inference risk"],
     }
+
     colors = {"syndat": "blue", "anonymeter": "orange"}
 
     markers = {
@@ -81,6 +107,7 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
+    # Connect individual metric scores across versions
     for (category, _), group in df.groupby(["category", "metric"]):
         group = group.sort_values("version")
 
@@ -91,8 +118,17 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
         s=35, edgecolor="black", linewidth=0.5, legend=False, ax=ax, zorder=2,
     )
 
+    # Plot trade-off line
+    tradeoff_df = summarize_tradeoff(df)
+
+    ax.plot(
+        tradeoff_df["version"], tradeoff_df["tradeoff"], color="green", marker="D",
+        markersize=np.sqrt(35), markeredgecolor="black", markeredgewidth=0.5, linewidth=2,
+        zorder=3,
+    )
+
     ax.set_xlabel("Version")
-    ax.set_ylabel("Score")
+    ax.set_ylabel("Normalized score / trade-off (points)")
     ax.set_xticks(sorted(df["version"].unique()))
     ax.set_xlim(df["version"].min() - 0.5, df["version"].max() + 0.5)
 
@@ -112,6 +148,15 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
                 )
             )
 
+    # Add trade-off line to the legend
+    handles.append(Line2D([], [], linestyle="None", label= " "))
+    handles.append(
+        Line2D(
+            [], [], color="green", marker="D", markeredgecolor="black", linewidth=2,
+            label="Fidelity privacy trade-off",
+        )
+    )
+
     legend = ax.legend(
         handles=handles, bbox_to_anchor=(1.02, 1), loc="upper left", frameon=False,
         handlelength=1.2,
@@ -122,5 +167,5 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
             label.set_weight("bold")
             label.set_text(label.get_text().capitalize())
 
-    plt.tight_layout()
+    fig.tight_layout()
     return fig

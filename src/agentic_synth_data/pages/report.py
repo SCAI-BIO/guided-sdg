@@ -22,6 +22,7 @@ if not st.session_state.get("revision_history"):
         "No workflow has been started yet. Complete an initial run through steps to generate a "
         "report."
     )
+
     st.stop()
 
 revision_tabs, comparison_tab = version_tabs_ui(
@@ -58,15 +59,43 @@ if comparison_tab is not None and comparison_tab.open:
 
         else:
             version_list = list(st.session_state.revision_history)
-            st.dataframe(metrics_df, hide_index=True, width="stretch",)
+            st.dataframe(metrics_df, hide_index=True, width="stretch",) # NOTE: Temp view...
 
-            # NOTE: possibly change message to "deselect versions to compare"
-            st.multiselect(
+            selected_versions = st.multiselect(
                 label="Select versions to compare",
                 options=version_list,
                 default=version_list,
                 key="selected_versions_to_view",
             )
 
-            st.pyplot(plot_metrics(metrics_df)) # NOTE: possibly plotly?
+            filtered_df = metrics_df[metrics_df["version"].isin(selected_versions)]
+
+            if not filtered_df.empty:
+                missing = filtered_df[filtered_df["score"].isna()]
+
+                if not missing.empty:
+                    MISSING_DETAILS = "\n".join(
+                        f"Version {row.version}: {row.metric}" for row in missing.itertuples()
+                    )
+
+                    st.warning(
+                        "Some metrics were unavailable and were excluded from the trade-off "
+                        f"calculation:\n\n{MISSING_DETAILS}\n\nSee the corresponding version "
+                        "tabs for additional details."
+                    )
+
+                fig = plot_metrics(filtered_df)
+                st.pyplot(fig)
+
+                st.caption(
+                    "Comparison of normalized fidelity (Syndat; higher is better) and privacy risk "
+                    "(Anonymeter; lower is better) scores across versions, scaled to 0–100. The "
+                    "green line represents the fidelity and privacy trade-off "
+                    "`(mean fidelity - mean privacy risk)`, with available metrics equally "
+                    "weighted unless otherwise specified."
+                )
+
+            else:
+                st.info("Select at least one version to display the figure.")
+
             # NOTE: possibly also option for downloading?
