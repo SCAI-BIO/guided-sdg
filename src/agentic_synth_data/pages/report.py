@@ -1,3 +1,6 @@
+from io import BytesIO
+from pathlib import Path
+from matplotlib import pyplot as plt
 import streamlit as st
 
 from agentic_synth_data.rerun_workflow import version_tabs_ui
@@ -22,6 +25,7 @@ if not st.session_state.get("revision_history"):
         "No workflow has been started yet. Complete an initial run through steps to generate a "
         "report."
     )
+
     st.stop()
 
 revision_tabs, comparison_tab = version_tabs_ui(
@@ -40,6 +44,7 @@ for version_id, tab in revision_tabs.items():
             continue
 
         display_report_ui(revision)
+
         display_downloads_ui(version_id)
 
 if comparison_tab is not None and comparison_tab.open:
@@ -51,6 +56,8 @@ if comparison_tab is not None and comparison_tab.open:
             st.session_state.get("revision_history", {}).values(), key=lambda gen: gen.version_id,
         )
 
+        data_name = Path(versions[0].data_path).stem
+
         metrics_df = compile_metrics(versions=versions)
 
         if metrics_df.empty:
@@ -58,15 +65,58 @@ if comparison_tab is not None and comparison_tab.open:
 
         else:
             version_list = list(st.session_state.revision_history)
-            st.dataframe(metrics_df, hide_index=True, width="stretch",)
+            st.dataframe(metrics_df, hide_index=True, width="stretch",) # NOTE: Temp view...
 
-            # NOTE: possibly change message to "deselect versions to compare"
-            st.multiselect(
+            selected_versions = st.multiselect(
                 label="Select versions to compare",
                 options=version_list,
                 default=version_list,
                 key="selected_versions_to_view",
             )
 
-            st.pyplot(plot_metrics(metrics_df)) # NOTE: possibly plotly?
-            # NOTE: possibly also option for downloading?
+            filtered_df = metrics_df[metrics_df["version"].isin(selected_versions)]
+
+            if not filtered_df.empty:
+                missing = filtered_df[filtered_df["score"].isna()]
+
+                if not missing.empty:
+                    MISSING_DETAILS = "\n".join(
+                        f"Version {row.version}: {row.metric}" for row in missing.itertuples()
+                    )
+
+                    st.warning(
+                        "Some metrics were unavailable and were excluded from the trade-off "
+                        f"calculation:\n\n{MISSING_DETAILS}\n\nSee the corresponding version "
+                        "tabs for additional details."
+                    )
+
+                fig = plot_metrics(filtered_df)
+                st.pyplot(fig)
+
+                st.caption(
+                    "Comparison of normalized fidelity (Syndat; higher is better) and privacy risk "
+                    "(Anonymeter; lower is better) scores across versions, scaled to 0–100. The "
+                    "green line represents the fidelity and privacy trade-off "
+                    "`(mean fidelity - mean privacy risk)`, with available metrics equally "
+                    "weighted."
+                )
+
+                buffer = BytesIO()
+                fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
+
+                VERSION_SUFFIX = "_".join(f"v{v}" for v in sorted(selected_versions))
+
+                _, center, _ = st.columns(3)
+                with center:
+                    st.download_button(
+                        label="Download plot",
+                        data=buffer.getvalue(),
+                        file_name=f"{data_name}_comparison_{VERSION_SUFFIX}.png",
+                        mime="image/png",
+                        on_click="ignore",
+                    )
+
+                plt.close(fig)
+
+            else:
+                st.info("Select at least one version to display the figure.")

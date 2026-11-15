@@ -127,7 +127,7 @@ Replaced markers:
 {fmt(report.prep.missing_markers_replaced)}
 ```
 """
-    # Syndat and anonymeter metrics
+    # Syndat and Anonymeter metrics
     syndat = report.evaluate.syndat
     attack = report.evaluate.attack
     syndat_output = syndat.output_messages
