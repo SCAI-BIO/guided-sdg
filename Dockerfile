@@ -13,4 +13,4 @@ RUN uv sync --frozen --no-dev
 
 EXPOSE 8080
 
-CMD ["uv", "run", "streamlit", "run", "src/agentic_synth_data/main.py", "--server.address=0.0.0.0", "--server.port=8080"]
+CMD ["uv", "run", "streamlit", "run", "src/agentic_synth_data/ui/main.py", "--server.address=0.0.0.0", "--server.port=8080"]

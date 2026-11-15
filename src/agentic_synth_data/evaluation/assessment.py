@@ -177,7 +177,7 @@ def evaluation_review(
 
         confirm = pyip.inputYesNo("\nDo you have another question?\n")
 
-    print(f"\nWorkflow result status: {agent_decision.status}")
+    print(f"\nWorkflow result status: {format_option(agent_decision.status)}")
     choice = pyip.inputMenu(
         ["finish", "revise"],
         "\nWould you like to finish or revise the workflow?\n", 
@@ -259,7 +259,7 @@ def evaluation_review_ui(
             st.stop()
 
     # If no is selected:
-    st.write(f"Workflow result status: {agent_decision.status}")
+    st.write(f"Workflow result status: {format_option(agent_decision.status)}")
 
     choice = st.selectbox(
         label="Would you like to finish or revise the workflow?",
