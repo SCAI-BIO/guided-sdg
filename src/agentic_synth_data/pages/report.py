@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 from matplotlib import pyplot as plt
 import streamlit as st
 
@@ -55,6 +56,8 @@ if comparison_tab is not None and comparison_tab.open:
             st.session_state.get("revision_history", {}).values(), key=lambda gen: gen.version_id,
         )
 
+        data_name = Path(versions[0].data_path).stem
+
         metrics_df = compile_metrics(versions=versions)
 
         if metrics_df.empty:
@@ -95,21 +98,23 @@ if comparison_tab is not None and comparison_tab.open:
                     "(Anonymeter; lower is better) scores across versions, scaled to 0–100. The "
                     "green line represents the fidelity and privacy trade-off "
                     "`(mean fidelity - mean privacy risk)`, with available metrics equally "
-                    "weighted unless otherwise specified."
+                    "weighted."
                 )
 
                 buffer = BytesIO()
-                fig.savefig(buffer, format="png",)
+                fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
 
                 VERSION_SUFFIX = "_".join(f"v{v}" for v in sorted(selected_versions))
 
-                st.download_button(
-                    label="Download version comparison plot",
-                    data=buffer.getvalue(),
-                    file_name=f"version_comparison_{VERSION_SUFFIX}.png",
-                    mime="image/png",
-                    on_click="ignore",
-                )
+                _, center, _ = st.columns(3)
+                with center:
+                    st.download_button(
+                        label="Download plot",
+                        data=buffer.getvalue(),
+                        file_name=f"{data_name}_comparison_{VERSION_SUFFIX}.png",
+                        mime="image/png",
+                        on_click="ignore",
+                    )
 
                 plt.close(fig)
 

@@ -10,7 +10,7 @@ from agentic_synth_data.workflow import DataGen
 
 
 def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
-    """Compile syndat and anonymeter metrics across versions for display.
+    """Compile Syndat and Anonymeter metrics across versions for display.
 
     Args:
         versions (list[DataGen]): Existing versions.
@@ -21,7 +21,7 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
     records = []
 
     for gen in versions:
-        syndat = gen.report.evaluate.syndat
+        syndat = gen.report.evaluate.syndat.normalized_scores
         attack = gen.report.evaluate.attack
 
         if syndat is None or attack is None:
@@ -29,14 +29,14 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
 
         metrics = {
             "syndat": {
-                "Average JSD": syndat.jsd["jsd_AVERAGE"],
-                "Normalized correlation difference": syndat.norm_corr_diff,
-                "Discriminator AUC": syndat.discrim_auc,
+                "Distribution similarity": syndat.distribution, # JSD
+                "Correlation similarity": syndat.correlation, # Normalized correlation difference
+                "Discrimination score": syndat.discrimination, # Discriminator AUC
             },
             "anonymeter": {
-                "Singling out risk": attack.singling_out.value,
-                "Linkability risk": attack.linkability.value,
-                "Inference risk": attack.inference.value,
+                "Singling out risk": attack.singling_out.value * 100,
+                "Linkability risk": attack.linkability.value * 100,
+                "Inference risk": attack.inference.value * 100,
             },
         }
 
@@ -88,7 +88,7 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
     df = df.copy()
 
     metric_groups = {
-        "syndat": ["Average JSD", "Normalized correlation difference", "Discriminator AUC"],
+        "syndat": ["Distribution similarity", "Correlation similarity", "Discrimination score"],
         "anonymeter": ["Singling out risk", "Linkability risk", "Inference risk"],
     }
 
@@ -115,7 +115,7 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
 
     sns.scatterplot(
         data=df, x="x", y="score", hue="category", style="metric", palette=colors, markers=markers,
-        s=35, edgecolor="black", linewidth=0.5, legend=False, ax=ax, zorder=2,
+        s=35, edgecolor="black", linewidth=0.5, legend=False, ax=ax, zorder=2, alpha=0.8,
     )
 
     # Plot trade-off line
@@ -124,11 +124,13 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
     ax.plot(
         tradeoff_df["version"], tradeoff_df["tradeoff"], color="green", marker="D",
         markersize=np.sqrt(35), markeredgecolor="black", markeredgewidth=0.5, linewidth=2,
-        zorder=3,
+        zorder=3, alpha=0.8,
     )
 
+    ax.set_title("Fidelity-privacy comparison across workflow versions")
     ax.set_xlabel("Version")
     ax.set_ylabel("Normalized score / trade-off (points)")
+    ax.set_ylim((-3, 100))
     ax.set_xticks(sorted(df["version"].unique()))
     ax.set_xlim(df["version"].min() - 0.5, df["version"].max() + 0.5)
 
