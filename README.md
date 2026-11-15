@@ -90,7 +90,7 @@ docker compose down
 #### 4. Start the Streamlit user interface
 Enter the following into the terminal:
 ```bash
-streamlit run ./src/agentic_synth_data/main.py
+streamlit run ./src/agentic_synth_data/ui/main.py
 ```
 
 ```bash
