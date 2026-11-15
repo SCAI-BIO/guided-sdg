@@ -10,7 +10,7 @@ from agentic_synth_data.workflow import DataGen
 
 
 def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
-    """Compile syndat and anonymeter metrics across versions for display.
+    """Compile Syndat and Anonymeter metrics across versions for display.
 
     Args:
         versions (list[DataGen]): Existing versions.
@@ -21,7 +21,7 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
     records = []
 
     for gen in versions:
-        syndat = gen.report.evaluate.syndat
+        syndat = gen.report.evaluate.syndat.normalized_scores
         attack = gen.report.evaluate.attack
 
         if syndat is None or attack is None:
@@ -29,14 +29,14 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
 
         metrics = {
             "syndat": {
-                "JSD (average)": syndat.jsd["jsd_AVERAGE"],
-                "Normalized correlation difference": syndat.norm_corr_diff,
-                "Discriminator AUC": syndat.discrim_auc,
+                "Distribution similarity": syndat.distribution, # JSD
+                "Correlation similarity": syndat.correlation, # Normalized correlation difference
+                "Discrimination score": syndat.discrimination, # Discriminator AUC
             },
             "anonymeter": {
-                "Singling out risk": attack.singling_out.value,
-                "Linkability risk": attack.linkability.value,
-                "Inference risk": attack.inference.value,
+                "Singling out risk": attack.singling_out.value * 100,
+                "Linkability risk": attack.linkability.value * 100,
+                "Inference risk": attack.inference.value * 100,
             },
         }
 
@@ -50,22 +50,48 @@ def compile_metrics(versions: list[DataGen]) -> pd.DataFrame:
     return pd.DataFrame(records, columns=["version", "category", "metric", "score"])
 
 
+def summarize_tradeoff(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate the fidelity–privacy trade-off for each workflow version.
+
+    The trade-off is calculated as the mean of available normalized Syndat fidelity scores
+    minus the mean of available Anonymeter privacy risks. Missing scores are excluded from
+    the averages.
+
+    Args:
+        df (pd.DataFrame): Dataframe with version, category, metric, and score.
+
+    Returns:
+        pd.DataFrame: Dataframe with version, mean Syndat score, mean Anonymeter risk, and
+            calculated trade-off.
+    """
+    summary = df.groupby(["version", "category"])["score"].mean().unstack()
+
+    # Both fidelity and privacy must have at least one valid metric
+    summary = summary.dropna(subset=["syndat", "anonymeter"])
+
+    summary["tradeoff"] = summary["syndat"] - summary["anonymeter"]
+
+    return summary.reset_index()
+
 
 def plot_metrics(df: pd.DataFrame) -> Figure:
-    """Plot syndat and anonymeter metrics across workflow versions.
+    """Plot normalized fidelity, privacy risk, and trade-off scores across workflow versions.
+    The trade-off represents mean fidelity minus mean privacy risk.
 
     Args:
         df (pd.DataFrame): Dataframe containing version, category, metric and score.
 
     Returns:
-        Figure: Matplotlib figure comparing metrics across versions.
+        Figure: Matplotlib figure comparing individual metrics and the
+            fidelity–privacy trade-off across workflow versions.
     """
     df = df.copy()
 
     metric_groups = {
-        "syndat": ["JSD (average)", "Normalized correlation difference", "Discriminator AUC"],
+        "syndat": ["Distribution similarity", "Correlation similarity", "Discrimination score"],
         "anonymeter": ["Singling out risk", "Linkability risk", "Inference risk"],
     }
+
     colors = {"syndat": "blue", "anonymeter": "orange"}
 
     markers = {
@@ -81,6 +107,7 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
+    # Connect individual metric scores across versions
     for (category, _), group in df.groupby(["category", "metric"]):
         group = group.sort_values("version")
 
@@ -88,11 +115,22 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
 
     sns.scatterplot(
         data=df, x="x", y="score", hue="category", style="metric", palette=colors, markers=markers,
-        s=35, edgecolor="black", linewidth=0.5, legend=False, ax=ax, zorder=2,
+        s=35, edgecolor="black", linewidth=0.5, legend=False, ax=ax, zorder=2, alpha=0.8,
     )
 
+    # Plot trade-off line
+    tradeoff_df = summarize_tradeoff(df)
+
+    ax.plot(
+        tradeoff_df["version"], tradeoff_df["tradeoff"], color="green", marker="D",
+        markersize=np.sqrt(35), markeredgecolor="black", markeredgewidth=0.5, linewidth=2,
+        zorder=3, alpha=0.8,
+    )
+
+    ax.set_title("Fidelity-privacy comparison across workflow versions")
     ax.set_xlabel("Version")
-    ax.set_ylabel("Score")
+    ax.set_ylabel("Normalized score / trade-off (points)")
+    ax.set_ylim((-3, 100))
     ax.set_xticks(sorted(df["version"].unique()))
     ax.set_xlim(df["version"].min() - 0.5, df["version"].max() + 0.5)
 
@@ -112,6 +150,15 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
                 )
             )
 
+    # Add trade-off line to the legend
+    handles.append(Line2D([], [], linestyle="None", label= " "))
+    handles.append(
+        Line2D(
+            [], [], color="green", marker="D", markeredgecolor="black", linewidth=2,
+            label="Fidelity privacy trade-off",
+        )
+    )
+
     legend = ax.legend(
         handles=handles, bbox_to_anchor=(1.02, 1), loc="upper left", frameon=False,
         handlelength=1.2,
@@ -122,5 +169,5 @@ def plot_metrics(df: pd.DataFrame) -> Figure:
             label.set_weight("bold")
             label.set_text(label.get_text().capitalize())
 
-    plt.tight_layout()
+    fig.tight_layout()
     return fig

@@ -8,7 +8,7 @@ import streamlit as st
 import syndat
 
 from agentic_synth_data.ui.helpers import CapturedOutput, StreamlitOutput
-from agentic_synth_data.schemas.syndat import SyndatMetrics, SyndatOutputs
+from agentic_synth_data.schemas.syndat import SyndatMetrics, SyndatOutputs, SyndatScores
 from agentic_synth_data.utils import OUTPUT_DIR, calculate_delta, df_formatter_st, \
     display_delta_caption
 
@@ -20,7 +20,7 @@ from agentic_synth_data.utils import OUTPUT_DIR, calculate_delta, df_formatter_s
 def _calculate_metrics(
     real: pd.DataFrame, synth: pd.DataFrame, ui: bool = False,
 ) -> SyndatMetrics:
-    """Calculate and round syndat metrics for evaluation of the synthetic data compared to the
+    """Calculate and round Syndat metrics for evaluation of the synthetic data compared to the
     original dataframe (optionally, with missing value markers removed).
 
     Calculates metrics:
@@ -51,6 +51,8 @@ def _calculate_metrics(
     with redirect_stdout(jsd_output), redirect_stderr(jsd_output):
         jsd_results = syndat.metrics.jensen_shannon_distance(real=real, synthetic=synth)
 
+    distribution_score = syndat.scores.distribution(real=real, synthetic=synth)
+
     jsd_results["jsd_AVERAGE"] = np.nanmean(list(jsd_results.values())) # In case column to nan
 
     jsd_results = {
@@ -64,28 +66,36 @@ def _calculate_metrics(
             real=real, synthetic=synth, ignore_cat=True,
         )
 
+    correlation_score = syndat.scores.correlation(real=real, synthetic=synth, ignore_cat=True,)
+
     norm_corr_diff = round(norm_corr_diff, 4)
 
     # Discriminator AUC:
     discrim_auc = None
+    discrimination_score = None
 
     if len(synth) >= 2:
         with redirect_stdout(discrim_auc_output), redirect_stderr(discrim_auc_output):
             discrim_auc = syndat.metrics.discriminator_auc(real=real, synthetic=synth,)
 
-        discrim_auc = round(discrim_auc, 4)
+        discrimination_score = syndat.scores.discrimination(real=real, synthetic=synth,)
 
-    syndat_outputs = SyndatOutputs(
-        jsd=jsd_output.buffer or None,
-        norm_corr_diff=norm_corr_diff_output.buffer or None,
-        discrim_auc=discrim_auc_output.buffer or None,
-    )
+        discrim_auc = round(discrim_auc, 4)
 
     return SyndatMetrics(
         jsd=jsd_results,
         norm_corr_diff=norm_corr_diff,
         discrim_auc=discrim_auc,
-        output_messages=syndat_outputs,
+        normalized_scores=SyndatScores(
+            distribution=distribution_score,
+            correlation=correlation_score,
+            discrimination=discrimination_score,
+        ),
+        output_messages=SyndatOutputs(
+            jsd=jsd_output.buffer or None,
+            norm_corr_diff=norm_corr_diff_output.buffer or None,
+            discrim_auc=discrim_auc_output.buffer or None,
+        ),
     )
 
 
@@ -94,7 +104,7 @@ def _calculate_metrics(
 # ============================================================================
 
 def calculate_metrics(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetrics:
-    """Calculate and display syndat metrics.
+    """Calculate and display Syndat metrics.
 
     Calculates metrics:
     - Jensen-Shannon Distance
@@ -131,7 +141,7 @@ def calculate_metrics(real: pd.DataFrame, synth: pd.DataFrame,) -> SyndatMetrics
 def calculate_metrics_ui(
     real: pd.DataFrame, synth: pd.DataFrame, prev_metrics: SyndatMetrics | None = None,
 ) -> SyndatMetrics:
-    """Calculate and display syndat metrics (UI).
+    """Calculate and display Syndat metrics (UI).
 
     Calculates metrics:
     - Jensen-Shannon Distance
@@ -152,7 +162,7 @@ def calculate_metrics_ui(
 
 
 def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | None = None,) -> None:
-    """Display syndat metrics (UI).
+    """Display Syndat metrics (UI).
 
     Args:
         metrics (SyndatMetrics): Calculated metrics and captured output messages.
@@ -160,7 +170,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     st.subheader("Fidelity and utility metrics")
     st.write(
         "The synthetic data should resemble the original dataset. We record the following metrics "
-        "from syndat to determine the dataset's fidelity:\n"
+        "from Syndat to determine the dataset's fidelity:\n"
         "- Jensen-Shannon Distance\n"
         "- Normalized correlation difference\n"
         "- Discriminator AUC\n\n"
@@ -198,7 +208,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
 
     st.metric(
-        label="Jensen-Shannon Divergence (average)",
+        label="**Average Jensen-Shannon Divergence**",
         value=metrics.jsd["jsd_AVERAGE"],
         delta=calculate_delta(
             current=metrics.jsd["jsd_AVERAGE"],
@@ -230,7 +240,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     prev_norm_corr_diff = prev_metrics.norm_corr_diff if prev_metrics is not None else None
 
     st.metric(
-        label="Normalized correlation difference",
+        label="**Normalized correlation difference**",
         value=metrics.norm_corr_diff,
         delta=calculate_delta(
             current=metrics.norm_corr_diff,
@@ -265,7 +275,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
         prev_discrim_auc = prev_metrics.discrim_auc if prev_metrics is not None else None
 
         st.metric(
-            label="Discriminator AUC",
+            label="**Discriminator AUC**",
             value=metrics.discrim_auc,
             delta=calculate_delta(
                 current=metrics.discrim_auc,

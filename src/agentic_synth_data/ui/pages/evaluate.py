@@ -14,8 +14,8 @@ st.space("small")
 
 st.write("Evaluate whether the synthetic data is satisfactory.")
 st.write(
-    "This step involves combining metrics from both [syndat](https://syndat.scai.fraunhofer.de/) "
-    "and from [anonymeter](https://github.com/statice/anonymeter) to assess the fidelity and "
+    "This step involves combining metrics from both [Syndat](https://syndat.scai.fraunhofer.de/) "
+    "and from [Anonymeter](https://github.com/statice/anonymeter) to assess the fidelity and "
     "utility as well as the privacy of the synthetic dataset."
 )
 

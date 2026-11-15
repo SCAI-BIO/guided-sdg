@@ -263,7 +263,7 @@ def calculate_attack_metrics_ui(
     st.write(
         "The synthetic dataset should also preserve privacy such that no sensitive information can "
         "be derived nor determined from the dataset. We record the following metrics from "
-        "anonymeter to determine the dataset's privacy."
+        "Anonymeter to determine the dataset's privacy."
     )
 
     anonymeter_input = prepare_anonymeter_input(
@@ -387,7 +387,7 @@ def display_attack_metrics_ui(
     prev_metrics: AttackMetrics | None = None,
 ) -> None:
     """Display what was calculated from Anonymeter's functions and the variables that were used
-    to calculate the metrics. This is done because, unlike syndat, these functions take longer to 
+    to calculate the metrics. This is done because, unlike Syndat, these functions take longer to 
     run.
 
     Args:
@@ -401,7 +401,7 @@ def display_attack_metrics_ui(
     st.write(
         "The synthetic dataset should also preserve privacy such that no sensitive information can "
         "be derived nor determined from the dataset. We record the following metrics from "
-        "anonymeter to determine the dataset's privacy."
+        "Anonymeter to determine the dataset's privacy."
     )
 
     singling_out_risk = attack_metrics.singling_out
@@ -526,7 +526,7 @@ def display_privacy_risk_ui(
             the previous version. Defaults to None (initial version).
     """
     st.metric(
-        label=label,
+        label=f"**{label}**",
         value=f"{value:.2%}",
         delta=calculate_delta(
             current=value,
@@ -635,7 +635,7 @@ def value_exists(candidate: object, *dfs: pd.DataFrame) -> bool:
 
 def find_unique_string(*dfs: pd.DataFrame) -> str:
     """" Find a unique string that can be used a fill in for missing values
-    such that anonymeter may be applied.
+    such that Anonymeter may be applied.
 
     Returns:
         str: Missing value marker applied.
