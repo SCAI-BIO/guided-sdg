@@ -1,7 +1,14 @@
+from pathlib import Path
+
 from dotenv import load_dotenv
 import streamlit as st
 
 from agentic_synth_data.utils import colorize_multiselect
+
+
+IMAGES_DIR = Path(__file__).resolve().parents[1] / "images"
+
+LOGO_PATH = Path("/src/agentic_synth_data/images/icon.jpg")
 
 
 load_dotenv()
@@ -15,6 +22,7 @@ about_msg = (
 
 st.set_page_config(
     page_title="GuidedSDG",
+    page_icon=str(IMAGES_DIR / "analysis.png"),
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
@@ -22,6 +30,12 @@ st.set_page_config(
         "Report a bug": "https://github.com/SCAI-BIO/agentic-synth-data/issues",
         "About": about_msg,
     },
+)
+
+st.logo(
+    IMAGES_DIR / "logo-img.png",
+    icon_image=IMAGES_DIR / "logo-img.png",
+    size="large",
 )
 
 colorize_multiselect()
