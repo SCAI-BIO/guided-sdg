@@ -1,8 +1,7 @@
 
 # GuidedSDG
 
-**An agentic decision-support workflow for Synthetic Data Generation (SDG)**
-
+![guided-sdg-image](src/agentic_synth_data/images/icon.png)
 
 GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation.
 
@@ -112,19 +111,21 @@ docker compose down # ""
 
 | Step | | Description | LLM assistance |
 |------|---------|-------------|-----------|
-| 1 | | Load dataset. | |
-| 2 | | Select preferences. | |
+| 1 | | Load dataset and configure LLM agent. | |
+| 2 | | Select synthesis preferences. | |
 | 3 | a) | Detect and standardize missing value markers. | |
-| | b) | Infer data types (Python and semantic). | ✓ |
+| | b) | Infer Python data types and semantic types. | ✓ |
 | | c) | Select covariates. | |
-| | d) | Train/test split. | |
+| | d) | Split data into training and test sets. | |
 | | e) | Recommend generator (CTGAN, PATEGAN, BayesianNet, PrivBayes). | ✓ |
-| | f) | Apply missing value handling strategy (if needed). | ✓ |
+| | f) | Recommend and apply a missing value handling strategy (if necessary). | ✓ |
 | 4 | a) | Save the prepared dataset. | |
-| | b) | Generate metadata file for generator input. | |
-| 5 | | Run the selected synthetic data generator. | |
-| 6 | | Evaluate synthetic data against the original dataset. | ✓ |
-| 7 | | Generate a workflow report. | |
+| | b) | Generate metadata for generator input. | |
+| 5 | | Generate synthetic data using the selected generator. | |
+| 6 | a) | Calculate fidelity and privacy evaluation metrics. | |
+| | b) | Interpret evaluation results and recommend improvements. | ✓ |
+| | c) | Generate a workflow report. | |
+| 7 | | Optionally revise workflow decisions and repeat generation and evaluation. | ✓ |
 
 *Info:* Each check mark (✓) indicates that the LLM agent is invoked to assist during the workflow. The agent is only involved in making suggestions.
 
@@ -132,7 +133,7 @@ docker compose down # ""
 - Using generative models from [Synthetic Data Release](https://github.com/spring-epfl/synthetic_data_release).
 - Using synthetic data evaluation metrics from [syndat](https://github.com/SCAI-BIO/syndat)
 - Using privacy risk evaluation metrics from [anonymeter](https://github.com/statice/anonymeter)
-
+- <a href="https://www.flaticon.com/free-icons/chart" title="chart icons">Chart icons created by mynamepong - Flaticon</a>
 
 ## Project structure
 ```bash
