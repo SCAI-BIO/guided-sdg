@@ -13,7 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 import streamlit as st
 import st_yled
 
-from agentic_synth_data.prompts.system_prompt import json_repair_prompt
+from agentic_synth_data.prompts.system import json_repair_prompt
 
 
 # ============================================================================
@@ -147,31 +147,44 @@ def newline_every_n_words(option: str, n: int) -> str:
     return "\n".join(lines)
 
 
-def display_synthesis_request(synthesis_request: "SynthesisRequest") -> None:
+def display_synthesis_request(request: "SynthesisRequest") -> None:
     """Display the synthesis request after initial specification.
     
         Args:
-            synthesis_request (SynthesisRequest): User preferences for data synthesis.
+            request (SynthesisRequest): User preferences for data synthesis.
     """
-    print(f"Sample size mode: {format_option(synthesis_request.sample_size.mode)}")
+    print(f"Sample size mode: {format_option(request.sample_size.mode)}")
 
-    if synthesis_request.sample_size.fixed_value is not None:
-        print(f"Sample size: {synthesis_request.sample_size.fixed_value}")
+    if request.sample_size.fixed_value is not None:
+        print(f"Sample size: {request.sample_size.fixed_value}")
 
     print(
-        f"Privacy mode: {format_option(synthesis_request.privacy.mode)}\n"
-        f"Generator: {synthesis_request.generator.name}\n"
-        f"Missing value handling: {synthesis_request.missing_values.mode}"
+        f"Privacy mode: {request.privacy.mode}\n"
+        f"Generator: {request.generator.name}\n"
+        f"Missing value handling: {request.missing_values.mode}"
     )
 
-    if synthesis_request.missing_values.mode == "impute":
+    if request.missing_values.mode == "impute":
         print(
-            f"- Imputer: {synthesis_request.missing_values.impute.method}\n"
+            f"- Imputer: {request.missing_values.impute.method}\n"
             "- Categorical strategy: "
-            f"{format_option(synthesis_request.missing_values.impute.categorical_strategy)}\n"
+            f"{format_option(request.missing_values.impute.categorical_strategy)}\n"
             "- Numerical strategy: "
-            f"{format_option(synthesis_request.missing_values.impute.numerical_strategy)}"
+            f"{format_option(request.missing_values.impute.numerical_strategy)}"
         )
+
+
+def step(name: str, space: bool = True) -> None:
+    """Display the name of the current step reached.
+
+    Args:
+        name (str): Name of the step.
+        space (bool): Whether the step needs spaces for readability. Defaults to True.
+    """
+    if space:
+        print("\n\n")
+
+    print("=" * 25 + f"[STEP: {name}]" + "=" * 25)
 
 
 def step(name: str, space: bool = True) -> None:
@@ -191,30 +204,30 @@ def step(name: str, space: bool = True) -> None:
 # UI helpers
 # ============================================================================
 
-def display_synthesis_request_st(synthesis_request: "SynthesisRequest") -> None:
+def display_synthesis_request_st(request: "SynthesisRequest") -> None:
     """Display the synthesis request after initial specification (UI).
 
     Args:
-        synthesis_request (SynthesisRequest): User preferences for data synthesis.
+        request (SynthesisRequest): User preferences for data synthesis.
     """
-    st.write(f"\n**Sample size mode:** {format_option(synthesis_request.sample_size.mode)}")
+    st.write(f"\n**Sample size mode:** {format_option(request.sample_size.mode)}")
 
-    if synthesis_request.sample_size.fixed_value is not None:
-        st.write(f"**Sample size:** {synthesis_request.sample_size.fixed_value}")
+    if request.sample_size.fixed_value is not None:
+        st.write(f"**Sample size:** {request.sample_size.fixed_value}")
 
     st.write(
-        f"**Privacy mode:** {format_option(synthesis_request.privacy.mode)}\n\n"
-        f"**Generator:** {synthesis_request.generator.name}\n\n"
-        f"**Missing value handling:** {synthesis_request.missing_values.mode}"
+        f"**Privacy mode:** {format_option(request.privacy.mode)}\n\n"
+        f"**Generator:** {request.generator.name}\n\n"
+        f"**Missing value handling:** {request.missing_values.mode}"
     )
 
-    if synthesis_request.missing_values.mode == "impute":
+    if request.missing_values.mode == "impute":
         st.write(
-            f"- **Imputer:** {synthesis_request.missing_values.impute.method}\n\n"
+            f"- **Imputer:** {request.missing_values.impute.method}\n\n"
             "- **Categorical strategy:** "
-            f"{format_option(synthesis_request.missing_values.impute.categorical_strategy)}\n\n"
+            f"{format_option(request.missing_values.impute.categorical_strategy)}\n\n"
             "- **Numerical strategy:** "
-            f"{format_option(synthesis_request.missing_values.impute.numerical_strategy)}"
+            f"{format_option(request.missing_values.impute.numerical_strategy)}"
         )
 
 

@@ -6,9 +6,9 @@ import pandas as pd
 from pydantic import BaseModel, Field
 import streamlit as st
 
-from agentic_synth_data.schemas.attack_model import AttackMetrics
-from agentic_synth_data.schemas.models import SynthesisRequest
-from agentic_synth_data.schemas.syndat_model import SyndatMetrics
+from agentic_synth_data.schemas.privacy import AttackMetrics
+from agentic_synth_data.schemas.synthesis_request import SynthesisRequest
+from agentic_synth_data.schemas.syndat import SyndatMetrics
 from agentic_synth_data.utils import OUTPUT_DIR
 
 
@@ -83,13 +83,13 @@ class Report(BaseModel):
 # Note: tabulate package is required for dtype_table.to_markdown(), think if needed/alternative can be used
 # possible TODO: break into section pieces, but first determine what the report should look like/sections should look like...
 def write_report(
-    report: Report, synthesis_request: SynthesisRequest, data_path: str, version_id: int,
+    report: Report, request: SynthesisRequest, data_path: str, version_id: int,
 ) -> None:
     """Write a workflow report based on decisions made during the synthetic data generation process.
 
     Args:
         report (Report): Dictionary containing information gathered throughout the workflow steps.
-        synthesis_request (SynthesisRequest): Dictionary with the user's preferences.
+        request (SynthesisRequest): Dictionary with the user's preferences.
         data_path (str): Initial path of the data (used for naming the report).
         version_id (int): Denotes the version of the workflow attempt.
     """
@@ -130,7 +130,7 @@ Replaced markers:
 {fmt(report.prep.missing_markers_replaced)}
 ```
 """
-    # Syndat and anonymeter metrics
+    # Syndat and Anonymeter metrics
     syndat = report.evaluate.syndat
     attack = report.evaluate.attack
     syndat_output = syndat.output_messages
@@ -240,7 +240,7 @@ The number of unique values per feature (cardinality):
 
 ### Missing-value handling
 
-**Selected method:** {synthesis_request.missing_values.mode}
+**Selected method:** {request.missing_values.mode}
 
 | Dataset | Before handling | After handling |
 |---|---|---|
@@ -250,7 +250,7 @@ The number of unique values per feature (cardinality):
 **Total remaining:** {remaining:,} missing values (Train: {train_after:,}; Test: {test_after:,}).
 
 ### Generation:
-**Chosen generator:** {synthesis_request.generator.name}
+**Chosen generator:** {request.generator.name}
 
 **Parameters:** {report.gen.params}
 
