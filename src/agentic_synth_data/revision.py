@@ -287,7 +287,7 @@ def generator_update_ui(
         key=f"generator_revision_info_{version_id}",
     )
 
-    st.write("Suggested data generator(s) to try:")
+    st.write("**Suggested data generator(s):**")
 
     menu_options = {}
 

@@ -295,7 +295,7 @@ def handle_missing_values(
                     "default ('Unknown'):"
                 )
 
-                fill_value = pyip.inputStr()
+                fill_value = pyip.inputStr(blank=True,)
 
                 if fill_value == "":
                     fill_value = "Unknown"

@@ -105,7 +105,7 @@ with col1:
     api_key = None
 
     if provider == "openai":
-        env_key = env.get("OPENAI_API_KEY")
+        env_key = env.get("OPENAI_API_KEY") if provider == env_provider else None
 
         api_key_input = st.text_input(
             label="**API key**",
@@ -162,10 +162,9 @@ with col2:
         st.session_state.tester_selected = False
 
     ready = (
-            file is not None or data_source == "Titanic demo" and
-            provider is not None and
-            bool(model_id.strip())
-        )
+        (file is not None or data_source == "Titanic demo") and
+        bool(model_id.strip())
+    )
 
     _, _, col3 = st.columns(3)
 
@@ -187,25 +186,38 @@ if start:
 
     file_name = data_path.name
 
-    # Start a new workflow
-    st.session_state.clear()
-
-    gen = DataGen(
-        data_path,
-        model_id=model_id,
-        provider=provider,
-        api_key=api_key,
-        base_url=base_url,
-    )
-
     with st.spinner("Checking model connection..."):
-        connected, message = gen.check_model_connection()
+        try:
+            gen = DataGen(
+                data_path,
+                model_id=model_id,
+                provider=provider,
+                api_key=api_key,
+                base_url=base_url,
+            )
+
+            connected, message = gen.check_model_connection()
+
+        except Exception as exc:
+            st.error(
+                f"Model initialization failed ({type(exc).__name__}). Check your model "
+                "configuration."
+            )
+            st.stop()
 
     if not connected:
         st.error(message)
         st.stop()
 
-    gen.load_dataframe()
+    try:
+        gen.load_dataframe()
+
+    except Exception as exc:
+        st.error(f"Dataset loading failed: {exc}")
+        st.stop()
+
+    # Start a new workflow
+    st.session_state.clear()
 
     st.session_state.gen = gen
     st.session_state.file_name = file_name

@@ -209,7 +209,7 @@ def evaluation_review_ui(
         st.session_state.evaluation_review_history = []
 
     confirm = st.selectbox(
-        "Do you have questions about the evaluation results?",
+        "**Do you have questions about the evaluation results?**",
         ["yes", "no"],
         index=None,
         key=f"evaluation_review_confirm_{version_id}",
@@ -259,10 +259,10 @@ def evaluation_review_ui(
             st.stop()
 
     # If no is selected:
-    st.write(f"Workflow result status: {format_option(agent_decision.status)}")
+    st.write(f"**Workflow result status:** {format_option(agent_decision.status)}")
 
     choice = st.selectbox(
-        label="Would you like to finish or revise the workflow?",
+        label="**Would you like to finish or revise the workflow?**",
         options=["finish", "revise"],
         index=None,
         key=f"evaluation_workflow_choice_{version_id}",

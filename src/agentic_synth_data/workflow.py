@@ -2,6 +2,7 @@ import copy
 from contextlib import redirect_stdout
 from pathlib import Path
 import os
+from typing import cast
 
 from langchain_core.runnables import RunnableConfig
 import pandas as pd
@@ -51,7 +52,14 @@ class DataGen:
     # Initialization and configuration
     # ============================================================================
 
-    def __init__(self, data_path):
+    def __init__(
+            self,
+            data_path,
+            model_id: str | None = None,
+            provider: str | None = None,
+            api_key: str | None = None,
+            base_url: str | None = None,
+    ):
         # Workflow identification and revision state
         self.data_path: str = data_path
         self.version_id = 1
@@ -83,21 +91,56 @@ class DataGen:
         self.synthetic_path: Path | None = None
 
         # Agent configuration
-        self.model: BaseChatModel = self.create_model()
+        self.model: BaseChatModel = self.create_model(
+            model_id=model_id,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+        )
+
         self.checkpointer: InMemorySaver = InMemorySaver()
         self.config: RunnableConfig = {"configurable": {"thread_id": 1}}
         self.agent: CompiledStateGraph = self.create_agent()
 
 
-    def create_model(self) -> BaseChatModel:
+    def create_model(
+        self,
+        model_id: str | None = None,
+        provider: str | None = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+    ) -> BaseChatModel:
         """Initialize the selected large language model."""
-        model = init_chat_model(
-            "deepseek-ai/DeepSeek-V4.1-Flash",
-            model_provider="openai",
-            base_url=os.environ.get("BASE_URL"),
-        )
+        env_provider = os.getenv("MODEL_PROVIDER")
 
-        return model
+        model_id = model_id or os.getenv("MODEL_ID")
+        provider = provider or os.getenv("MODEL_PROVIDER", "openai")
+
+        if base_url is None and provider == env_provider:
+            base_url = os.getenv("BASE_URL")
+
+        kwargs: dict[str, str] = {}
+
+        if base_url:
+            kwargs["base_url"] = base_url
+
+        if provider == "lm-studio":
+            provider = "openai"
+            kwargs.setdefault("base_url", "http://localhost:1234/v1")
+            kwargs["api_key"] = api_key or "lm-studio"
+
+        elif provider != "ollama" and api_key:
+            kwargs["api_key"] = api_key
+
+        return cast(
+            BaseChatModel,
+            init_chat_model(
+                model=model_id,
+                model_provider=provider,
+                configurable_fields=None,
+                **kwargs,
+            ),
+        )
 
 
     def create_agent(self) -> CompiledStateGraph:
@@ -109,6 +152,16 @@ class DataGen:
         )
 
         return agent
+
+
+    def check_model_connection(self) -> tuple[bool, str]:
+        """Check whether the configured LLM can process a request."""
+        try:
+            self.model.invoke("Respond with OK.")
+            return True, "Model connection successful."
+
+        except Exception as exc:
+            return False, f"Model connection failed: {exc}"
 
 
     # ============================================================================
