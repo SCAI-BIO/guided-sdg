@@ -49,8 +49,15 @@ Create a `.env` file with the necessary API credentials for the configured langu
 - Note: OpenAI compatible APIs are currently permitted.
 
 ```python
-OPENAI_API_KEY="your-key-here"
-BASE_URL="https://your-openai-compatible-endpoint/v1"
+# Supported Streamlit providers: openai, ollama, lm-studio
+MODEL_PROVIDER=openai
+MODEL_ID=your-model-identifier
+
+# Authentication (required for hosted OpenAI-compatible APIs)
+OPENAI_API_KEY=your-api-key
+
+# API endpoint (optional if using the provider's default)
+BASE_URL=https://your-provider-endpoint/v1
 ```
 
 
@@ -72,9 +79,7 @@ docker build -t guided-sdg .
 docker compose up -d --build
 ```
 
-Access the Streamlit interface at:
-
-http://localhost:8080
+Click [here](http://localhost:8080) to access the Streamlit interface after running the container.
 
 To stop the containers:
 ```bash
