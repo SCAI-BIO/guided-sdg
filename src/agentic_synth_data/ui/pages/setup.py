@@ -67,40 +67,6 @@ st.space("small")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Data source")
-
-    data_source = st.radio(
-        label="**Data source**",
-        options=["Upload CSV", "Titanic demo"],
-        horizontal=True,
-        #label_visibility="hidden",
-    )
-
-    file = None
-
-    if data_source == "Upload CSV":
-        file = st.file_uploader(
-            "**Load a dataset**",
-            type=["csv"],
-            help="Maximum file size: 200 MB.",
-        )
-
-        st.caption(
-            "Your data will only be used for the workflow and will not be saved anywhere."
-        )
-
-    else:
-        st.write(
-            "Try GuidedSDG with a sample Titanic dataset containing numerical and categorical "
-            "features."
-        )
-
-        st.success("Titanic dataset selected.")
-
-    if "tester_selected" not in st.session_state or file is not None:
-        st.session_state.tester_selected = False
-
-with col2:
     st.subheader("Language model")
 
     providers = ["openai", "ollama", "lm-studio"]
@@ -161,19 +127,52 @@ with col2:
             label="**API endpoint**", value=env_url or "", placeholder="Optional",
         ) or None
 
+with col2:
+    st.subheader("Data source")
 
-    ready = (
-        file is not None or data_source == "Titanic demo" and
-        provider is not None and
-        bool(model_id.strip())
+    data_source = st.radio(
+        label="**Data source**",
+        options=["Upload CSV", "Titanic demo"],
+        horizontal=True,
+        #label_visibility="hidden",
     )
 
-_, _, col3 = st.columns(3)
+    file = None
 
-with col3:
-    st.space("medium")
+    if data_source == "Upload CSV":
+        file = st.file_uploader(
+            "**Load a dataset**",
+            type=["csv"],
+            help="Maximum file size: 200 MB.",
+        )
 
-    start = st.button("Start", disabled=not ready, type="primary",)
+        st.caption(
+            "Your data will only be used for the workflow and will not be saved anywhere."
+        )
+
+    else:
+        st.write(
+            "Try GuidedSDG with a sample Titanic dataset containing numerical and categorical "
+            "features."
+        )
+
+        st.success("Titanic dataset selected.")
+
+    if "tester_selected" not in st.session_state or file is not None:
+        st.session_state.tester_selected = False
+
+    ready = (
+            file is not None or data_source == "Titanic demo" and
+            provider is not None and
+            bool(model_id.strip())
+        )
+
+    _, _, col3 = st.columns(3)
+
+    with col3:
+        st.space("medium")
+
+        start = st.button("Start", disabled=not ready, type="primary",)
 
 if start:
     if data_source == "Titanic demo":
