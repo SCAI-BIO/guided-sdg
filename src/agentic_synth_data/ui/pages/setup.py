@@ -1,9 +1,10 @@
-import shutil # Temporary while clear_output_ui exists
 import time
 
 import streamlit as st
 from dotenv import dotenv_values
 
+from agentic_synth_data.llm import check_model_connection
+from agentic_synth_data.ui.helpers import clear_output_ui # NOTE: temporary
 from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR, PROJECT_ROOT, comma_sep, \
     display_workflow_progress
 from agentic_synth_data.workflow import DataGen
@@ -152,7 +153,7 @@ with col2:
 
     else:
         st.write(
-            "Try GuidedSDG with a sample Titanic dataset containing numerical and categorical "
+            "Try **GuidedSDG** with a sample Titanic dataset containing numerical and categorical "
             "features."
         )
 
@@ -187,23 +188,15 @@ if start:
     file_name = data_path.name
 
     with st.spinner("Checking model connection..."):
-        try:
-            gen = DataGen(
-                data_path,
-                model_id=model_id,
-                provider=provider,
-                api_key=api_key,
-                base_url=base_url,
-            )
+        gen = DataGen(
+            data_path,
+            model_id=model_id,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+        )
 
-            connected, message = gen.check_model_connection()
-
-        except Exception as exc:
-            st.error(
-                f"Model initialization failed ({type(exc).__name__}). Check your model "
-                "configuration."
-            )
-            st.stop()
+        connected, message = check_model_connection(gen.model)
 
     if not connected:
         st.error(message)
@@ -223,28 +216,6 @@ if start:
     st.session_state.file_name = file_name
 
     st.switch_page("pages/preferences.py")
-
-
-def clear_output_ui(): # Temporary fn
-    """Delete all files and subdirectories inside output/."""
-    output_dir = PROJECT_ROOT / "output"
-
-    if st.button("Clear output folder", key="clear_output_button"):
-        st.session_state.confirm_clear_output = True
-
-    if st.session_state.get("confirm_clear_output", False):
-        st.warning("This will permanently delete all files and folders inside output/.")
-
-        if st.button("Confirm deletion", key="confirm_clear_output_button"):
-            if output_dir.exists():
-                for item in output_dir.iterdir():
-                    if item.is_dir() and not item.is_symlink():
-                        shutil.rmtree(item)
-                    else:
-                        item.unlink()
-
-            st.session_state.confirm_clear_output = False
-            st.success("Output folder cleared.")
 
 with st.sidebar:
     st.subheader("Developer tools")
