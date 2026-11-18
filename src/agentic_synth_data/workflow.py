@@ -4,14 +4,17 @@ from pathlib import Path
 import os
 from typing import cast
 
-from langchain_core.runnables import RunnableConfig
 import pandas as pd
-from sklearn.model_selection import train_test_split
 import streamlit as st
 from langchain.agents import create_agent
-from langchain.chat_models import init_chat_model, BaseChatModel
+from langchain.chat_models import BaseChatModel, init_chat_model
+from langchain_core.exceptions import ModelAPIError, ModelAuthenticationError, \
+    ModelConnectionError, ModelInvalidRequestError, ModelNotFoundError, \
+    ModelPermissionDeniedError, ModelRateLimitError, ModelTimeoutError
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
+from sklearn.model_selection import train_test_split
 
 from agentic_synth_data.evaluation.assessment import display_agent_evaluation_ui, \
     evaluation, evaluation_ui, evaluation_review_ui, evaluation_review
@@ -155,13 +158,71 @@ class DataGen:
 
 
     def check_model_connection(self) -> tuple[bool, str]:
-        """Check whether the configured LLM can process a request."""
+        """Check whether the configured LLM can process a request.
+
+        Returns:
+            tuple[bool, str]: A boolean indicating whether the model responded successfully and a
+                message describing the result or error.
+        """
         try:
             self.model.invoke("Respond with OK.")
             return True, "Model connection successful."
 
-        except Exception as exc:
-            return False, f"Model connection failed: {exc}"
+        except ModelAuthenticationError:
+            message = (
+                "Authentication error: Your API key could not be verified. Please check that it is "
+                "entered correctly and has not expired."
+            )
+
+        except ModelPermissionDeniedError:
+            message = (
+                "Permission error: Your account may not have access to use the selected model. "
+                "please check your provider account settings."
+            )
+
+        except ModelNotFoundError:
+            message = (
+                "Model not found: Please check that the selected model name is correct and "
+                "available through your provider."
+            )
+
+        except ModelInvalidRequestError:
+            message = (
+                "Invalid request: Your model provider rejected the request. Please check that the "
+                "model identifier is correct and that your model configuration is supported."
+            )
+
+        except ModelRateLimitError:
+            message = (
+                "Rate limit exceeded: Your model provider is currently limiting requests. Please "
+                "try again later or check your account's usage limits."
+            )
+
+        except ModelTimeoutError:
+            message = (
+                "Request timed out: The model took too long to respond. Please try again or check "
+                "your network connection."
+            )
+
+        except ModelConnectionError:
+            message = (
+                "Connection error: Could not connect to the model provider. Please check your "
+                "internet connection or verify your local model server is running."
+            )
+
+        except ModelAPIError:
+            message = (
+                "Provider error: The model provider encountered an error while processing your "
+                "request. Please try again later."
+            )
+
+        except Exception as exc: # pylint: disable=broad-exception-caught
+            message = (
+                "An unexpected error occurred while checking the model connection. Error type: "
+                f"{type(exc).__name__}."
+            )
+
+        return False, message
 
 
     # ============================================================================
