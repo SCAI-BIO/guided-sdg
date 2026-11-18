@@ -1,6 +1,3 @@
-
-# GuidedSDG
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="src/agentic_synth_data/images/icon-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="src/agentic_synth_data/images/icon.png">
