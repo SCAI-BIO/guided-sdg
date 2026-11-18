@@ -208,7 +208,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
 
     st.metric(
-        label="**Average Jensen-Shannon Divergence**",
+        label="**Average Jensen-Shannon Distance**",
         value=metrics.jsd["jsd_AVERAGE"],
         delta=calculate_delta(
             current=metrics.jsd["jsd_AVERAGE"],
@@ -304,7 +304,7 @@ def encode_for_correlation(
 
     Args:
         real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synth (pd.DataFrame): The synthetically generated dataframe.
         max_categories (int, optional): _description_. Defaults to 10.
 

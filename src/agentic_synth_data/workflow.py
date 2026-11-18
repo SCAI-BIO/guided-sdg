@@ -328,7 +328,7 @@ class DataGen:
         cols = self.dtype_handled_df.columns.tolist()
 
         selected_cols = st.multiselect(
-            label="Select features:",
+            label="**Select features:**",
             options=cols,
             default=cols,
             key="selected_covariates",
@@ -343,7 +343,7 @@ class DataGen:
             f"{comma_sep(selected_cols)}"
         )
 
-        finished = st.button(label="Continue with the current selection.",)
+        finished = st.button(label="Continue with the current selection",)
 
         if not finished:
             st.stop()
@@ -351,8 +351,12 @@ class DataGen:
         self.selected_df = self.dtype_handled_df[selected_cols].copy()
 
         # Update stypes and dtypes to exclude selected cols
-        self.report.prep.stypes = {col: self.report.prep.stypes[col] for col in self.selected_df.columns}
-        self.report.prep.dtypes = {col: self.report.prep.dtypes[col] for col in self.selected_df.columns}
+        self.report.prep.stypes = {
+            col: self.report.prep.stypes[col] for col in self.selected_df.columns
+        }
+        self.report.prep.dtypes = {
+            col: self.report.prep.dtypes[col] for col in self.selected_df.columns
+        }
 
         self.train_df, self.test_df = train_test_split(self.selected_df, test_size=0.2)
 

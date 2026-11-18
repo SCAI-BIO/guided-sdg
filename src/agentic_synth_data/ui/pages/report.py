@@ -97,7 +97,7 @@ if comparison_tab is not None and comparison_tab.open:
                     "Comparison of normalized fidelity (Syndat; higher is better) and privacy risk "
                     "(Anonymeter; lower is better) scores across versions, scaled to 0–100. The "
                     "green line represents the fidelity and privacy trade-off "
-                    "`(mean fidelity - mean privacy risk)`, with available metrics equally "
+                    "(mean fidelity - mean privacy risk), with available metrics equally "
                     "weighted."
                 )
 

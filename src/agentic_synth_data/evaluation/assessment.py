@@ -219,7 +219,7 @@ def evaluation_review_ui(
         st.stop()
 
     if confirm == "yes":
-        st.caption("Questions about the evaluation")
+        st.caption("**Ask questions about the evaluation**")
         with st.container(border=True, height=350):
             for item in st.session_state.evaluation_review_history:
                 with st.chat_message("user"):

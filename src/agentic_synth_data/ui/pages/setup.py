@@ -147,7 +147,7 @@ with col2:
         )
 
         st.caption(
-            "Your data will only be used for the workflow and will not be saved anywhere."
+            "**Note:** Your data will only be used for the workflow and will not be saved anywhere."
         )
 
     else:

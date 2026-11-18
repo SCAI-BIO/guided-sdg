@@ -296,7 +296,8 @@ def generator_update_ui(
         st.write(f"- **{option.generator_name}:** {option.reason}")
 
     choice = st.selectbox(
-        label="Select a generator revision option. Select cancel to retain your current selection.",
+        label="**Select a generator revision option. Select cancel to retain your current " \
+            "selection.**",
         options=list(menu_options.keys()) + ["Cancel"],
         index=None,
         key=f"rerun_generator_update_{version_id}",
@@ -573,7 +574,7 @@ def missing_update_ui(
         menu_options[label] = option
 
     choice = st.selectbox(
-        label="Select a missing value revision option:",
+        label="**Select a missing value revision option:**",
         options=list(menu_options.keys()) + ["Cancel"],
         index=None,
     )
