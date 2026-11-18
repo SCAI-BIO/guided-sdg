@@ -7,11 +7,8 @@ from agentic_synth_data.utils import SemanticTypes
 
 def missing_value_prompt(
     proportion_missing_train: dict[Hashable, Any],
-    proportion_missing_test: dict[Hashable, Any],
     rows_with_missing_train: int,
-    rows_with_missing_test: int,
     total_rows_train: int,
-    total_rows_test: int,
     request: dict[str, Any],
     stypes: SemanticTypes,
 ) -> str:
@@ -30,15 +27,12 @@ def missing_value_prompt(
 
     Missing value proportions per column for:
     - Training set: {proportion_missing_train}
-    - Test set: {proportion_missing_test}
 
     Rows with at least one missing value for:
     - Training set: {rows_with_missing_train}
-    - Test set: {rows_with_missing_test}
 
     Total rows for:
     - Training set: {total_rows_train}
-    - Test set: {total_rows_test}
 
     Current synthesis request:
     {request}

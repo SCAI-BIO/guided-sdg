@@ -71,7 +71,6 @@ class DataGen:
         self.train: pd.DataFrame # Initial train split of selected
         self.test: pd.DataFrame # Initial test split of selected
         self.prep_train: pd.DataFrame # Preprocessed train split (for generator input)
-        self.prep_test: pd.DataFrame # Preprocessed test split (remove missing values only)
         self.synthetic: pd.DataFrame # Synthetic data
 
         # Generated file paths
@@ -363,7 +362,7 @@ class DataGen:
             vi. Handle missing values (if needed for the generator)
         """
         self.report.prep.train_missing_before = self.train.isna().sum().sum()
-        self.report.prep.test_missing_before = self.test.isna().sum().sum()
+        self.report.prep.test_missing = self.test.isna().sum().sum()
 
         mechanism = self.request.generator.name
 
@@ -372,7 +371,6 @@ class DataGen:
 
             result = handle_missing_values(
                 train=self.train.copy(),
-                test=self.test.copy(),
                 request=self.request,
                 stypes=self.report.prep.stypes,
                 agent=self.agent,
@@ -380,11 +378,10 @@ class DataGen:
             )
 
             if result is not None:
-                self.prep_train, self.prep_test, self.request = result
+                self.prep_train, self.request = result
 
         else:
             self.prep_train = self.train.copy()
-            self.prep_test = self.test.copy()
 
             print(
                 "\nThe selected data generator does not require missing value handling: "
@@ -404,9 +401,7 @@ class DataGen:
         self.request.missing_values.mode = None
 
         self.report.input.prep_train_shape = self.prep_train.shape
-        self.report.input.prep_test_shape = self.prep_test.shape
         self.report.prep.train_missing_after = self.prep_train.isna().sum().sum()
-        self.report.prep.test_missing_after = self.prep_test.isna().sum().sum()
 
         return self.prep_train, self.request
 
@@ -425,7 +420,6 @@ class DataGen:
 
             result = handle_missing_values_ui(
                 train=self.train.copy(),
-                test=self.test.copy(),
                 request=self.request,
                 stypes=self.report.prep.stypes,
                 agent=self.agent,
@@ -433,11 +427,10 @@ class DataGen:
             )
 
             if result is not None:
-                self.prep_train, self.prep_test, self.request = result
+                self.prep_train, self.request = result
 
         else:
             self.prep_train = self.train.copy()
-            self.prep_test = self.test.copy()
 
             st.info(
                 f"The selected data generator does not require missing value handling: {mechanism}."
@@ -453,9 +446,7 @@ class DataGen:
             self.request.missing_values.mode = None
 
         self.report.input.prep_train_shape = self.prep_train.shape
-        self.report.input.prep_test_shape = self.prep_test.shape
         self.report.prep.train_missing_after = self.prep_train.isna().sum().sum()
-        self.report.prep.test_missing_after = self.prep_test.isna().sum().sum()
 
         return self.prep_train, self.request
 
@@ -623,8 +614,8 @@ class DataGen:
 
         # ii. Anonymeter metric calculation
         attack_metrics = calculate_attack_metrics(
-            train=self.prep_train.copy(),
-            test=self.prep_test.copy(),
+            train=self.train.copy(),
+            test=self.test.copy(),
             synth=self.synthetic.copy(),
             stypes=self.report.prep.stypes,
             dtypes=self.report.prep.dtypes,
@@ -696,8 +687,8 @@ class DataGen:
             if attack_key not in st.session_state:
                 # ii. Anonymeter metric calculation
                 attack_metrics = calculate_attack_metrics_ui(
-                    train=self.prep_train.copy(),
-                    test=self.prep_test.copy(),
+                    train=self.train.copy(),
+                    test=self.test.copy(),
                     synth=self.synthetic.copy(),
                     stypes=self.report.prep.stypes,
                     dtypes=self.report.prep.dtypes,
@@ -968,7 +959,6 @@ class DataGen:
         altered sections.
         """
         self.prep_train = None
-        self.prep_test = None
         self.prepared_path = None
         self.metadata_path = None
         self.synthetic = None
@@ -993,11 +983,7 @@ class DataGen:
             "parameter_missing_selection",
             "all",
         }:
-            self.report.prep.train_missing_before = {}
-            self.report.prep.test_missing_before = {}
-
             self.report.prep.train_missing_after = {}
-            self.report.prep.test_missing_after = {}
 
         self.report.review = ReviewReport()
 

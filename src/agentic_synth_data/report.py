@@ -32,8 +32,7 @@ class PrepReport(BaseModel):
     stypes: dict = Field(default_factory=dict)
     profile: dict = Field(default_factory=dict)
     train_missing_before: dict = Field(default_factory=dict)
-    test_missing_before: dict = Field(default_factory=dict)
-    test_missing_after: dict = Field(default_factory=dict)
+    test_missing: dict = Field(default_factory=dict)
     train_missing_after: dict = Field(default_factory=dict)
 
 
@@ -167,11 +166,9 @@ Replaced markers:
         return f"{count:,} / {total:,} ({percentage})"
 
     train_before = report.prep.train_missing_before
-    test_before = report.prep.test_missing_before
     train_after = report.prep.train_missing_after
-    test_after = report.prep.test_missing_after
 
-    remaining = train_after + test_after
+    test_missing = report.prep.test_missing
 
     cardinalities = {
         col: values["n_unique"] for col, values in report.prep.profile["col_nunique"].items()
@@ -203,15 +200,16 @@ Replaced markers:
 ### Train/test split information
 The dataset was split into training (80%) and testing (20%) subsets using a random seed of 42.
 
-| Dataset | Original shape | Prepared shape |
-|---|---|---|
-| Training | {report.input.train_shape[0]} rows, {report.input.train_shape[1]} columns | {report.input.prep_train_shape[0]} rows, {report.input.prep_train_shape[1]} columns |
-| Testing | {report.input.test_shape[0]} rows, {report.input.test_shape[1]} columns | {report.input.prep_test_shape[0]} rows, {report.input.prep_test_shape[1]} columns |
+| Dataset | Shape |
+|---|---|
+| Training | {report.input.train_shape[0]} rows, {report.input.train_shape[1]} columns |
+| Testing | {report.input.test_shape[0]} rows, {report.input.test_shape[1]} columns |
+| Prepared training | {report.input.prep_train_shape[0]} rows, {report.input.prep_train_shape[1]} columns |
 
 **Dataset usage:**
-- **Original training:** Syndat fidelity evaluation.
-- **Prepared training:** Synthetic generation and Anonymeter privacy evaluation.
-- **Prepared testing:** Held-out reference for Anonymeter privacy evaluation.
+- **Original training:** Syndat fidelity evaluation and Anonymeter privacy evaluation.
+- **Original testing:** Held-out reference for Anonymeter privacy evaluation.
+- **Prepared training:** Synthetic data generation.
 
 ### Training data profile
 
@@ -242,12 +240,16 @@ The number of unique values per feature (cardinality):
 
 **Selected method:** {request.missing_values.mode}
 
-| Dataset | Before handling | After handling |
-|---|---|---|
-| Training | {missing_summary(train_before, report.input.train_shape)} | {missing_summary(train_after, report.input.prep_train_shape)} |
-| Testing | {missing_summary(test_before, report.input.test_shape)} | {missing_summary(test_after, report.input.prep_test_shape)} |
+| Dataset | Missing values |
+|---|---|
+| Training (before handling) | {missing_summary(train_before, report.input.train_shape)} |
+| Training (after handling) | {missing_summary(train_after, report.input.prep_train_shape)} |
+| Testing (untreated) | {missing_summary(test_missing, report.input.test_shape)} |
 
-**Total remaining:** {remaining:,} missing values (Train: {train_after:,}; Test: {test_after:,}).
+**Total remaining in prepared training:** {train_after:,} missing values.
+
+**Note:** Missing-value handling was applied only to the training dataset.
+The original testing dataset was retained for privacy evaluation.
 
 ### Generation:
 **Chosen generator:** {request.generator.name}
