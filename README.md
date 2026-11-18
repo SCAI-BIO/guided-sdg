@@ -1,7 +1,11 @@
 
 # GuidedSDG
 
-![guided-sdg-image](src/agentic_synth_data/images/icon.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="src/agentic_synth_data/images/icon-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="src/agentic_synth_data/images/icon.png">
+  <img alt="guided-sdg-image" src="src/agentic_synth_data/images/icon.png">
+</picture>
 
 GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation.
 
