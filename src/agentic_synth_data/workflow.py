@@ -5,7 +5,6 @@ import os
 
 from langchain_core.runnables import RunnableConfig
 import pandas as pd
-from sklearn.model_selection import train_test_split
 import streamlit as st
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model, BaseChatModel
@@ -19,6 +18,7 @@ from agentic_synth_data.evaluation.attack_metrics import calculate_attack_metric
 from agentic_synth_data.report import write_report
 from agentic_synth_data.evaluation.syndat_metrics import calculate_metrics, \
     calculate_metrics_ui, generate_plots, generate_plots_ui, display_metrics_ui
+from agentic_synth_data.preparation.data_split import split_by_missingness
 from agentic_synth_data.preparation.dtypes import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.preparation.load import load_df
@@ -162,7 +162,9 @@ class DataGen:
         self.report.prep.dtypes = {col: self.report.prep.dtypes[col] for col in selected_cols}
 
         # Create train/test split
-        self.train, self.test = train_test_split(self.selected, test_size=0.2, random_state=42,)
+        self.train, self.test, split_method = split_by_missingness(df=self.selected.copy())
+
+        self.report.prep.split_method = split_method
         self.report.input.train_shape = self.train.shape
         self.report.input.test_shape = self.test.shape
         return self.train
