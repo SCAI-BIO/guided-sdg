@@ -207,7 +207,17 @@ class DataGen:
             df=dtype_handled_df.copy(), selected_cols=selected_cols,
         )
 
-        print("\n🠊 Created train/test split")
+        method = (
+            "missingness-based stratification"
+            if self.report.prep.split_method == "missing_stratified"
+            else "random sampling"
+        )
+
+        print(
+            f"\n🠊 Created train/test split using {method}: {len(self.train)} training rows and "
+            f"{len(self.test)} testing rows."
+        )
+
         return train
 
 
@@ -310,9 +320,15 @@ class DataGen:
         # iv. Apply feature selection and create train/test split
         train = self._select_features_and_split(df=dtype_handled_df, selected_cols=selected_cols,)
 
+        method = (
+            "missingness-based stratification"
+            if self.report.prep.split_method == "missing_stratified"
+            else "random sampling"
+        )
+
         st.info(
-            f"⇨ Created test/train split: {len(self.train)} training rows and {len(self.test)} "
-            "testing rows."
+            f"⇨ Created train/test split using {method}: {len(self.train)} training rows and "
+            f"{len(self.test)} testing rows."
         )
 
         return train
@@ -413,7 +429,7 @@ class DataGen:
             vi. Handle missing values (if needed for the generator) (UI)
         """
         self.report.prep.train_missing_before = self.train.isna().sum().sum()
-        self.report.prep.test_missing_before = self.test.isna().sum().sum()
+        self.report.prep.test_missing = self.test.isna().sum().sum()
 
         mechanism = self.request.generator.name
 

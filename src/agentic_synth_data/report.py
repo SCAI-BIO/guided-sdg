@@ -9,7 +9,7 @@ import streamlit as st
 from agentic_synth_data.schemas.privacy import AttackMetrics
 from agentic_synth_data.schemas.synthesis_request import SynthesisRequest
 from agentic_synth_data.schemas.syndat import SyndatMetrics
-from agentic_synth_data.utils import OUTPUT_DIR
+from agentic_synth_data.utils import OUTPUT_DIR, format_option
 
 
 class InputReport(BaseModel):
@@ -19,7 +19,6 @@ class InputReport(BaseModel):
     train_shape: tuple[int, int] | None = None
     test_shape: tuple[int, int] | None = None
     prep_train_shape: tuple[int, int] | None = None
-    prep_test_shape: tuple[int, int] | None = None
     version_id: int | None = None
     parent_version: int | None = None
 
@@ -30,6 +29,7 @@ class PrepReport(BaseModel):
     missing_markers_replaced: dict = Field(default_factory=dict)
     dtypes: dict = Field(default_factory=dict)
     stypes: dict = Field(default_factory=dict)
+    split_method: str = ""
     profile: dict = Field(default_factory=dict)
     train_missing_before: dict = Field(default_factory=dict)
     test_missing: dict = Field(default_factory=dict)
@@ -114,6 +114,19 @@ def write_report(
     def fmt(value):
         return pprint.pformat(value, sort_dicts=False)
 
+    split_method = report.prep.split_method
+
+    if split_method == "missing_stratified":
+        split_description = (
+            "Stratification based on missingness was performed using the proportion of missing "
+            "values per row. Rows with identical proportions were assigned to the same stratum. "
+            "When stratification was infeasible, random sampling was used instead."
+        )
+    else:
+        split_description = (
+            "Random sampling was used because stratification based on missingness proportions was "
+            "not feasible for the dataset."
+        )
     missing_markers = ""
     if report.prep.missing_markers_detected:
         missing_markers = f"""
@@ -199,6 +212,9 @@ Replaced markers:
 
 ### Train/test split information
 The dataset was split into training (80%) and testing (20%) subsets using a random seed of 42.
+
+**Splitting method:** {format_option(split_method).capitalize()}
+- Description: {split_description}
 
 | Dataset | Shape |
 |---|---|

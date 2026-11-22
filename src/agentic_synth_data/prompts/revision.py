@@ -28,18 +28,17 @@ def revision_message(
             Missing value handling:
             Number of missing values before:
             - Train set: {report.prep.train_missing_before}
-            - Test set: {report.prep.test_missing_before}
+            - Test set: {report.prep.test_missing}
 
             Number of missing values after:
             - Train set: {report.prep.train_missing_after}
-            - Test set: {report.prep.test_missing_after}
 
             Type of missing value handling applied:
             {request.missing_values.model_dump()}
         """)
 
     else:
-        if report.prep.train_missing_before == 0 and report.prep.test_missing_before == 0:
+        if report.prep.train_missing_before == 0:
             missing_handling = (
                 "- Missing value handling was not applied, no missing values present."
             )
