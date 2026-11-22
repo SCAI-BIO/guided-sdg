@@ -160,7 +160,7 @@ def display_synthesis_request(request: "SynthesisRequest") -> None:
         Args:
             request (SynthesisRequest): User preferences for data synthesis.
     """
-    print(f"\nSample size mode: {request.sample_size.mode}")
+    print(f"Sample size mode: {format_option(request.sample_size.mode)}")
 
     if request.sample_size.fixed_value is not None:
         print(f"Sample size: {request.sample_size.fixed_value}")
@@ -179,6 +179,32 @@ def display_synthesis_request(request: "SynthesisRequest") -> None:
             "- Numerical strategy: "
             f"{format_option(request.missing_values.impute.numerical_strategy)}"
         )
+
+
+def step(name: str, space: bool = True) -> None:
+    """Display the name of the current step reached.
+
+    Args:
+        name (str): Name of the step.
+        space (bool): Whether the step needs spaces for readability. Defaults to True.
+    """
+    if space:
+        print("\n\n")
+
+    print("=" * 25 + f"[STEP: {name}]" + "=" * 25)
+
+
+def step(name: str, space: bool = True) -> None:
+    """Display the name of the current step reached.
+
+    Args:
+        name (str): Name of the step.
+        space (bool): Whether the step needs spaces for readability. Defaults to True.
+    """
+    if space:
+        print("\n\n")
+
+    print("=" * 25 + f"[STEP: {name}]" + "=" * 25)
 
 
 # ============================================================================

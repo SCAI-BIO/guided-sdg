@@ -452,8 +452,8 @@ def missing_update(
     config: RunnableConfig,
 ) -> MissingRevisionOption | None:
     """
-    Ask agent for possible generator revision options and returns the option selected by the 
-    user.
+    Ask agent for possible missing value handling revision options and returns the option
+    selected by the user.
 
     Args:
         request (SynthesisRequest): User preferences for data synthesis.
@@ -462,9 +462,9 @@ def missing_update(
         config (RunnableConfig): Configuration passed to the agent during invocation.
 
     Returns:
-        MissingRevisionOption | None: Selected generator revision, or None if cancelled.
+        MissingRevisionOption | None: Selected missing value revision, or None if cancelled.
     """
-    print(f"Current missing handling method: {request.generator.name}")
+    print(f"Current missing handling method: {request.missing_values.mode}")
     print("\nAgent is coming up with missing value handling options...")
 
     revision_plan = invoke_agent(

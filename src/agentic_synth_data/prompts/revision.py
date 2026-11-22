@@ -26,15 +26,19 @@ def revision_message(
     if request.missing_values.mode is not None:
         missing_handling = dedent(f"""
             Missing value handling:
-            - Number of missing values before: {report.prep.missing_before}
-            - Number of missing values after: {report.prep.missing_after}
+            Number of missing values before:
+            - Train set: {report.prep.train_missing_before}
+            - Test set: {report.prep.test_missing}
+
+            Number of missing values after:
+            - Train set: {report.prep.train_missing_after}
 
             Type of missing value handling applied:
             {request.missing_values.model_dump()}
         """)
 
     else:
-        if report.prep.missing_before == 0:
+        if report.prep.train_missing_before == 0:
             missing_handling = (
                 "- Missing value handling was not applied, no missing values present."
             )
@@ -51,8 +55,8 @@ def revision_message(
     return dedent(f"""
     The workflow should be revised. For now, only start with generator selection.
     Input dataframe shape: {report.input.original_shape}
-    Prepared dataframe shape (used as an input for generating synthetic data): {
-        report.input.prepared_shape
+    Prepared training set shape (used as an input for generating synthetic data): {
+        report.input.prep_train_shape
     }
     - Note: shape will only be lower than input if missing values are not handled.
     Synthetic dataframe shape: {report.gen.synth_shape}

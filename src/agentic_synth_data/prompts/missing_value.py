@@ -6,9 +6,9 @@ from agentic_synth_data.utils import SemanticTypes
 
 
 def missing_value_prompt(
-    proportion_missing: dict[Hashable, Any],
-    rows_with_missing: int,
-    total_rows: int,
+    proportion_missing_train: dict[Hashable, Any],
+    rows_with_missing_train: int,
+    total_rows_train: int,
     request: dict[str, Any],
     stypes: SemanticTypes,
 ) -> str:
@@ -18,7 +18,6 @@ def missing_value_prompt(
     Return exactly one valid JSON object.
     Do not write prose outside the JSON.
 
-
     You must use this exact flat schema.
     Do not use nested "impute" or "threshold" objects.
     Do not return mode "auto".
@@ -26,14 +25,14 @@ def missing_value_prompt(
     Do not return strategy "mode".
     Do not include ```json.
 
-    Missing value proportions per column:
-    {proportion_missing}
+    Missing value proportions per column for:
+    - Training set: {proportion_missing_train}
 
-    Rows with at least one missing value:
-    {rows_with_missing}
+    Rows with at least one missing value for:
+    - Training set: {rows_with_missing_train}
 
-    Total rows:
-    {total_rows}
+    Total rows for:
+    - Training set: {total_rows_train}
 
     Current synthesis request:
     {request}
