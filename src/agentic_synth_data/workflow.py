@@ -400,9 +400,6 @@ class DataGen:
         if self.request.missing_values.mode == "impute":
             self.request.missing_values.impute = ImputationConfig()
 
-        elif self.request.missing_values.impute == "threshold":
-            self.request.missing_values.threshold = None
-
         self.request.missing_values.mode = None
 
         return self.prepared_df, self.request
@@ -447,9 +444,6 @@ class DataGen:
         # Set back to default
         if self.request.missing_values.mode == "impute":
             self.request.missing_values.impute = ImputationConfig()
-
-        elif self.request.missing_values.impute == "threshold":
-            self.request.missing_values.threshold = None
 
         self.request.missing_values.mode = None
 

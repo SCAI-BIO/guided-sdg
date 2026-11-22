@@ -25,7 +25,6 @@ class MissingRevisionPlan(BaseModel):
 class MissingHandling(BaseModel):
     """Structured LLM recommendation for handling missing values."""
     mode: str
-    set_threshold: int | None = None
     imputation_method: str | None = None
     categorical_strategy: str | None = None
     numerical_strategy: str | None = None

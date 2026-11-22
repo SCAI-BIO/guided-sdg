@@ -20,7 +20,7 @@ def missing_value_prompt(
 
 
     You must use this exact flat schema.
-    Do not use nested "impute" or "threshold" objects.
+    Do not use nested "impute" objects.
     Do not return mode "auto".
     Do not return method "default".
     Do not return strategy "mode".
@@ -44,7 +44,6 @@ def missing_value_prompt(
 
     Allowed modes:
     - remove
-    - threshold
     - impute
 
     Allowed imputation_method values:
@@ -63,12 +62,10 @@ def missing_value_prompt(
     - If any setting has "auto", this indicates that you must determine the optimal settings to use.
     - IMPORTANT: If mode is "impute", BOTH categorical AND numerical strategies CANNOT be empty.
         - If mode is not "impute", categorical and numerical strategy must be empty.
-    - If the mode value has a key of the same name (impute, threshold), all entries within that key must be filled.
+    - If the mode value has a key of the same name (impute), all entries within that key must be filled.
     - If there are no missing values, recommend mode "remove" and explain that no rows will be removed.
     - If few rows have missing values, recommend "remove".
-    - If many rows have missing values but only some rows are heavily incomplete, recommend "threshold".
     - If missing values are spread across many rows, recommend "impute".
-    - If "set_threshold" is not null, it must be an integer.
     - Do not suggest invalid options.
     - If a change is suggested that does not make sense for the dataset's features: 
         - In "warning" specify the choice(s) that are not possible, or do not make sense for the dataset.
@@ -77,7 +74,6 @@ def missing_value_prompt(
     JSON format:
     {{
         "mode": "remove",
-        "set_threshold": null,
         "imputation_method": null,
         "categorical_strategy": "most_frequent",
         "numerical_strategy": "mean",

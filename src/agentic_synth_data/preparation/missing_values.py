@@ -16,8 +16,8 @@ from agentic_synth_data.schemas.synthesis_request import SynthesisRequest, Imput
 
 
 def update_missing_value_choice(request: SynthesisRequest) -> SynthesisRequest:
-    """Update missing value handling choice in the case that either the remove all or
-     threshold setting for null values is too harsh.
+    """Update missing value handling choice in the case that the remove setting for null values
+    is too harsh.
 
     Args:
         request (SynthesisRequest): User preferences for data synthesis.
@@ -26,23 +26,14 @@ def update_missing_value_choice(request: SynthesisRequest) -> SynthesisRequest:
         SynthesisRequest: Updated synthesis request.
     """
     choice = pyip.inputMenu(
-        choices=["auto", "impute", "threshold"],
+        choices=["auto", "impute",],
         prompt="\nPlease select another method to handle missing values:\n",
         numbered=True
     )
 
     request.missing_values.mode = choice
 
-    if choice == "threshold":
-        value = pyip.inputInt(
-            "\nSet the maximum number of missing values allowed per row:\n",
-            min=0,
-        )
-
-        request.missing_values.threshold = value
-        request.missing_values.impute = ImputationConfig()
-
-    elif choice == "impute":
+    if choice == "impute":
         cat_choice = pyip.inputMenu(
             choices=get_args(CategoricalChoiceAuto.__value__), # pylint: disable=no-member
             prompt="\nHow would you like to handle missing categorical values? Select 'auto' " \
@@ -66,20 +57,18 @@ def update_missing_value_choice(request: SynthesisRequest) -> SynthesisRequest:
             num_choice = "most_frequent"
 
         request.missing_values.impute.method = "SimpleImputer"
-        request.missing_values.threshold = None
         request.missing_values.impute.categorical_strategy = cat_choice
         request.missing_values.impute.numerical_strategy = num_choice
 
     elif choice == "auto":
-        request.missing_values.threshold = None
         request.missing_values.impute = ImputationConfig()
 
     return request
 
 
 def update_missing_value_choice_ui(request: SynthesisRequest) -> SynthesisRequest:
-    """Update missing value handling choice in the case that either the remove all or
-    threshold setting for null values is too harsh (UI).
+    """Update missing value handling choice in the case that remove all setting for null values is
+    too harsh (UI).
 
     Args:
         request (SynthesisRequest): User preferences for data synthesis.
@@ -132,13 +121,11 @@ def update_missing_value_choice_ui(request: SynthesisRequest) -> SynthesisReques
 
         request.missing_values.mode = "impute"
         request.missing_values.impute.method = "SimpleImputer"
-        request.missing_values.threshold = None
         request.missing_values.impute.categorical_strategy = cat_choice
         request.missing_values.impute.numerical_strategy = num_choice
 
     elif choice == "auto":
         request.missing_values.mode = "auto"
-        request.missing_values.threshold = None
         request.missing_values.impute = ImputationConfig()
 
     return request
@@ -164,7 +151,6 @@ def auto_update_missing_plan(
     miss.impute.method = missing_plan["imputation_method"]
     miss.impute.categorical_strategy = missing_plan["categorical_strategy"]
     miss.impute.numerical_strategy = missing_plan["numerical_strategy"]
-    miss.threshold = missing_plan["set_threshold"]
 
     return request
 
@@ -180,9 +166,8 @@ def handle_missing_values(
 
     Missing value strategies include:
     1. Remove all rows containing null values.
-    2. Remove rows exceeding a specified threshold for null values.
-    3. Imputation.
-    4. Receive a suggestion from an agent on how to handle null values.
+    2. Imputation.
+    3. Receive a suggestion from an agent on how to handle null values.
 
     Args:
         df (pd.DataFrame): The input dataframe.
@@ -237,35 +222,7 @@ def handle_missing_values(
 
         return handle_missing_values(df, request, stypes, agent, config)
 
-    # 2. Remove all samples above a specified threshold of NA columns.
-    if mode == "threshold":
-        threshold_samples = df.isna().sum(axis=1) > request.missing_values.threshold
-        count = threshold_samples.sum()
-
-        print(
-            f"Warning: {count} out of {df.shape[0]} ({count/df.shape[0]*100}%) will be removed "
-            "from the dataset."
-        )
-
-        confirm = pyip.inputYesNo("\nConfirm whether this should be done.\n")
-        if confirm == "yes":
-            df = df[~threshold_samples]
-            return df, request
-
-        confirm = pyip.inputYesNo("\nWould you like to select a new threshold value?\n")
-        if confirm == "yes":
-            value = pyip.inputInt("\nEnter a new threshold value.\n", min=1) # TODO: Double check how I have it written
-            request.missing_values.threshold = value
-
-            return handle_missing_values(df, request, stypes, agent, config)
-
-        request = update_missing_value_choice(request)
-        # TODO add a limit to the threshold such that it doesn't add more
-        #  possible TODO allow for threshold changes (if found to be too harsh but want to stay with a threshold)
-
-        return handle_missing_values(df, request, stypes, agent, config)
-
-    # 3. Perform imputation given there are decided categorical and numerical strategies.
+    # 2. Perform imputation given there are decided categorical and numerical strategies.
     if (
         mode == "impute" and
         impute.categorical_strategy != "auto" and
@@ -337,10 +294,10 @@ def handle_missing_values(
 
         return df, request
 
-    # 4. Use the agent to suggest the missing value handling strategy.
+    # 3. Use the agent to suggest the missing value handling strategy.
     if (
-        mode == "auto" or 
-        impute.categorical_strategy == "auto" or 
+        mode == "auto" or
+        impute.categorical_strategy == "auto" or
         impute.numerical_strategy == "auto"
     ):
         proportion_missing = (df.isna().sum() / df.shape[0]).round(4).to_dict()
@@ -377,7 +334,6 @@ def handle_missing_values(
                 "imputation_method": missing_plan.imputation_method,
                 "categorical_strategy": missing_plan.categorical_strategy, 
                 "numerical_strategy": missing_plan.numerical_strategy,
-                "set_threshold": missing_plan.set_threshold,
                 "warning": missing_plan.warning,
                 "rationale": missing_plan.rationale,
             }
@@ -386,9 +342,6 @@ def handle_missing_values(
                 "\nSuggested plan:\n"
                 f"- Mode: {updated_plan['mode']}"
             )
-
-            if updated_plan["set_threshold"] is not None:
-                print(f"- Threshold: {updated_plan['set_threshold']}")
 
             if updated_plan["imputation_method"] is not None:
                 print(f"- Imputation method: {updated_plan['imputation_method']}")
@@ -441,9 +394,8 @@ def handle_missing_values_ui(
 
     Missing value strategies include:
     1. Remove all rows containing null values.
-    2. Remove rows exceeding a specified threshold for null values.
-    3. Imputation.
-    4. Receive a suggestion from an agent on how to handle null values.
+    2. Imputation.
+    3. Receive a suggestion from an agent on how to handle null values.
 
     Args:
         df (pd.DataFrame): The input dataframe.
@@ -507,7 +459,6 @@ def handle_missing_values_ui(
                     "imputation_method": missing_plan.imputation_method,
                     "categorical_strategy": missing_plan.categorical_strategy, 
                     "numerical_strategy": missing_plan.numerical_strategy,
-                    "set_threshold": missing_plan.set_threshold,
                     "warning": missing_plan.warning,
                     "rationale": missing_plan.rationale,
                 }
@@ -531,9 +482,6 @@ def handle_missing_values_ui(
             "#### Suggested plan:\n"
             f"- **Mode:** {updated_plan['mode']}"
         )
-
-        if updated_plan["set_threshold"] is not None:
-            st.write(f"- **Threshold:** {updated_plan['set_threshold']}")
 
         if updated_plan["imputation_method"] is not None:
             st.write(f"- **Imputation method:** {updated_plan['imputation_method']}")
@@ -611,7 +559,6 @@ def handle_missing_values_ui(
                         "imputation_method": missing_plan.imputation_method,
                         "categorical_strategy": missing_plan.categorical_strategy, 
                         "numerical_strategy": missing_plan.numerical_strategy,
-                        "set_threshold": missing_plan.set_threshold,
                         "warning": missing_plan.warning,
                         "rationale": missing_plan.rationale,
                     }

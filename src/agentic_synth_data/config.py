@@ -18,7 +18,7 @@ def build_synthesis_request(
     fixed_value: int | None,
     privacy: Literal["standard", "differential_privacy"],
     generator: GeneratorNameAuto,
-    missing_values: Literal["auto", "impute", "threshold", "remove"],
+    missing_values: Literal["auto", "impute", "remove"],
     impute_method: Literal["SimpleImputer"] | None = None,
     categorical_strategy: CategoricalChoiceAuto | None = None,
     numerical_strategy: NumericalChoiceAuto | None = None,
@@ -30,8 +30,7 @@ def build_synthesis_request(
         fixed_value (int): Fixed sample size when using `fixed_value` mode.
         privacy (Literal["standard", "differential_privacy"]): Privacy configuration mode.
         generator (GeneratorNameAuto): Synthetic data generator to use.
-        missing_values (Literal["auto", "impute", "threshold", "remove"]): Missing value handling 
-            mode.
+        missing_values (Literal["auto", "impute", "remove"]): Missing value handling mode.
         impute_method (Literal["SimpleImputer"] | None, optional): Imputation method. Defaults to 
             None.
         categorical_strategy (CategoricalChoiceAuto] | None, optional): Strategy for categorical

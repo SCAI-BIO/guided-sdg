@@ -32,9 +32,8 @@ class ImputationConfig(BaseModel):
 
 class MissingValueConfig(BaseModel):
     """Synthesis request missing value handling configuration."""
-    mode: Literal["auto", "impute", "threshold", "remove"] | None = None
+    mode: Literal["auto", "impute", "remove"] | None = None
     impute: ImputationConfig = Field(default_factory=ImputationConfig)
-    threshold: int | None = None
 
 
 class SynthesisRequest(BaseModel):
