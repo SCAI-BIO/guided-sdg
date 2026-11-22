@@ -1,0 +1,26 @@
+services:
+  guided-sdg:
+    image: guided-sdg
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      SDR_URL: http://sdr:8000
+      DATA_DIR: /workspace/data
+      OUTPUT_DIR: /workspace/output
+    volumes:
+      - ./data:/workspace/data:z
+      - ./output:/workspace/output:z
+
+  sdr:
+    build:
+      context: ./sdr_service
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      SDR_WORKDIR: /synthetic_data_release
+    volumes:
+      - ./data:/workspace/data:z
+      - ./output:/workspace/output:z
