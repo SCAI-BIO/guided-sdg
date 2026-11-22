@@ -28,6 +28,7 @@ dependencies = [
     "tabulate>=0.10.0",
     "st-styled>=0.5.1",
     "numpy==1.26.4",
+    "langchain-ollama>=1.1.0",
 ]
 
 [build-system]

@@ -92,7 +92,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
                     "type": stype,
                     "i2s": values,
                     "size": len(values)
-                    })
+                })
 
             elif stype == "Float":
                 columns.append({
@@ -100,7 +100,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
                     "type": "Float",
                     "min": float(df[col].min()),
                     "max": float(df[col].max())
-                    })
+                })
 
             elif stype == "Integer":
                 columns.append({
@@ -108,7 +108,7 @@ class SyntheticDataReleaseStrategy(GeneratorStrategy):
                     "type": "Integer",
                     "min": int(df[col].min()),
                     "max": int(df[col].max())
-                    })
+                })
 
         metadata = {"columns": columns}
 

@@ -30,7 +30,7 @@ def _calculate_metrics(
 
     Args:
         real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synth (pd.DataFrame): The synthetically generated dataframe.
         ui (bool): Whether the metrics are calculated for the UI or CLI. Defaults to False (CLI).
 
@@ -198,9 +198,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     )
 
     styled_jsd_table = (
-        jsd_table.style
-        .map(style_status, subset=["Status"])
-        .format({"JSD": "{:.4f}"})
+        jsd_table.style.map(style_status, subset=["Status"]).format({"JSD": "{:.4f}"})
     )
 
     df_formatter_st(styled_jsd_table)
@@ -208,7 +206,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
 
     st.metric(
-        label="**Average Jensen-Shannon Divergence**",
+        label="**Average Jensen-Shannon Distance**",
         value=metrics.jsd["jsd_AVERAGE"],
         delta=calculate_delta(
             current=metrics.jsd["jsd_AVERAGE"],
@@ -304,7 +302,7 @@ def encode_for_correlation(
 
     Args:
         real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+            missing value markers replaced with nan (norm_na_df).
         synth (pd.DataFrame): The synthetically generated dataframe.
         max_categories (int, optional): _description_. Defaults to 10.
 
@@ -339,12 +337,13 @@ def encode_for_shap(real: pd.DataFrame, synth: pd.DataFrame,) -> tuple[pd.DataFr
     """Encode categorical features numerically for SHAP discrimination analysis.
 
     Args:
-        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                                missing value markers replaced with nan (norm_na_df).
+        real (pd.DataFrame): Original dataset, optionally with missing value
+            markers replaced by NaN.
         synth (pd.DataFrame): The synthetically generated dataframe.
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: _description_
+        tuple[pd.DataFrame, pd.DataFrame]: Encoded real and synthetic datasets with consistent
+            categorical representations.
     """
     n_real = len(real)
     combined = pd.concat([real, synth], ignore_index=True,)
@@ -413,7 +412,6 @@ def _generate_plots(
     }
 
 
-
 # ============================================================================
 # Plot display helpers (UI)
 # ============================================================================
@@ -429,10 +427,13 @@ def style_status(value: str) -> str:
     """
     if value == "High":
         return "background-color:#fee2e2; color:#991b1b; font-weight:600;"
+
     if value == "Moderate":
         return "background-color:#fef3c7; color:#92400e; font-weight:600;"
+
     if value == "Low":
         return "background-color:#dcfce7; color:#166534; font-weight:600;"
+
     return ""
 
 
@@ -501,6 +502,7 @@ def plot_viewer(images, plot_type: str, version_id: int, show_filename: bool = F
     idx = st.session_state[index_key]
     if show_filename:
         st.caption(Path(images[idx]["name"]).name)
+
     st.image(images[idx]["data"], width="stretch")
 
 
@@ -525,9 +527,7 @@ def generate_plots(
     output_dir = OUTPUT_DIR / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    plot_paths = _generate_plots(
-        real=real, synth=synth, output_dir=output_dir,
-    )
+    plot_paths = _generate_plots(real=real, synth=synth, output_dir=output_dir,)
 
     for plot_type, paths in plot_paths.items():
         if paths:
@@ -586,9 +586,7 @@ def generate_plots_ui(
         )
 
         plot_viewer(
-            images=plots["distributions"],
-            plot_type="distribution",
-            version_id=version_id,
+            images=plots["distributions"], plot_type="distribution", version_id=version_id,
         )
 
     with tab_corr:
@@ -610,10 +608,6 @@ def generate_plots_ui(
             "real data from synthetic data."
         )
 
-        plot_viewer(
-            images=plots["shap"],
-            plot_type="shap",
-            version_id=version_id,
-        )
+        plot_viewer(images=plots["shap"], plot_type="shap", version_id=version_id,)
 
     return plot_paths

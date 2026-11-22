@@ -2,19 +2,22 @@ import copy
 from contextlib import redirect_stdout
 from pathlib import Path
 import os
+from typing import cast
 
-from langchain_core.runnables import RunnableConfig
 import pandas as pd
 import streamlit as st
 from langchain.agents import create_agent
-from langchain.chat_models import init_chat_model, BaseChatModel
+from langchain.chat_models import BaseChatModel#, init_chat_model
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.state import CompiledStateGraph
+from sklearn.model_selection import train_test_split
 
 from agentic_synth_data.evaluation.assessment import display_agent_evaluation_ui, \
     evaluation, evaluation_ui, evaluation_review_ui, evaluation_review
 from agentic_synth_data.evaluation.attack_metrics import calculate_attack_metrics, \
     calculate_attack_metrics_ui, display_attack_metrics_ui, ANONYMETER_METRIC_DESCRIPTION
+from agentic_synth_data.llm import create_model
 from agentic_synth_data.report import write_report
 from agentic_synth_data.evaluation.syndat_metrics import calculate_metrics, \
     calculate_metrics_ui, generate_plots, generate_plots_ui, display_metrics_ui
@@ -51,7 +54,14 @@ class DataGen:
     # Initialization and configuration
     # ============================================================================
 
-    def __init__(self, data_path):
+    def __init__(
+            self,
+            data_path,
+            model_id: str | None = None,
+            provider: str | None = None,
+            api_key: str | None = None,
+            base_url: str | None = None,
+    ):
         # Workflow identification and revision state
         self.data_path: str = data_path
         self.version_id = 1
@@ -80,21 +90,16 @@ class DataGen:
         self.synthetic_path: Path | None = None
 
         # Agent configuration
-        self.model: BaseChatModel = self.create_model()
+        self.model: BaseChatModel = create_model(
+            model_id=model_id,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url,
+        )
+
         self.checkpointer: InMemorySaver = InMemorySaver()
         self.config: RunnableConfig = {"configurable": {"thread_id": 1}}
         self.agent: CompiledStateGraph = self.create_agent()
-
-
-    def create_model(self) -> BaseChatModel:
-        """Initialize the selected large language model."""
-        model = init_chat_model(
-            "deepseek-ai/DeepSeek-V4.1-Flash",
-            model_provider="openai",
-            base_url=os.environ.get("BASE_URL"),
-        )
-
-        return model
 
 
     def create_agent(self) -> CompiledStateGraph:
@@ -297,7 +302,7 @@ class DataGen:
         cols = dtype_handled_df.columns.tolist()
 
         selected_cols = st.multiselect(
-            label="Select features:",
+            label="**Select features:**",
             options=cols,
             default=cols,
             key="selected_covariates",
@@ -312,7 +317,7 @@ class DataGen:
             f"{comma_sep(selected_cols)}"
         )
 
-        finished = st.button(label="Continue with the current selection.",)
+        finished = st.button(label="Continue with the current selection",)
 
         if not finished:
             st.stop()

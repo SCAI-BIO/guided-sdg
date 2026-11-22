@@ -156,11 +156,7 @@ def calculate_attack_metrics(
 
     if has_missing: # Temporarily encode missing values as a unique marker.
         anonymeter_input = prepare_anonymeter_input(
-            train=train,
-            test=test,
-            synth=synth,
-            stypes=stypes,
-            dtypes=dtypes,
+            train=train, test=test, synth=synth, stypes=stypes, dtypes=dtypes,
         )
 
         train = anonymeter_input.train
@@ -196,6 +192,7 @@ def calculate_attack_metrics(
         f"  - Secret column: {cols.secret}\n\n"
         f"Rationale:"
     )
+
     format_response(cols.rationale)
 
     # Calculate inference risk:
@@ -267,11 +264,7 @@ def calculate_attack_metrics_ui(
     )
 
     anonymeter_input = prepare_anonymeter_input(
-        train=train,
-        test=test,
-        synth=synth,
-        stypes=stypes,
-        dtypes=dtypes,
+        train=train, test=test, synth=synth, stypes=stypes, dtypes=dtypes,
     )
 
     train = anonymeter_input.train
@@ -324,11 +317,7 @@ def calculate_attack_metrics_ui(
     # Calculate inference risk:
     with st.spinner("Evaluating inference risk..."):
         inference_risk, inference_risk_output = _calculate_inference(
-            train=train,
-            test=test,
-            synth=synth,
-            cols=attack_col_plan,
-            ui=True,
+            train=train, test=test, synth=synth, cols=attack_col_plan, ui=True,
         )
 
     write_attack_metric_ui(
@@ -347,11 +336,7 @@ def calculate_attack_metrics_ui(
     # Calculate linkability risk:
     with st.spinner("Evaluating linkability risk..."):
         linkability_risk, link_risk_output = _calculate_linkability(
-            train=train,
-            test=test,
-            synth=synth,
-            cols=attack_col_plan,
-            ui=True,
+            train=train, test=test, synth=synth, cols=attack_col_plan, ui=True,
         )
 
     write_attack_metric_ui(

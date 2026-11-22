@@ -497,7 +497,7 @@ def handle_dtypes_ui(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, boo
     df_formatter_st(dtype_table)
 
     confirm = st.selectbox(
-        "Are all column data types (Python) correct?",
+        "**Are all column data types (Python) correct?**",
         ["yes", "no"],
         index=None,
         help=(

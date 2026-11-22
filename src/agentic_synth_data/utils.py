@@ -72,7 +72,14 @@ def comma_sep(item_list: list) -> str:
     Args:
         item_list (list): list of items.
     """
-    return ", ".join(item_list)
+    n = len(item_list)
+    if n == 2:
+        return " and ".join(item_list)
+
+    remaining = item_list[: n - 1]
+    last_item = item_list[-1]
+
+    return ", ".join(remaining) + ", and " + last_item
 
 
 def format_option(value: str) -> str:

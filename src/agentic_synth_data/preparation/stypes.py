@@ -213,8 +213,8 @@ def handle_semantic_types_ui(
 
     # 4. User confirmation.
     confirm = st.selectbox(
-        "Are all semantic types correct?",
-        ["yes", "no"],
+        label="**Are all semantic types correct?**",
+        options=["yes", "no"],
         index=None,
         help=(
             "Supported types are Integer, Float, Boolean, Categorical, and Ordinal.\n\n"
