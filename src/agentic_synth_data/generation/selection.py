@@ -400,10 +400,10 @@ def select_generator_ui(
         st.stop()
 
     else: # discuss
-        st.write("Write feedback or questions about the generator choice")
+        st.write("**Write feedback or questions about the generator choice**")
 
         feedback = st.chat_input(
-            "Ask about the generator recommendation.",
+            placeholder="Ask about the generator recommendation.",
             key="generator_feedback_input",
         )
 

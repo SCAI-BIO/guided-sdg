@@ -135,10 +135,24 @@ docker compose down # ""
 
 *Info:* Each check mark (✓) indicates that the LLM agent is invoked to assist during the workflow. The agent is only involved in making suggestions.
 
-**Note:**
-- Using generative models from [Synthetic Data Release](https://github.com/spring-epfl/synthetic_data_release).
-- Using synthetic data evaluation metrics from [syndat](https://github.com/SCAI-BIO/syndat)
-- Using privacy risk evaluation metrics from [anonymeter](https://github.com/statice/anonymeter)
+## References
+- **Syndat:** Adams, T., Birkenbihl, C., Otte, K., et al. (2025).
+  *On the fidelity versus privacy and utility trade-off of synthetic patient data*.
+  iScience, 28.
+  [Publication](https://doi.org/10.1016/j.isci.2025.112382) |
+  [GitHub](https://github.com/SCAI-BIO/syndat)
+- **Anonymeter:** Giomi, M., Boenisch, F., Wehmeyer, C., & Tasnádi, B. (2023).
+  *A Unified Framework for Quantifying Privacy Risk in Synthetic Data*.
+  Proceedings on Privacy Enhancing Technologies.
+  [Publication](https://doi.org/10.56553/popets-2023-0055) |
+  [GitHub](https://github.com/statice/anonymeter)
+- **Synthetic Data Release:** Stadler, T., Oprisanu, B., & Troncoso, C. (2022).
+  *Synthetic Data – Anonymisation Groundhog Day*.
+  31st USENIX Security Symposium.
+  [Publication](https://www.usenix.org/conference/usenixsecurity22/presentation/stadler) |
+  [GitHub](https://github.com/spring-epfl/synthetic_data_release)
+
+### Icon attribution
 - <a href="https://www.flaticon.com/free-icons/chart" title="chart icons">Chart icons created by mynamepong - Flaticon</a>
 
 ## Project structure

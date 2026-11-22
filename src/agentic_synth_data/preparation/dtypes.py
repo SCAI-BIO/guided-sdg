@@ -487,7 +487,7 @@ def handle_dtypes_ui(df: pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, boo
 
     df = infer_and_convert_dtypes(df)
 
-    st.write("\nCurrent (Python) data types present in each column:")
+    st.write("**Current (Python) data types present in each column:**")
 
     dtype_table = pd.DataFrame({
         "Column": df.columns,

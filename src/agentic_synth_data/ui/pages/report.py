@@ -65,7 +65,6 @@ if comparison_tab is not None and comparison_tab.open:
 
         else:
             version_list = list(st.session_state.revision_history)
-            st.dataframe(metrics_df, hide_index=True, width="stretch",) # NOTE: Temp view...
 
             selected_versions = st.multiselect(
                 label="Select versions to compare",

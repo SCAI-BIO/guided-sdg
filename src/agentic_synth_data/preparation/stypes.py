@@ -186,7 +186,7 @@ def handle_semantic_types_ui(
         key="semantic_type_info",
     )
 
-    st.write("Detected semantic types for each column:")
+    st.write("**Detected semantic types for each column:**")
 
     stype_table = pd.DataFrame({
         "Column": inferred_stypes.keys(),

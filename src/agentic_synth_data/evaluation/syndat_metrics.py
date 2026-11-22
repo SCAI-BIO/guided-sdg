@@ -169,126 +169,167 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     """
     st.subheader("Fidelity and utility metrics")
     st.write(
-        "The synthetic data should resemble the original dataset. We record the following metrics "
-        "from Syndat to determine the dataset's fidelity:\n"
-        "- Jensen-Shannon Distance\n"
-        "- Normalized correlation difference\n"
-        "- Discriminator AUC\n\n"
-        "All of these metrics output a value between 0 and 1."
+        "Normalized Syndat scores range from 0 to 100, with higher values indicating better "
+        "performance."
     )
 
-    # Jensen-Shannon Distances:
-    st.write("#### Jensen-Shannon Distance:")
-    st.write(
-        "Jensen-Shannon Distance (JSD) quantifies the statistical distributions of each variable "
-        "across your real and the synthetic dataset. A value that is closer to 0 indicates that "
-        "the statistical distributions identically match the real and synthetic datasets, which is "
-        "favorable."
-    )
-
-    jsd_table = pd.DataFrame({
-        "Column": metrics.jsd.keys(),
-        "JSD": metrics.jsd.values(),
-    })
-
-    jsd_table["Status"] = jsd_table["JSD"].apply(
-        lambda x: "High" if x > 0.5
-        else "Low" if x <= 0.1
-        else "Moderate"
-    )
-
-    styled_jsd_table = (
-        jsd_table.style.map(style_status, subset=["Status"]).format({"JSD": "{:.4f}"})
-    )
-
-    df_formatter_st(styled_jsd_table)
-
-    prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
-
-    st.metric(
-        label="**Average Jensen-Shannon Distance**",
-        value=metrics.jsd["jsd_AVERAGE"],
-        delta=calculate_delta(
-            current=metrics.jsd["jsd_AVERAGE"],
-            previous=prev_jsd,
+    normalized_metrics = [
+        ("distribution", "jsd", "Some variables may have been excluded during computation."),
+        ("correlation", "norm_corr_diff",
+            "Click to view output while calculating normalized correlation difference."
         ),
-        delta_color="inverse",
-    )
-
-    display_delta_caption(previous_value=prev_jsd)
-
-    if metrics.output_messages.jsd:
-        with st.expander(
-            "**UserWarning:** Some variables may have been excluded during computation."
-        ):
-            st.warning(metrics.output_messages.jsd)
-
-    st.divider()
-
-    # Normalized correlation difference:
-    st.write("#### Normalized correlation difference:")
-    st.write(
-        "Normalized correlation difference calculates the correlation similarity between real and "
-        "synthetic datasets and compares their correlation matrices. A value closer to 0 indicates "
-        "that the synthetic dataset has greater preservation of the original correlation structure"
-        "\n- Note: It is possible for the norm to exceed 1 when one dataset's correlations is "
-        "positive and the other negative."
-    )
-
-    prev_norm_corr_diff = prev_metrics.norm_corr_diff if prev_metrics is not None else None
-
-    st.metric(
-        label="**Normalized correlation difference**",
-        value=metrics.norm_corr_diff,
-        delta=calculate_delta(
-            current=metrics.norm_corr_diff,
-            previous=prev_norm_corr_diff,
+        ("discrimination", "discrim_auc",
+            "Click to view output while calculating discriminator AUC."
         ),
-        delta_color="inverse",
-    )
+    ]
 
-    display_delta_caption(previous_value=prev_norm_corr_diff)
-
-    if metrics.output_messages.norm_corr_diff:
-        with st.expander(
-            "**UserWarning:** Click to view output while calculating normalized correlation "
-            "difference."
-        ):
-            st.warning(metrics.output_messages.norm_corr_diff)
-
-    st.divider()
-
-    # Discriminator AUC:
-    if metrics.discrim_auc is None:
-        st.warning("Discriminator AUC cannot be calculated with fewer than 2 synthetic samples.")
-
-    else:
-        st.write("#### Discriminator AUC:")
-        st.write(
-            "Discriminator Area Under the Curve (AUC) is a value between 0 and 1. An AUC near 0.5 "
-            "is preferable, whereas one near 1 indicates that real and synthetic datasets are easy "
-            "to distinguish between."
+    for metric, output, warning_message in normalized_metrics:
+        value = getattr(metrics.normalized_scores, metric)
+        prev_value = (
+            getattr(prev_metrics.normalized_scores, metric)
+            if prev_metrics is not None else None
         )
 
-        prev_discrim_auc = prev_metrics.discrim_auc if prev_metrics is not None else None
+        st.metric(
+            label=metric.capitalize(),
+            value=f"{value:.2f}" if value is not None and pd.notna(value) else "N/A",
+            delta=calculate_delta(current=value, previous=prev_value, decimals=2,)
+            if value is not None and pd.notna(value) else None,
+        )
+
+        warning = getattr(metrics.output_messages, output)
+
+        if warning:
+            with st.expander(f"**UserWarning:** {warning_message}"):
+                st.warning(warning)
+
+    if prev_metrics is not None:
+        st.caption("Changes in normalized scores compared to the previous version.")
+
+    with st.expander("Click to view detailed evaluation metrics"):
+        st.write(
+            "The synthetic data should resemble the original dataset. We record the following "
+            "metrics from Syndat to determine the dataset's fidelity:\n"
+            "- Jensen-Shannon Distance\n"
+            "- Normalized correlation difference\n"
+            "- Discriminator AUC\n\n"
+            "All of these metrics output a value between 0 and 1."
+        )
+
+        # Jensen-Shannon Distances:
+        st.write("#### Jensen-Shannon Distance:")
+        st.write(
+            "Jensen-Shannon Distance (JSD) quantifies the statistical distributions of each "
+            "variable across your real and the synthetic dataset. A value that is closer to 0 "
+            "indicates that the statistical distributions identically match the real and synthetic "
+            "datasets, which is favorable."
+        )
+
+        jsd_table = pd.DataFrame({
+            "Column": metrics.jsd.keys(),
+            "JSD": metrics.jsd.values(),
+        })
+
+        jsd_table["Status"] = jsd_table["JSD"].apply(
+            lambda x: "High" if x > 0.5
+            else "Low" if x <= 0.1
+            else "Moderate"
+        )
+
+        styled_jsd_table = (
+            jsd_table.style.map(style_status, subset=["Status"]).format({"JSD": "{:.4f}"})
+        )
+
+        df_formatter_st(styled_jsd_table)
+
+        prev_jsd = prev_metrics.jsd["jsd_AVERAGE"] if prev_metrics is not None else None
 
         st.metric(
-            label="**Discriminator AUC**",
-            value=metrics.discrim_auc,
+            label="**Average Jensen-Shannon Distance**",
+            value=metrics.jsd["jsd_AVERAGE"],
             delta=calculate_delta(
-                current=metrics.discrim_auc,
-                previous=prev_discrim_auc,
+                current=metrics.jsd["jsd_AVERAGE"],
+                previous=prev_jsd,
             ),
             delta_color="inverse",
         )
 
-        display_delta_caption(previous_value=prev_discrim_auc)
+        display_delta_caption(previous_value=prev_jsd)
 
-        if metrics.output_messages.discrim_auc:
+        if metrics.output_messages.jsd:
             with st.expander(
-                "**UserWarning:** Click to view output while calculating discriminator AUC."
+                "**UserWarning:** Some variables may have been excluded during computation."
             ):
-                st.warning(metrics.output_messages.discrim_auc)
+                st.warning(metrics.output_messages.jsd)
+
+        st.divider()
+
+        # Normalized correlation difference:
+        st.write("#### Normalized correlation difference:")
+        st.write(
+            "Normalized correlation difference calculates the correlation similarity between real "
+            "and synthetic datasets and compares their correlation matrices. A value closer to 0 "
+            "indicates that the synthetic dataset has greater preservation of the original "
+            "correlation structure\n- Note: It is possible for the norm to exceed 1 when one "
+            "dataset's correlations is positive and the other negative."
+        )
+
+        prev_norm_corr_diff = prev_metrics.norm_corr_diff if prev_metrics is not None else None
+
+        st.metric(
+            label="**Normalized correlation difference**",
+            value=metrics.norm_corr_diff,
+            delta=calculate_delta(
+                current=metrics.norm_corr_diff,
+                previous=prev_norm_corr_diff,
+            ),
+            delta_color="inverse",
+        )
+
+        display_delta_caption(previous_value=prev_norm_corr_diff)
+
+        if metrics.output_messages.norm_corr_diff:
+            with st.expander(
+                "**UserWarning:** Click to view output while calculating normalized correlation "
+                "difference."
+            ):
+                st.warning(metrics.output_messages.norm_corr_diff)
+
+        st.divider()
+
+        # Discriminator AUC:
+        if metrics.discrim_auc is None:
+            st.warning(
+                "Discriminator AUC cannot be calculated with fewer than 2 synthetic samples."
+            )
+
+        else:
+            st.write("#### Discriminator AUC:")
+            st.write(
+                "Discriminator Area Under the Curve (AUC) is a value between 0 and 1. An AUC near "
+                "0.5 is preferable, whereas one near 1 indicates that real and synthetic datasets are "
+                "easy to distinguish between."
+            )
+
+            prev_discrim_auc = prev_metrics.discrim_auc if prev_metrics is not None else None
+
+            st.metric(
+                label="**Discriminator AUC**",
+                value=metrics.discrim_auc,
+                delta=calculate_delta(
+                    current=metrics.discrim_auc,
+                    previous=prev_discrim_auc,
+                ),
+                delta_color="inverse",
+            )
+
+            display_delta_caption(previous_value=prev_discrim_auc)
+
+            if metrics.output_messages.discrim_auc:
+                with st.expander(
+                    "**UserWarning:** Click to view output while calculating discriminator AUC."
+                ):
+                    st.warning(metrics.output_messages.discrim_auc)
 
 
 # ============================================================================
