@@ -153,7 +153,7 @@ def evaluation_review(
     Args:
         agent_decision (AgentEval): Agent's evaluation decision.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
-                                                               evaluation. Defaults to None.
+            evaluation. Defaults to None.
         config (RunnableConfig | None, optional): Configuration passed to the agent during
             invocation. Defaults to None.
 
@@ -209,8 +209,8 @@ def evaluation_review_ui(
         st.session_state.evaluation_review_history = []
 
     confirm = st.selectbox(
-        "**Do you have questions about the evaluation results?**",
-        ["yes", "no"],
+        label="**Do you have questions about the evaluation results?**",
+        options=["yes", "no"],
         index=None,
         key=f"evaluation_review_confirm_{version_id}",
     )
@@ -235,7 +235,10 @@ def evaluation_review_ui(
 
             if new_question:
                 with st.spinner("\nAgent is preparing its response..."):
-                    prompt = eval_review_message(agent_decision, new_question)
+                    prompt = eval_review_message(
+                        agent_decision=agent_decision, response=new_question,
+                    )
+
                     raw_response = agent.invoke(
                         {"messages": [{"role": "user", "content": prompt,}]},
                         config=config,

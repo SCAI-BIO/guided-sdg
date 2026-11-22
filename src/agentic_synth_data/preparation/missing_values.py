@@ -155,6 +155,12 @@ def auto_update_missing_plan(
     return request
 
 
+def save_categorical_fill_ui() -> None:
+    """Save the confirmed categorical fill value to Streamlit session state."""
+    st.session_state["cat_fill_value"] = st.session_state["cat_fill_input"].strip() or "Unknown"
+    st.session_state["cat_fill_confirm"] = True
+
+
 def handle_missing_values(
     df: pd.DataFrame,
     request: SynthesisRequest,
@@ -488,13 +494,13 @@ def handle_missing_values_ui(
 
         if updated_plan["categorical_strategy"] is not None:
             st.write(
-                "  - **Categorical strategy:** "
+                "    - **Categorical strategy:** "
                 f"{format_option(updated_plan['categorical_strategy'])}"
             )
 
         if updated_plan["numerical_strategy"]:
             st.write(
-                f"  - **Numerical strategy:** {format_option(updated_plan['numerical_strategy'])}"
+                f"    - **Numerical strategy:** {format_option(updated_plan['numerical_strategy'])}"
             )
 
         if len(updated_plan["warning"]) > 0:
@@ -515,7 +521,7 @@ def handle_missing_values_ui(
                 st.session_state.missing_check_version = 0
 
             confirm = st.selectbox(
-                label="Would you like to proceed with the suggestion?",
+                label="**Would you like to proceed with the suggestion?**",
                 options=["yes", "no"],
                 index=None,
                 key=f"missing_handling_check_suggestion_{st.session_state.missing_check_version}",
@@ -632,16 +638,25 @@ def handle_missing_values_ui(
             cat_data = df[cat_cols].astype("object").where(df[cat_cols].notna(), np.nan)
 
             if cat_strategy == "constant":
-                st.write(
-                    "\nEnter the fill value that missing values should have. Fill values "
-                    "must be strings.\nPress enter if you would like to stay with the "
-                    "default ('Unknown'):"
-                )
+                if "cat_fill_value" not in st.session_state:
+                    st.write(
+                        "\nEnter the fill value that missing values should have. Fill values "
+                        "must be strings.\nPress enter if you would like to stay with the "
+                        "default ('Unknown'):"
+                    )
 
-                fill_value = st.text_input("fill_value")
+                    with st.form("categorical_fill_form"):
+                        custom_value = st.text_input(
+                            label="**Fill value**", placeholder="Default: Unknown",
+                        )
+                        submitted = st.form_submit_button("Confirm")
 
-                if fill_value == "":
-                    fill_value = "Unknown"
+                    if not submitted:
+                        st.stop()
+
+                    st.session_state["cat_fill_value"] = custom_value or "Unknown"
+
+                fill_value = st.session_state["cat_fill_value"]
 
                 imputer = SimpleImputer(strategy=str(cat_strategy), fill_value=fill_value)
 

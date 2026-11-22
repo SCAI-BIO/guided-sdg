@@ -14,8 +14,8 @@ st.space("small")
 
 st.write(
     "Now that data types, the generator, and missing value handling strategy have been determined "
-    "it is time for SDG. Metadata is created for the data generator selected and now the data "
-    "generator is running."
+    "it is time for synthetic data generation. Metadata is created for the data generator selected "
+    "and now the data generator is running."
 )
 
 # Generator selection

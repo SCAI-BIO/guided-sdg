@@ -344,7 +344,7 @@ def select_generator_ui(
     st.write(generation_plan.rationale)
 
     if len(generation_plan.warning) > 0:
-        st.warning(f"Warning: {generation_plan.warning[0]}")
+        st.warning(f"**Warning:** {generation_plan.warning[0]}")
 
     if st.session_state.get("generator_selection_complete", False,):
         st.info(f"⇨ {generation_plan.generator} has been approved.")
@@ -378,9 +378,8 @@ def select_generator_ui(
         return request
 
     if decision == "choose another":
-        st.write("Enter generator to evaluate:")
         selected_mechanism = st.selectbox(
-            label="select another mechanism",
+            label="**Enter generator to evaluate:**",
             options=get_args(GeneratorName.__value__), # pylint: disable=no-member
             index=None,
             label_visibility="hidden",

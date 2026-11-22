@@ -18,7 +18,7 @@ from agentic_synth_data.evaluation.attack_metrics import calculate_attack_metric
 from agentic_synth_data.llm import create_model
 from agentic_synth_data.report import write_report
 from agentic_synth_data.evaluation.syndat_metrics import calculate_metrics, \
-    calculate_metrics_ui, generate_plots, generate_plots_ui, display_metrics_ui
+    calculate_metrics_ui, display_plots_ui, generate_plots, generate_plots_ui, display_metrics_ui
 from agentic_synth_data.preparation.dtypes import handle_dtypes, handle_dtypes_ui, \
     missing_value_precheck, missing_value_precheck_ui
 from agentic_synth_data.preparation.load import load_df
@@ -52,12 +52,12 @@ class DataGen:
     # ============================================================================
 
     def __init__(
-            self,
-            data_path,
-            model_id: str | None = None,
-            provider: str | None = None,
-            api_key: str | None = None,
-            base_url: str | None = None,
+        self,
+        data_path,
+        model_id: str | None = None,
+        provider: str | None = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
     ):
         # Workflow identification and revision state
         self.data_path: str = data_path
@@ -717,6 +717,8 @@ class DataGen:
                 real=real, synth=synth, version_id=self.version_id,
             )
 
+        display_plots_ui(plot_paths=self.report.evaluate.plots, version_id=self.version_id,)
+
         st.divider()
 
         # Display agent evaluation of results
@@ -1154,6 +1156,8 @@ class DataGen:
             st.subheader("Synthetic dataset")
             st.dataframe(self.synthetic_df.head())
 
+        st.divider()
+
         # Retrieve metrics from the previous version
         prev_syndat_metrics, prev_attack_metrics = self.get_prev_evaluation_metrics()
 
@@ -1174,9 +1178,11 @@ class DataGen:
                     prev_metrics=prev_attack_metrics,
                 )
 
-        # TODO: add some sort of metric summary.
+        st.subheader("Evaluation plots")
 
-        # TODO: add graph display after loading as well
+        display_plots_ui(plot_paths=self.report.evaluate.plots,version_id=self.version_id,)
+
+        st.divider()
 
         # Agent evaluation
         if self.agent_decision is not None:

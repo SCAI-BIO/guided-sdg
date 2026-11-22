@@ -542,29 +542,38 @@ def generate_plots(
 def generate_plots_ui(
     real: pd.DataFrame, synth: pd.DataFrame, version_id: int,
 ) -> dict[str, list[Path]]:
-    """Generate, cache, store, and display distribution, correlation, and SHAP plots (UI).
+    """Generate and cache plot paths for a workflow version (UI).
 
     Args:
-        real (pd.DataFrame): The original (data_path) dataframe or the original dataframe with 
-                        missing value markers replaced with nan (norm_na_df).
+        real (pd.DataFrame): The original dataframe with missing markers handled and
+            features selected.
         synth (pd.DataFrame): The synthetically generated dataframe.
         version_id (int): Denotes the version of the workflow attempt.
 
     Returns:
-        dict[str, list[Path]]: Cached plot images grouped by plot type.
+        dict[str, list[Path]]: Plot images grouped by plot type.
     """
     output_dir = OUTPUT_DIR / f"version_{version_id}" / "plots"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     paths_key = f"plot_paths_{version_id}"
-    cache_key = f"plots_{version_id}"
 
     if paths_key not in st.session_state:
         st.session_state[paths_key] = _generate_plots(
             real=real, synth=synth, output_dir=output_dir,
         )
 
-    plot_paths = st.session_state[paths_key]
+    return st.session_state[paths_key]
+
+
+def display_plots_ui(plot_paths: dict[str, list[Path]], version_id: int,) -> None:
+    """Display previously generated distribution, correlation, and SHAP plots.
+
+    Args:
+        plot_paths (dict[str, list[Path]]): Plot images grouped by plot type.
+        version_id (int): Denotes the version of the workflow attempt.
+    """
+    cache_key = f"plots_{version_id}"
 
     if cache_key not in st.session_state:
         st.session_state[cache_key] = {
@@ -574,9 +583,7 @@ def generate_plots_ui(
     plots = st.session_state[cache_key]
 
     tab_dist, tab_corr, tab_shap = st.tabs([
-        "Distribution plots",
-        "Correlation plots",
-        "SHAP discrimination plot",
+        "Distribution plots", "Correlation plots", "SHAP discrimination plot",
     ])
 
     with tab_dist:
@@ -609,5 +616,3 @@ def generate_plots_ui(
         )
 
         plot_viewer(images=plots["shap"], plot_type="shap", version_id=version_id,)
-
-    return plot_paths
