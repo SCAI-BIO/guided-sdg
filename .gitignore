@@ -157,6 +157,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# App runtime artifacts
+data/*_prepared.*
+output/
+
 # Spyder project settings
 .spyderproject
 .spyproject
