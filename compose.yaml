@@ -17,6 +17,8 @@ services:
     build:
       context: ./sdr_service
       dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
     environment:
       SDR_WORKDIR: /synthetic_data_release
     volumes:
