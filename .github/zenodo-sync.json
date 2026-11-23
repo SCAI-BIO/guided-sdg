@@ -53,6 +53,18 @@
       {
         "person_or_org": {
           "type": "personal",
+          "name": "Malewski, Anna",
+          "given_name": "Anna",
+          "family_name": "Malewski"
+        },
+        "role": "supervisor",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
           "name": "Fröhlich, Holger",
           "given_name": "Holger",
           "family_name": "Fröhlich",
@@ -66,19 +78,8 @@
         "role": "projectleader",
         "affiliations": [
           "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
-          "University Hospital Bonn"
-        ]
-      },
-      {
-        "person_or_org": {
-          "type": "personal",
-          "name": "Malewski, Anna",
-          "given_name": "Anna",
-          "family_name": "Malewski"
-        },
-        "role": "supervisor",
-        "affiliations": [
-          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+          "University Hospital Bonn, Institute for Digital Medicine",
+          "Bonn-Aachen International Center for Information Technology (b-it)"
         ]
       }
     ],

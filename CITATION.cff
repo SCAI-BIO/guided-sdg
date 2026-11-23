@@ -19,17 +19,19 @@ authors:
     affiliation: >-
       Fraunhofer Institute for Algorithms and Scientific
       Computing SCAI
-  - given-names: Holger
-    family-names: Fröhlich
-    orcid: 'https://orcid.org/0000-0002-5328-1243'
-    affiliation: >-
-      Fraunhofer Institute for Algorithms and Scientific
-      Computing SCAI; University Hospital Bonn
   - given-names: Anna
     family-names: Malewski
     affiliation: >-
       Fraunhofer Institute for Algorithms and Scientific
       Computing SCAI
+  - given-names: Holger
+    family-names: Fröhlich
+    orcid: 'https://orcid.org/0000-0002-5328-1243'
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI; University Hospital Bonn, Institute for
+      Digital Medicine; Bonn-Aachen International Center for
+      Information Technology (b-it)
 repository-code: 'https://github.com/SCAI-BIO/agentic-synth-data'
 abstract: >-
   GuidedSDG is a Large Language Model (LLM) assisted workflow

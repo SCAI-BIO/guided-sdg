@@ -15,15 +15,15 @@
       "type": "Supervisor"
     },
     {
-      "name": "Fröhlich, Holger",
-      "orcid": "https://orcid.org/0000-0002-5328-1243",
-      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI; University Hospital Bonn",
-      "type": "ProjectLeader"
-    },
-    {
       "name": "Malewski, Anna",
       "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
       "type": "Supervisor"
+    },
+    {
+      "name": "Fröhlich, Holger",
+      "orcid": "https://orcid.org/0000-0002-5328-1243",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI; University Hospital Bonn, Institute for Digital Medicine; Bonn-Aachen International Center for Information Technology (b-it)",
+      "type": "ProjectLeader"
     }
   ],
   "keywords": [
