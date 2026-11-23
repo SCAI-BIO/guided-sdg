@@ -29,7 +29,9 @@
         "affiliations": [
           "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
         ]
-      },
+      }
+    ],
+    "contributors": [
       {
         "person_or_org": {
           "type": "personal",
@@ -43,7 +45,38 @@
             }
           ]
         },
-        "role": "researcher",
+        "role": "supervisor",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Fröhlich, Holger",
+          "given_name": "Holger",
+          "family_name": "Fröhlich",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-5328-1243",
+              "scheme": "orcid"
+            }
+          ]
+        },
+        "role": "projectleader",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
+          "University Hospital Bonn"
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Malewski, Anna",
+          "given_name": "Anna",
+          "family_name": "Malewski"
+        },
+        "role": "supervisor",
         "affiliations": [
           "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
         ]

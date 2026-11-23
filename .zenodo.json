@@ -5,11 +5,25 @@
     {
       "name": "Lewis, Annette",
       "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
-    },
+    }
+  ],
+  "contributors": [
     {
       "name": "Adams, Tim",
       "orcid": "https://orcid.org/0000-0002-2823-0102",
-      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Fröhlich, Holger",
+      "orcid": "https://orcid.org/0000-0002-5328-1243",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI; University Hospital Bonn",
+      "type": "ProjectLeader"
+    },
+    {
+      "name": "Malewski, Anna",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
+      "type": "Supervisor"
     }
   ],
   "keywords": [
