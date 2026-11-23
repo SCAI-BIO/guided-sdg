@@ -23,7 +23,13 @@
           "type": "personal",
           "name": "Lewis, Annette",
           "given_name": "Annette",
-          "family_name": "Lewis"
+          "family_name": "Lewis",
+          "identifiers": [
+            {
+              "identifier": "0000-0001-9792-2498",
+              "scheme": "orchid"
+            }
+          ]
         },
         "role": "contactperson",
         "affiliations": [
