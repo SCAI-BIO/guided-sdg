@@ -4,6 +4,7 @@
   "creators": [
     {
       "name": "Lewis, Annette",
+      "orcid": "https://orcid.org/0000-0001-9792-2498",
       "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
     }
   ],
@@ -16,6 +17,7 @@
     },
     {
       "name": "Malewski, Anna",
+      "orcid": "https://orcid.org/0000-0002-7674-9590",
       "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
       "type": "Supervisor"
     },
