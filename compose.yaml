@@ -1,6 +1,9 @@
 services:
   guided-sdg:
-    image: guided-sdg
+    image: ghcr.io/scai-bio/agentic-synth-data/guided-sdg:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
     env_file:
@@ -14,6 +17,7 @@ services:
       - ./output:/workspace/output:z
 
   sdr:
+    image: ghcr.io/scai-bio/agentic-synth-data/sdr:latest
     build:
       context: ./sdr_service
       dockerfile: Dockerfile

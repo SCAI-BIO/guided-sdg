@@ -1,0 +1,38 @@
+{
+  "title": "GuidedSDG: Agentic Workflow for Synthetic Tabular Data Generation and Evaluation",
+  "description": "GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation. It guides users through data preparation, generator selection, synthetic data generation, and evaluation, and incorporates human-in-the-loop (HITL) interactions that let users review and revise agent recommendations throughout the workflow.",
+  "creators": [
+    {
+      "name": "Lewis, Annette",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+    },
+    {
+      "name": "Adams, Tim",
+      "orcid": "https://orcid.org/0000-0002-2823-0102",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+    }
+  ],
+  "keywords": [
+    "agentic AI",
+    "data privacy",
+    "data quality",
+    "human-in-the-loop",
+    "Python",
+    "Streamlit",
+    "synthetic data",
+    "synthetic data generation",
+    "tabular data"
+  ],
+  "license": "Apache-2.0",
+  "upload_type": "software",
+  "access_right": "open",
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/SCAI-BIO/agentic-synth-data",
+      "relation": "isSupplementedBy",
+      "scheme": "url",
+      "resource_type": "software"
+    }
+  ]
+}

@@ -71,12 +71,20 @@ The application uses two containers:
 **sdr**: Runs the Synthetic Data Release generators through an HTTP API.
 
 ```bash
-# Using Podman:
-podman build -t guided-sdg .
+# Option A: use the container images published on GitHub Container Registry
+podman compose pull
+podman compose up -d
+
+# Using Docker:
+docker compose pull
+docker compose up -d
+```
+
+```bash
+# Option B: build the images from source
 podman compose up -d --build
 
 # Using Docker:
-docker build -t guided-sdg .
 docker compose up -d --build
 ```
 
@@ -92,24 +100,10 @@ docker compose down
 ```
 
 
-#### 4. Start the Streamlit user interface
+#### 4. Start the Streamlit user interface without containers
 Enter the following into the terminal:
 ```bash
 streamlit run ./src/agentic_synth_data/ui/main.py
-```
-
-```bash
-podman run --rm --env-file .env -p 8080:8080 guided-sdg
-```
-
-``` bash
-# If podman is installed:
-podman-compose up # To start the containers
-podman-compose down # To stop and remove services
-
-# If docker is installed:
-docker compose up # ""
-docker compose down # ""
 ```
 ---
 
@@ -135,6 +129,35 @@ docker compose down # ""
 
 *Info:* Each check mark (✓) indicates that the LLM agent is invoked to assist during the workflow. The agent is only involved in making suggestions.
 
+## Container images
+
+The images referenced by `compose.yaml` are built by CI and published to the
+GitHub Container Registry:
+
+| Image | Contents |
+|-------|----------|
+| `ghcr.io/scai-bio/agentic-synth-data/guided-sdg` | Streamlit interface and workflow |
+| `ghcr.io/scai-bio/agentic-synth-data/sdr` | Synthetic Data Release generators served over HTTP |
+
+`.github/workflows/ci.yaml` builds both images on every push and pull request to
+`main`, and `.github/workflows/deploy.yaml` publishes both of them (tagged
+`latest` and with the release version) whenever a GitHub release is published.
+The packages have to be public in the GitHub package settings, otherwise
+`docker compose pull` fails with a permission error.
+
+## Releases and Zenodo
+
+The Zenodo record metadata is declared in `.github/zenodo-sync.json` (with a
+legacy copy in `.zenodo.json`) and applied by `.github/workflows/zenodo.yaml`
+using [zenodo-schema-sync](https://github.com/tiadams/zenodo-schema-sync).
+Citation metadata for GitHub is provided in [`CITATION.cff`](CITATION.cff).
+
+The workflow requires a repository secret named `ZENODO_TOKEN` that holds a
+Zenodo personal access token with the `deposit:write` and `deposit:actions`
+scopes. On its first successful run the record is created and published on
+Zenodo; the resulting DOI should then be added to `CITATION.cff` and to this
+README.
+
 ## References
 - **Syndat:** Adams, T., Birkenbihl, C., Otte, K., et al. (2025).
   *On the fidelity versus privacy and utility trade-off of synthetic patient data*.
@@ -158,8 +181,10 @@ docker compose down # ""
 ## Project structure
 ```bash
 guided-sdg
+├── .github # Dependabot, CI, container deploy, and Zenodo workflows
 ├── compose.yaml # Container configuration
 ├── .env # LLM API configuration
+├── CITATION.cff # Citation metadata
 ├── data # Input and prepared datasets
 ├── demo_data # Example dataset
 │   └── mix_titanic.csv

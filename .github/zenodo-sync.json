@@ -1,0 +1,86 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tiadams/zenodo-schema-sync/main/schema/zenodo-sync.schema.json",
+  "repository": "https://github.com/SCAI-BIO/agentic-synth-data",
+  "access": {
+    "record": "public",
+    "files": "public",
+    "embargo": {
+      "active": false
+    }
+  },
+  "files": {
+    "enabled": true
+  },
+  "metadata": {
+    "resource_type": "software",
+    "title": "GuidedSDG: Agentic Workflow for Synthetic Tabular Data Generation and Evaluation",
+    "description": "GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation. It guides users through data preparation, generator selection, synthetic data generation, and evaluation, and incorporates human-in-the-loop (HITL) interactions that let users review and revise agent recommendations throughout the workflow.",
+    "publication_date": "2026-11-23",
+    "publisher": "Zenodo",
+    "creators": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Lewis, Annette",
+          "given_name": "Annette",
+          "family_name": "Lewis"
+        },
+        "role": "contactperson",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Adams, Tim",
+          "given_name": "Tim",
+          "family_name": "Adams",
+          "identifiers": [
+            {
+              "identifier": "0000-0002-2823-0102",
+              "scheme": "orcid"
+            }
+          ]
+        },
+        "role": "researcher",
+        "affiliations": [
+          "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+        ]
+      }
+    ],
+    "subjects": [
+      "agentic AI",
+      "data privacy",
+      "data quality",
+      "human-in-the-loop",
+      "Python",
+      "Streamlit",
+      "synthetic data",
+      "synthetic data generation",
+      "tabular data"
+    ],
+    "languages": [
+      "eng"
+    ],
+    "rights": [
+      "apache-2.0"
+    ],
+    "copyright": "Copyright 2026 Fraunhofer SCAI",
+    "related_identifiers": [
+      {
+        "identifier": "https://github.com/SCAI-BIO/agentic-synth-data",
+        "scheme": "url",
+        "relation_type": "issupplementedby",
+        "resource_type": "software"
+      }
+    ]
+  },
+  "custom_fields": {
+    "code:codeRepository": "https://github.com/SCAI-BIO/agentic-synth-data",
+    "code:programmingLanguage": [
+      "python"
+    ],
+    "code:developmentStatus": "active"
+  }
+}
