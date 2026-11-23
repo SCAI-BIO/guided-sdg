@@ -4,7 +4,6 @@ import streamlit as st
 from dotenv import dotenv_values
 
 from agentic_synth_data.llm import check_model_connection
-from agentic_synth_data.ui.helpers import clear_output_ui # NOTE: temporary
 from agentic_synth_data.utils import DATA_DIR, DEMO_DATA_DIR, PROJECT_ROOT, comma_sep, \
     display_workflow_progress
 from agentic_synth_data.workflow import DataGen
@@ -216,7 +215,3 @@ if start:
     st.session_state.file_name = file_name
 
     st.switch_page("pages/preferences.py")
-
-with st.sidebar:
-    st.subheader("Developer tools")
-    clear_output_ui()

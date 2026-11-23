@@ -79,7 +79,7 @@ def update_missing_value_choice_ui(request: SynthesisRequest) -> SynthesisReques
     st.write("Please select another method to handle missing values:")
 
     choice = st.selectbox(
-        label="Update missing value handling choice",
+        label="**Update missing value handling choice**",
         options=["auto", "impute",],
         index=None,
         key="update_missing_value_handling_choice",
@@ -95,7 +95,7 @@ def update_missing_value_choice_ui(request: SynthesisRequest) -> SynthesisReques
         )
 
         cat_choice = st.selectbox(
-            label="Update missing value handling choice",
+            label="**Update missing categorical value handling choice**",
             options=get_args(CategoricalChoiceAuto.__value__), # pylint: disable=no-member
             index=None,
             format_func=format_option,
@@ -103,7 +103,7 @@ def update_missing_value_choice_ui(request: SynthesisRequest) -> SynthesisReques
         )
 
         num_choice = st.selectbox(
-            label="Update missing value handling choice",
+            label="**Update missing value handling choice**",
             options=get_args(NumericalChoiceAuto.__value__), # pylint: disable=no-member
             index=None,
             format_func=format_option,
@@ -210,7 +210,7 @@ def handle_missing_values(
         null_row_count = df.isna().any(axis=1).sum()
         print(
             f"\nWarning: {null_row_count} out of {df.shape[0]} rows "
-            f"({null_row_count/df.shape[0]*100}%) will be removed from the dataset."
+            f"({null_row_count/df.shape[0]:.2%}) will be removed from the dataset."
         )
 
         confirm = pyip.inputYesNo("\nConfirm whether this should be done (yes/no/y/n):\n")
@@ -586,11 +586,11 @@ def handle_missing_values_ui(
         null_row_count = df.isna().any(axis=1).sum()
         st.warning(
             f"**Warning:** {null_row_count} out of {df.shape[0]} rows "
-            f"({null_row_count/df.shape[0]*100}%) will be removed from the dataset."
+            f"({null_row_count/df.shape[0]:.2%}) will be removed from the dataset."
         )
 
         confirm = st.selectbox(
-            label="Confirm whether this should be done:",
+            label="**Confirm whether this should be done:**",
             options=["yes", "no"],
             index=None,
         )

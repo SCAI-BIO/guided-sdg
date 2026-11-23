@@ -544,7 +544,8 @@ def plot_viewer(images, plot_type: str, version_id: int, show_filename: bool = F
     if show_filename:
         st.caption(Path(images[idx]["name"]).name)
 
-    st.image(images[idx]["data"], width="stretch")
+    with st.container(horizontal=True, horizontal_alignment="center"):
+        st.image(images[idx]["data"])
 
 
 # ============================================================================
