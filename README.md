@@ -4,8 +4,14 @@
   <img alt="guided-sdg-image" src="src/agentic_synth_data/images/icon.png">
 </picture>
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24500909.svg)](https://doi.org/10.5281/zenodo.24500909)
 [![CI](https://github.com/SCAI-BIO/guided-sdg/actions/workflows/ci.yaml/badge.svg)](https://github.com/SCAI-BIO/guided-sdg/actions/workflows/ci.yaml)
+[![Release](https://img.shields.io/github/v/release/SCAI-BIO/guided-sdg)](https://github.com/SCAI-BIO/guided-sdg/releases/latest)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
+
+## About
 
 GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation.
 
