@@ -209,7 +209,7 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
             if prev_metrics is not None else None
         )
 
-        st.write(f"### {metric.capitalize()}:")
+        st.write(f"#### {metric.capitalize()}:")
 
         st.write(description)
 
