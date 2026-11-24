@@ -1,6 +1,6 @@
 services:
   guided-sdg:
-    image: ghcr.io/scai-bio/agentic-synth-data/guided-sdg:latest
+    image: ghcr.io/scai-bio/guided-sdg/guided-sdg:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -17,7 +17,7 @@ services:
       - ./output:/workspace/output:z
 
   sdr:
-    image: ghcr.io/scai-bio/agentic-synth-data/sdr:latest
+    image: ghcr.io/scai-bio/guided-sdg/sdr:latest
     build:
       context: ./sdr_service
       dockerfile: Dockerfile

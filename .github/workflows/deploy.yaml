@@ -86,7 +86,7 @@ jobs:
           file: ${{ matrix.file }}
           push: true
           tags: |
-            ghcr.io/scai-bio/agentic-synth-data/${{ matrix.image }}:latest
-            ghcr.io/scai-bio/agentic-synth-data/${{ matrix.image }}:${{ steps.version.outputs.version }}
+            ghcr.io/scai-bio/guided-sdg/${{ matrix.image }}:latest
+            ghcr.io/scai-bio/guided-sdg/${{ matrix.image }}:${{ steps.version.outputs.version }}
           cache-from: ${{ matrix.cache_from }}
           cache-to: ${{ matrix.cache_to }}

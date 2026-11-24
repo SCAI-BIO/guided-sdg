@@ -4,7 +4,7 @@
   <img alt="guided-sdg-image" src="src/agentic_synth_data/images/icon.png">
 </picture>
 
-[![CI](https://github.com/SCAI-BIO/agentic-synth-data/actions/workflows/ci.yaml/badge.svg)](https://github.com/SCAI-BIO/agentic-synth-data/actions/workflows/ci.yaml)
+[![CI](https://github.com/SCAI-BIO/guided-sdg/actions/workflows/ci.yaml/badge.svg)](https://github.com/SCAI-BIO/guided-sdg/actions/workflows/ci.yaml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 
 GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation.
@@ -97,7 +97,7 @@ If the following error occurs:
 
 Create the project's network manually using an available subnet:
 ```bash
-podman network create --subnet 172.31.250.0/24 agentic-synth-data_default
+podman network create --subnet 172.31.250.0/24 guided-sdg_default
 ```
 
 Then restart the application:
