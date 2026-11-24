@@ -167,31 +167,54 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
     Args:
         metrics (SyndatMetrics): Calculated metrics and captured output messages.
     """
-    st.subheader("Fidelity and utility metrics")
+    st.subheader("Fidelity metrics")
     st.write(
-        "Normalized Syndat scores range from 0 to 100, with higher values indicating better "
-        "performance."
+        "The synthetic dataset should preserve the statistical properties of the original "
+        "dataset. Scores are normalized from 0 to 100, with higher values indicating "
+        "better fidelity. We record the following metrics from Syndat to assess the dataset's "
+        "fidelity."
     )
 
     normalized_metrics = [
-        ("distribution", "jsd", "Some variables may have been excluded during computation."),
-        ("correlation", "norm_corr_diff",
-            "Click to view output while calculating normalized correlation difference."
+        (
+            "distribution",
+            "jsd",
+            "Measures how closely the statistical distributions of individual features in the "
+            "synthetic dataset match those in the original dataset. Higher scores indicate "
+            "greater distributional similarity.",
+            "Some variables may have been excluded during computation.",
         ),
-        ("discrimination", "discrim_auc",
-            "Click to view output while calculating discriminator AUC."
+        (
+            "correlation",
+            "norm_corr_diff",
+            "Measures how well the synthetic dataset preserves the relationships between "
+            "features in the original dataset. Higher scores indicate better preservation "
+            "of the original correlation structure.",
+            "Click to view output while calculating normalized correlation difference.",
+        ),
+        (
+            "discrimination",
+            "discrim_auc",
+            "Measures how difficult it is for a classifier to distinguish between real and "
+            "synthetic records. Higher scores indicate that the datasets are more difficult "
+            "to distinguish.",
+            "Click to view output while calculating discriminator AUC.",
         ),
     ]
 
-    for metric, output, warning_message in normalized_metrics:
+    for metric, output, description, warning_message in normalized_metrics:
         value = getattr(metrics.normalized_scores, metric)
         prev_value = (
             getattr(prev_metrics.normalized_scores, metric)
             if prev_metrics is not None else None
         )
 
+        st.write(f"### {metric.capitalize()}:")
+
+        st.write(description)
+
         st.metric(
-            label=metric.capitalize(),
+            label=f"**{metric.capitalize()}**",
             value=f"{value:.2f}" if value is not None and pd.notna(value) else "N/A",
             delta=calculate_delta(current=value, previous=prev_value, decimals=2,)
             if value is not None and pd.notna(value) else None,
@@ -307,8 +330,8 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
             st.write("#### Discriminator AUC:")
             st.write(
                 "Discriminator Area Under the Curve (AUC) is a value between 0 and 1. An AUC near "
-                "0.5 is preferable, whereas one near 1 indicates that real and synthetic datasets are "
-                "easy to distinguish between."
+                "0.5 is preferable, whereas one near 1 indicates that real and synthetic datasets "
+                "are easy to distinguish between."
             )
 
             prev_discrim_auc = prev_metrics.discrim_auc if prev_metrics is not None else None
