@@ -1,0 +1,55 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: "GuidedSDG: Agentic Workflow for Synthetic Tabular Data Generation and Evaluation"
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Annette
+    family-names: Lewis
+    orcid: 'https://orcid.org/0000-0001-9792-2498'
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI
+  - given-names: Tim
+    family-names: Adams
+    orcid: 'https://orcid.org/0000-0002-2823-0102'
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI
+  - given-names: Anna
+    family-names: Malewski
+    orcid: 'https://orcid.org/0000-0002-7674-9590'
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI
+  - given-names: Holger
+    family-names: Fröhlich
+    orcid: 'https://orcid.org/0000-0002-5328-1243'
+    affiliation: >-
+      Fraunhofer Institute for Algorithms and Scientific
+      Computing SCAI; University Hospital Bonn, Institute for
+      Digital Medicine; Bonn-Aachen International Center for
+      Information Technology (b-it)
+repository-code: 'https://github.com/SCAI-BIO/agentic-synth-data'
+abstract: >-
+  GuidedSDG is a Large Language Model (LLM) assisted workflow
+  for synthetic tabular data generation and evaluation. It guides
+  users through data preparation, generator selection, synthetic
+  data generation, and evaluation, and incorporates
+  human-in-the-loop (HITL) interactions that let users review and
+  revise agent recommendations throughout the workflow.
+keywords:
+  - agentic AI
+  - data privacy
+  - data quality
+  - human-in-the-loop
+  - Python
+  - Streamlit
+  - synthetic data
+  - synthetic data generation
+  - tabular data
+license: GPL-3.0-only

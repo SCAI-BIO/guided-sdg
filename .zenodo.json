@@ -1,0 +1,54 @@
+{
+  "title": "GuidedSDG: Agentic Workflow for Synthetic Tabular Data Generation and Evaluation",
+  "description": "GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation. It guides users through data preparation, generator selection, synthetic data generation, and evaluation, and incorporates human-in-the-loop (HITL) interactions that let users review and revise agent recommendations throughout the workflow.",
+  "creators": [
+    {
+      "name": "Lewis, Annette",
+      "orcid": "https://orcid.org/0000-0001-9792-2498",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Adams, Tim",
+      "orcid": "https://orcid.org/0000-0002-2823-0102",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Malewski, Anna",
+      "orcid": "https://orcid.org/0000-0002-7674-9590",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI",
+      "type": "Supervisor"
+    },
+    {
+      "name": "Fröhlich, Holger",
+      "orcid": "https://orcid.org/0000-0002-5328-1243",
+      "affiliation": "Fraunhofer Institute for Algorithms and Scientific Computing SCAI; University Hospital Bonn, Institute for Digital Medicine; Bonn-Aachen International Center for Information Technology (b-it)",
+      "type": "ProjectLeader"
+    }
+  ],
+  "keywords": [
+    "agentic AI",
+    "data privacy",
+    "data quality",
+    "human-in-the-loop",
+    "Python",
+    "Streamlit",
+    "synthetic data",
+    "synthetic data generation",
+    "tabular data"
+  ],
+  "license": "GPL-3.0-only",
+  "upload_type": "software",
+  "access_right": "open",
+  "language": "eng",
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/SCAI-BIO/agentic-synth-data",
+      "relation": "isSupplementedBy",
+      "scheme": "url",
+      "resource_type": "software"
+    }
+  ]
+}

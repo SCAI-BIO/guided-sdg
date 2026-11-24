@@ -5,6 +5,8 @@ authors = [
     { name = "Annette Lewis", email = "annette.lewis@scai.fraunhofer.de" }
 ]
 requires-python = ">=3.13"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 dependencies = [
     "langchain[openai]>=1.2.17",
     "langchain-core>=1.3.3",

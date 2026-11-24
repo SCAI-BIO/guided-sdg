@@ -3,7 +3,7 @@ WORKDIR /usr/local/app
 
 # Install the application dependencies
 RUN pip install --no-cache-dir uv
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock LICENSE ./
 
 # Copy in the source code
 COPY src ./src
