@@ -85,6 +85,29 @@ docker compose up -d --build
 
 Click [here](http://localhost:8080) to access the Streamlit interface after running the container.
 
+---
+
+**Troubleshooting: Podman network issues**
+
+When using Podman, network creation may fail if its automatically assigned subnet conflicts with an existing network.
+
+If the following error occurs:
+
+`Error: could not find free subnet from subnet pools`
+
+Create the project's network manually using an available subnet:
+```bash
+podman network create --subnet 172.31.250.0/24 agentic-synth-data_default
+```
+
+Then restart the application:
+
+```bash
+podman compose up -d --build
+```
+
+---
+
 To stop the containers:
 ```bash
 # Using Podman:
