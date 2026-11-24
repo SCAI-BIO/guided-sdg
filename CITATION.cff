@@ -34,7 +34,7 @@ authors:
       Computing SCAI; University Hospital Bonn, Institute for
       Digital Medicine; Bonn-Aachen International Center for
       Information Technology (b-it)
-repository-code: 'https://github.com/SCAI-BIO/agentic-synth-data'
+repository-code: 'https://github.com/SCAI-BIO/guided-sdg'
 abstract: >-
   GuidedSDG is a Large Language Model (LLM) assisted workflow
   for synthetic tabular data generation and evaluation. It guides

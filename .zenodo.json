@@ -45,7 +45,7 @@
   "language": "eng",
   "related_identifiers": [
     {
-      "identifier": "https://github.com/SCAI-BIO/agentic-synth-data",
+      "identifier": "https://github.com/SCAI-BIO/guided-sdg",
       "relation": "isSupplementedBy",
       "scheme": "url",
       "resource_type": "software"
