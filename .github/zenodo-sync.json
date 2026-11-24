@@ -104,7 +104,7 @@
       "eng"
     ],
     "rights": [
-      "gpl-3.0-only"
+      "gpl-3.0-or-later"
     ],
     "copyright": "Copyright 2026 Fraunhofer SCAI",
     "related_identifiers": [

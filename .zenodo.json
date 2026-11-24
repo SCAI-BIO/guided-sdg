@@ -39,7 +39,7 @@
     "synthetic data generation",
     "tabular data"
   ],
-  "license": "GPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "upload_type": "software",
   "access_right": "open",
   "language": "eng",

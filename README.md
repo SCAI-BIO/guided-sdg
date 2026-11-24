@@ -5,7 +5,7 @@
 </picture>
 
 [![CI](https://github.com/SCAI-BIO/agentic-synth-data/actions/workflows/ci.yaml/badge.svg)](https://github.com/SCAI-BIO/agentic-synth-data/actions/workflows/ci.yaml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 
 GuidedSDG is a Large Language Model (LLM) assisted workflow for synthetic tabular data generation and evaluation.
 
