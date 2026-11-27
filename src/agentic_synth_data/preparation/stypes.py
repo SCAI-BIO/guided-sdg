@@ -66,7 +66,7 @@ def handle_semantic_types(
 
     # 2. Agent infers the semantic type of columns based on their profile.
     print(
-        "\nAgent is analyzing column data types, unique values, and value distributions to " \
+        "\nAgent is analyzing column data types, unique values, and value distributions to "
         "infer semantic types..."
     )
 
@@ -91,7 +91,7 @@ def handle_semantic_types(
         print(f"{col}: {stype}")
 
     # 3. User confirmation.
-    confirm = pyip.inputYesNo("\nAre all column data types correct?")
+    confirm = pyip.inputYesNo(prompt="\nAre all column data types correct?")
     # possible TODO: Add a way to select multiple columns as a group and to change their stype (semantic type).
 
     # 4. If corrections are needed, the user can manually update column types.
@@ -102,7 +102,7 @@ def handle_semantic_types(
                 "finish)"
             )
 
-            col = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
+            col = pyip.inputMenu(choices=["Exit"] + df.columns.tolist(), numbered=True)
 
             if col == "Exit":
                 break
@@ -112,7 +112,7 @@ def handle_semantic_types(
                 f"Current semantic type is '{stypes[col]}'. What should this be modified to?"
             )
 
-            choice = pyip.inputMenu(get_args(SemanticType.__value__), numbered=True,) # pylint: disable=no-member
+            choice = pyip.inputMenu(choices=get_args(SemanticType.__value__), numbered=True,) # pylint: disable=no-member
 
             stypes[col] = choice
 
@@ -124,7 +124,7 @@ def handle_semantic_types(
             for col, stype in stypes.items():
                 print(f"{col}: {stype}")
 
-            print("-"*40)
+            print("-" * 40)
 
     print()
     print("-" * 25 + "Final data types present in each column" + "-" * 25)

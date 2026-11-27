@@ -75,7 +75,7 @@ def missing_value_precheck(df: pd.DataFrame) -> MissingPrecheckReport:
 
             # TODO: Add an option to replace only specific markers out of the detected list.
             # TODO: Add an option to view the column distribution for each marker (for this multiple case)
-            choice = pyip.inputMenu(options, numbered=True)
+            choice = pyip.inputMenu(choices=options, numbered=True,)
 
             if choice == "Continue without replacement":
                 print(
@@ -126,7 +126,7 @@ def missing_value_precheck(df: pd.DataFrame) -> MissingPrecheckReport:
             ]
 
             # TODO: Add an option to view the column distribution for the marker.
-            choice = pyip.inputMenu(options, numbered=True)
+            choice = pyip.inputMenu(choices=options, numbered=True,)
 
             if choice == "Continue without replacement":
                 print("\n\tNo values were replaced.")
@@ -423,7 +423,7 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
     print("Examples:\n- Integer: -23, 0, 34, 120")
     print("- Float: -23.2, 0.6, 34.9, 120.14")
     print("- String: 'red 53', 'S', '12.6%', 'third'")
-    confirm = pyip.inputYesNo("\nAre all column data types (Python) correct?\n")
+    confirm = pyip.inputYesNo(prompt="\nAre all column data types (Python) correct?\n")
 
     if confirm == "no":
         while True:
@@ -431,7 +431,8 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
                 "\nInput column name/number to modify (enter exit (not case-sensitive) or 1 "
                 "to finish)\n"
             )
-            var = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
+
+            var = pyip.inputMenu(choices=["Exit"] + df.columns.tolist(), numbered=True,)
 
             if var == "Exit":
                 break
@@ -441,7 +442,7 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
                 continue
 
             print(f"Selected the following column: {var}")
-            choice = pyip.inputMenu(["Integer", "Float", "String",], numbered=True)
+            choice = pyip.inputMenu(choices=["Integer", "Float", "String",], numbered=True,)
 
             if choice == "Integer":
                 df[var] = pd.to_numeric(df[var], errors="coerce").astype("int64")
@@ -460,7 +461,7 @@ def handle_dtypes(df:pd.DataFrame) -> tuple[pd.DataFrame, dict[Hashable, bool]]:
             print("-" * 40)
 
     print()
-    print("-"*25+"Final data types present in each column"+"-"*25)
+    print("-" * 25 + "Final data types present in each column" + "-" * 25)
 
     print(df.dtypes)
 

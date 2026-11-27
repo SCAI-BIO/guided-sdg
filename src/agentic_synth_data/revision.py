@@ -50,7 +50,9 @@ def plan_update(
         dict | None: If a revision was chosen, returns the update_plan dict. Otherwise, None.
     """
     # Select mechanism
-    update_mech = generator_update(request, agent_decision, report, agent, config)
+    update_mech = generator_update(
+        request=request, agent_decision=agent_decision, report=report, agent=agent, config=config,
+    )
 
     if update_mech is not None:
         effective_generator = update_mech.generator_name
@@ -58,18 +60,21 @@ def plan_update(
         effective_generator = request.generator.name
 
     # Mechanism parameters
-    update_params = parameter_update(effective_generator, agent, config)
+    update_params = parameter_update(
+        selected_mechanism=effective_generator, agent=agent, config=config,
+    )
 
     # Missing handling
     update_missing = None
 
     if effective_generator in ["PrivBayes", "BayesianNet"]:
         print(
-            "\n🠊 The data generator selected allows for missing values. Missing value handling" \
+            "\n🠊 The data generator selected allows for missing values. Missing value handling"
             " will not be applied."
         )
+
     else:
-        update_missing = missing_update(request, agent, config)
+        update_missing = missing_update(request=request, agent=agent, config=config,)
 
     update_plan = {}
     if update_mech:
@@ -197,7 +202,7 @@ def generator_update(
     print("\nAgent is coming up with a generator revision options...")
 
     revision_plan = invoke_agent(
-        prompt=revision_message(request, report, agent_decision),
+        prompt=revision_message(request=request, report=report, agent_decision=agent_decision),
         model_cls=GeneratorRevisionPlan,
         agent=agent,
         config=config,
@@ -209,16 +214,17 @@ def generator_update(
         menu_options[label] = option
 
     choice = pyip.inputMenu(
-        list(menu_options.keys()) + ["Cancel"],
-        "\nSelect a generator revision option:\n", 
-        numbered=True
+        choices=list(menu_options.keys()) + ["Cancel"],
+        prompt="\nSelect a generator revision option:\n",
+        numbered=True,
     )
 
     if choice == "Cancel":
         print(
-            "\n🠊 No revision has been selected for generator choice, continuing to " \
+            "\n🠊 No revision has been selected for generator choice, continuing to "
             "missing value handling."
         )
+
         return None
 
     return menu_options[choice]
@@ -261,7 +267,9 @@ def generator_update_ui(
     if plan_key not in st.session_state:
         with st.spinner("Agent is coming up with a generator revision options..."):
             revision_plan = invoke_agent(
-                prompt=revision_message(request, report, agent_decision),
+                prompt=revision_message(
+                    request=request, report=report, agent_decision=agent_decision,
+                ),
                 model_cls=GeneratorRevisionPlan,
                 agent=agent,
                 config=config,
@@ -296,8 +304,10 @@ def generator_update_ui(
         st.write(f"- **{option.generator_name}:** {option.reason}")
 
     choice = st.selectbox(
-        label="**Select a generator revision option. Select cancel to retain your current " \
-            "selection.**",
+        label=(
+            "**Select a generator revision option. Select cancel to retain your current "
+            "selection.**"
+        ),
         options=list(menu_options.keys()) + ["Cancel"],
         index=None,
         key=f"rerun_generator_update_{version_id}",
@@ -313,6 +323,7 @@ def generator_update_ui(
             "⇨ No revision has been selected for generator choice, continuing to "
             "missing value handling."
         )
+
         return None
 
     selected_option = menu_options[choice]
@@ -336,15 +347,15 @@ def parameter_update(
     """
     if selected_mechanism in ["BayesianNet", "CTGAN"]:
         print(
-            f"🠊 {selected_mechanism} can only be set to default." \
-              " Default parameters retained."
+            f"🠊 {selected_mechanism} can only be set to default. Default parameters retained."
         )
+
         return None
 
     print("\nAgent is coming up with a parameter revision...")
 
     param_revision = invoke_agent(
-        prompt=parameter_revision_message(selected_mechanism),
+        prompt=parameter_revision_message(selected_mechanism=selected_mechanism),
         model_cls=CONFIG_MAP[selected_mechanism],
         agent=agent,
         config=config,
@@ -354,6 +365,7 @@ def parameter_update(
 
     if not changed_params:
         print("\n🠊 Default parameters retained.")
+
         return None
 
     if selected_mechanism == "PATEGAN":
@@ -361,6 +373,7 @@ def parameter_update(
             "eps":param_revision.eps, "delta":1e-5, "infer_ranges":False, "num_teachers":10,
             "n_iters":100, "batch_size":128, "learning_rate":1e-4, "multiprocess":False,
         }
+
         selection = ("epsilon", 1, param_revision.eps)
 
     elif selected_mechanism == "PrivBayes":
@@ -368,12 +381,14 @@ def parameter_update(
             "histogram_bins":10, "degree":1, "epsilon":param_revision.epsilon, "infer_ranges":False,
             "multiprocess":True, "seed":None,
         }
+
         selection = ("epsilon", .1, param_revision.epsilon)
 
     print(
-        f"\n🠊 {selected_mechanism}: {selection[0]} has been updated to {selection[2]} " \
+        f"\n🠊 {selected_mechanism}: {selection[0]} has been updated to {selection[2]} "
         f"(default = {selection[1]})"
     )
+
     return mech_params
 
 
@@ -398,12 +413,13 @@ def parameter_update_ui(
         st.info(
             f"⇨ {selected_mechanism} can only be set to default. Default parameters retained."
         )
+
         return None
 
  # TODO add a check for the agent to only suggest once
     with st.spinner("Agent is coming up with a parameter revision..."):
         param_revision = invoke_agent(
-            prompt=parameter_revision_message(selected_mechanism),
+            prompt=parameter_revision_message(selected_mechanism=selected_mechanism),
             model_cls=CONFIG_MAP[selected_mechanism],
             agent=agent,
             config=config,
@@ -423,13 +439,16 @@ def parameter_update_ui(
 
     if not changed_params:
         st.info("⇨ Default parameters retained.")
+
         return None
 
+    selection = ""
     if selected_mechanism == "PATEGAN":
         mech_params = {
             "eps": param_revision.eps, "delta": 1e-5, "infer_ranges": False, "num_teachers": 10,
             "n_iters": 100, "batch_size": 128, "learning_rate": 1e-4, "multiprocess": False,
         }
+
         selection = ("epsilon", 1, param_revision.eps)
 
     elif selected_mechanism == "PrivBayes":
@@ -437,12 +456,14 @@ def parameter_update_ui(
             "histogram_bins": 10, "degree": 1, "epsilon": param_revision.epsilon,
             "infer_ranges": False, "multiprocess": True, "seed": None,
         }
+
         selection = ("epsilon", .1, param_revision.epsilon)
 
     st.info(
         f"⇨ {selected_mechanism}: {selection[0]} has been updated to {selection[2]} "
         f"(default = {selection[1]})"
     )
+
     return mech_params
 
 
@@ -476,27 +497,31 @@ def missing_update(
 
     menu_options = {}
     for option in revision_plan.options:
+        label = ""
         if option.mode == "remove":
             label = newline_every_n_words(f"Mode: {option.mode} - {option.reason}", 12)
 
         if option.mode == "impute":
-            label = f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, " \
-            f"Categorical strategy: {format_option(option.categorical_strategy)}\n- " \
-            f"{newline_every_n_words(option.reason, 12)}"
+            label = (
+                f"Mode: {option.mode}, Numerical strategy: {option.numerical_strategy}, "
+                f"Categorical strategy: {format_option(option.categorical_strategy)}\n"
+                f"- {newline_every_n_words(option.reason, 12)}"
+            )
 
         menu_options[label] = option
 
     choice = pyip.inputMenu(
-        list(menu_options.keys()) + ["Cancel"],
-        "\nSelect a missing value revision option:\n", 
-        numbered=True
-        )
+        choices=list(menu_options.keys()) + ["Cancel"],
+        prompt="\nSelect a missing value revision option:\n",
+        numbered=True,
+    )
 
     if choice == "Cancel":
         print(
-            "\n🠊 No revision has been selected for missing value handling. " \
-            "Previously selected settings will be used."
+            "\n🠊 No revision has been selected for missing value handling. Previously "
+            "selected settings will be used."
         )
+
         return None
 
     return menu_options[choice]
@@ -553,6 +578,7 @@ def missing_update_ui(
     menu_options = {}
 
     for option in revision_plan.options:
+        label = ""
         if option.mode == "remove":
             st.write(f"- **{option.mode}:** {option.reason}")
             label = newline_every_n_words(f"Mode: {option.mode} - {option.reason}", 12)
@@ -587,6 +613,7 @@ def missing_update_ui(
             "⇨ No revision has been selected for missing value handling. "
             "Previously selected settings will be used."
         )
+
         return None
 
     return menu_options[choice]

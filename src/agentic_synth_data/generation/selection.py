@@ -129,7 +129,7 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
     num_summary = num_df.describe()
     num_summary.loc["skew"] = num_df.skew().values
 
-    st.subheader("Numeric value summary statistics:")
+    st.write("#### Numeric value summary statistics:")
     st.write(num_summary)
 
     # Select correlations (Pearson or Spearman)
@@ -146,7 +146,7 @@ def generator_profile_ui(dtype_df:pd.DataFrame) -> dict[str, Any]:
         num_corr.style.background_gradient(cmap="RdBu_r", vmin=-1, vmax=1,).format("{:.4f}")
     )
 
-    st.subheader(f"\nCorrelation ({corr_method.capitalize()}):")
+    st.write(f"#### Correlation ({corr_method.capitalize()}):")
     st.write(styled_corr_table)
 
     st.divider()
@@ -231,7 +231,7 @@ def select_generator(
             format_response(generation_plan.warning[0])
 
         print("\nDo you approve using the suggested generator?\n")
-        decision = pyip.inputMenu(["approve", "choose another", "discuss",], numbered=True,)
+        decision = pyip.inputMenu(choices=["approve", "choose another", "discuss",], numbered=True,)
 
         if decision == "approve":
             request.generator.name = generation_plan.generator
@@ -244,8 +244,8 @@ def select_generator(
 
         elif decision == "choose another":
             selected_mechanism = pyip.inputMenu(
-                get_args(GeneratorName.__value__), # pylint: disable=no-member
-                "\nEnter generator to evaluate:\n", 
+                choices=get_args(GeneratorName.__value__), # pylint: disable=no-member
+                prompt="\nEnter generator to evaluate:\n",
                 numbered=True,
             )
 
@@ -254,7 +254,10 @@ def select_generator(
             continue
 
         else: # discuss
-            feedback = pyip.inputStr("\nWrite feedback or questions about the generator choice\n")
+            feedback = pyip.inputStr(
+                prompt="\nWrite feedback or questions about the generator choice\n"
+            )
+
             feedback_hist.append(feedback)
 
             print("\nWaiting for agent response...\n")
@@ -331,20 +334,28 @@ def select_generator_ui(
         key="generator_selection_info",
     )
 
-    st.subheader("Suggestion:")
-    st.write(f"**Data generator:** {generation_plan.generator}")
+    st.subheader("Agent recommendation")
 
-    st.subheader("Pros:")
-    st.write(generation_plan.pros)
+    with st.container(border=True):
+        st.write(f"#### Data generator: {generation_plan.generator}")
 
-    st.subheader("Cons:")
-    st.write(generation_plan.cons)
+        col1, col2 = st.columns(2, gap="large")
 
-    st.subheader("Rationale:")
-    st.write(generation_plan.rationale)
+        with col1:
+            st.write("#### Pros:")
+            st.write(generation_plan.pros)
 
-    if len(generation_plan.warning) > 0:
-        st.warning(f"**Warning:** {generation_plan.warning[0]}")
+        with col2:
+            st.write("#### Cons:")
+            st.write(generation_plan.cons)
+
+        st.divider()
+
+        st.write("#### Rationale:")
+        st.write(generation_plan.rationale)
+
+        if len(generation_plan.warning) > 0:
+            st.warning(f"**Warning:** {generation_plan.warning[0]}")
 
     if st.session_state.get("generator_selection_complete", False,):
         st.info(f"⇨ {generation_plan.generator} has been approved.")
@@ -353,7 +364,7 @@ def select_generator_ui(
 
     st.divider()
 
-    st.subheader("Do you approve using the suggested generator?")
+    st.write("#### Do you approve using the suggested generator?")
     decision = st.selectbox(
         label="Do you approve using the suggested generator?",
         options=["approve", "choose another", "discuss",],
@@ -379,10 +390,9 @@ def select_generator_ui(
 
     if decision == "choose another":
         selected_mechanism = st.selectbox(
-            label="**Enter generator to evaluate:**",
+            label="**Select another generator to evaluate:**",
             options=get_args(GeneratorName.__value__), # pylint: disable=no-member
             index=None,
-            label_visibility="hidden",
         )
 
         if selected_mechanism is None:
@@ -400,12 +410,13 @@ def select_generator_ui(
         st.stop()
 
     else: # discuss
-        st.write("**Write feedback or questions about the generator choice**")
+        st.caption("Ask questions about the generator choice")
 
-        feedback = st.chat_input(
-            placeholder="Ask about the generator recommendation.",
-            key="generator_feedback_input",
-        )
+        with st.container(border=True):
+            feedback = st.chat_input(
+                placeholder="Enter your question or feedback.",
+                key="generator_feedback_input",
+            )
 
         if feedback:
             st.session_state.generator_feedback_hist.append(feedback.strip())

@@ -99,7 +99,7 @@ def select_preferences() -> SynthesisRequest:
         "Would you like to generate the same amount of samples as the dataset or a fixed number "
         "of samples?"
     )
-    sample_size = pyip.inputMenu(["fixed value", "same as original"], numbered=True)
+    sample_size = pyip.inputMenu(choices=["fixed value", "same as original"], numbered=True)
 
     if sample_size == "fixed value":
         print()
@@ -107,7 +107,7 @@ def select_preferences() -> SynthesisRequest:
         fixed_value = pyip.inputInt(min=1)
 
     # Privacy
-    privacy = pyip.inputYesNo("\nAre you interested in differential privacy?\n")
+    privacy = pyip.inputYesNo(prompt="\nAre you interested in differential privacy?\n")
 
     # Generator
     print()
@@ -116,7 +116,7 @@ def select_preferences() -> SynthesisRequest:
         "'auto' if you would like a suggestion."
     )
 
-    generator = pyip.inputMenu(get_args(GeneratorNameAuto.__value__), numbered=True,) # pylint: disable=no-member
+    generator = pyip.inputMenu(choices=get_args(GeneratorNameAuto.__value__), numbered=True,) # pylint: disable=no-member
 
     if generator == "auto":
         print("\t🠊 You will receive a recommendation based on the dataset's characteristics.")
@@ -132,7 +132,7 @@ def select_preferences() -> SynthesisRequest:
         "suggestion."
     )
 
-    missing_values = pyip.inputMenu(["auto", "impute", "remove"], numbered=True)
+    missing_values = pyip.inputMenu(choices=["auto", "impute", "remove"], numbered=True)
     if missing_values == "auto":
         print("\t🠊 You will receive a recommendation based on the dataset's characteristics.")
 
@@ -153,7 +153,7 @@ def select_preferences() -> SynthesisRequest:
         )
 
         categorical_strategy = pyip.inputMenu(
-            get_args(CategoricalChoiceAuto.__value__), numbered=True, # pylint: disable=no-member
+            choices=get_args(CategoricalChoiceAuto.__value__), numbered=True, # pylint: disable=no-member
         )
 
         if categorical_strategy == "auto":
@@ -172,7 +172,7 @@ def select_preferences() -> SynthesisRequest:
         )
 
         numerical_strategy = pyip.inputMenu(
-            get_args(NumericalChoiceAuto.__value__), numbered=True, # pylint: disable=no-member
+            choices=get_args(NumericalChoiceAuto.__value__), numbered=True, # pylint: disable=no-member
         )
 
         if numerical_strategy == "auto":
@@ -193,7 +193,7 @@ def select_preferences() -> SynthesisRequest:
     )
 
     print()
-    print("-"*25+"Your preferences have been recorded"+"-"*25)
+    print("-" * 25 + "Your preferences have been recorded" + "-" * 25)
     display_synthesis_request(request)
 
     return request
@@ -395,7 +395,9 @@ def select_preferences_ui() -> SynthesisRequest:
         numerical_strategy=numerical_strategy,
     )
 
-    st.header("Your preferences have been recorded")
-    display_synthesis_request_st(request)
+    st.write("#### Your preferences have been recorded")
+
+    with st.container(border=True):
+        display_synthesis_request_st(request)
 
     return request

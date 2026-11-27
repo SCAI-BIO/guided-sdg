@@ -27,6 +27,6 @@ def load_df(data_path: str) -> pd.DataFrame:
             continue
 
     raise ValueError(
-        "Invalid entry; File type may not be supported. Verify file is in a tidy format " \
+        "Invalid entry; File type may not be supported. Verify file is in a tidy format "
         "(example: https://aeturrell.github.io/python4DS/data-tidy.html)."
     )

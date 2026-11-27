@@ -36,8 +36,10 @@ def update_missing_value_choice(request: SynthesisRequest) -> SynthesisRequest:
     if choice == "impute":
         cat_choice = pyip.inputMenu(
             choices=get_args(CategoricalChoiceAuto.__value__), # pylint: disable=no-member
-            prompt="\nHow would you like to handle missing categorical values? Select 'auto' " \
-                "if you would like a suggestion.\n",
+            prompt=(
+                "\nHow would you like to handle missing categorical values? Select 'auto' "
+                "if you would like a suggestion.\n"
+            ),
             numbered=True,
         )
 
@@ -213,7 +215,7 @@ def handle_missing_values(
             f"({null_row_count/df.shape[0]:.2%}) will be removed from the dataset."
         )
 
-        confirm = pyip.inputYesNo("\nConfirm whether this should be done (yes/no/y/n):\n")
+        confirm = pyip.inputYesNo(prompt="\nConfirm whether this should be done (yes/no/y/n):\n")
         if confirm == "yes":
             df = df.dropna()
             print(
@@ -255,7 +257,7 @@ def handle_missing_values(
                 print(
                     "\nEnter the fill value that missing values should have. Fill values "
                     "must be strings.\nPress enter if you would like to stay with the "
-                    "default ('Unknown'):"
+                    'default ("Unknown"):'
                 )
 
                 fill_value = pyip.inputStr(blank=True,)
@@ -367,7 +369,7 @@ def handle_missing_values(
             print("\nReasoning behind the suggestion:")
             format_response(updated_plan["rationale"])
 
-            confirm = pyip.inputYesNo("\nWould you like to proceed with the suggestion?")
+            confirm = pyip.inputYesNo(prompt="\nWould you like to proceed with the suggestion?")
             if confirm == "yes":
                 # Update synthesis request with new specifications
                 request = auto_update_missing_plan(request, updated_plan)
@@ -377,8 +379,8 @@ def handle_missing_values(
                 break
 
             print(
-                "\n\nPlease describe how you would want missing values to be" \
-                " handled and what changes you would make to the suggested plan."
+                "\n\nPlease describe how you would want missing values to be handled and what "
+                "changes you would make to the suggested plan."
             )
 
             feedback = input()
@@ -386,7 +388,9 @@ def handle_missing_values(
         # Update synthesis request with new specifications
         request = auto_update_missing_plan(request, updated_plan)
 
-        return handle_missing_values(df, request, stypes, agent, config)
+        return handle_missing_values(
+            df=df, request=request, stypes=stypes, agent=agent, config=config,
+        )
 
 
 def handle_missing_values_ui(
@@ -420,14 +424,14 @@ def handle_missing_values_ui(
         None: Agent planned missing value handling, approved by user.
     """
     if df.isna().sum().sum() == 0:
-        st.write(
-            "\nThere are no missing values in the dataset. Continuing to synthetic data generation."
+        st.info(
+            "⇨ There are no missing values in the dataset. Continue to synthetic data generation."
         )
 
         return df, request
 
-    st.write(
-        f"\n{df.isna().sum().sum()} samples with missing values have been detected in the dataset."
+    st.info(
+        f"⇨ {df.isna().sum().sum()} samples with missing values have been detected in the dataset."
     )
 
     mode = request.missing_values.mode
@@ -484,32 +488,38 @@ def handle_missing_values_ui(
             key="missing_handling_info",
         )
 
-        st.write(
-            "#### Suggested plan:\n"
-            f"- **Mode:** {updated_plan['mode']}"
-        )
+        st.subheader("Agent recommendation")
 
-        if updated_plan["imputation_method"] is not None:
-            st.write(f"- **Imputation method:** {updated_plan['imputation_method']}")
-
-        if updated_plan["categorical_strategy"] is not None:
+        with st.container(border=True):
             st.write(
-                "    - **Categorical strategy:** "
-                f"{format_option(updated_plan['categorical_strategy'])}"
+                "#### Suggested plan:\n"
+                f"- **Mode:** {updated_plan['mode']}"
             )
 
-        if updated_plan["numerical_strategy"]:
+            if updated_plan["imputation_method"] is not None:
+                st.write(f"- **Imputation method:** {updated_plan['imputation_method']}")
+
+            if updated_plan["categorical_strategy"] is not None:
+                st.write(
+                    "    - **Categorical strategy:** "
+                    f"{format_option(updated_plan['categorical_strategy'])}"
+                )
+
+            if updated_plan["numerical_strategy"]:
+                st.write(
+                    "    - **Numerical strategy:** "
+                    f"{format_option(updated_plan['numerical_strategy'])}"
+                )
+
+            if len(updated_plan["warning"]) > 0:
+                st.warning(f"**Warning:** {updated_plan['warning'][0]}")
+
+            st.divider()
+
             st.write(
-                f"    - **Numerical strategy:** {format_option(updated_plan['numerical_strategy'])}"
+                "#### Rationale:\n"
+                f"{updated_plan["rationale"]}"
             )
-
-        if len(updated_plan["warning"]) > 0:
-            st.warning(f"- **Warning:** {updated_plan['warning'][0]}")
-
-        st.write(
-            "#### Rationale behind the suggestion:\n"
-            f"{updated_plan["rationale"]}"
-        )
 
         if st.session_state.get("missing_handling_complete", False):
             st.info("⇨ Missing value handling plan has been approved.")
@@ -642,7 +652,7 @@ def handle_missing_values_ui(
                     st.write(
                         "\nEnter the fill value that missing values should have. Fill values "
                         "must be strings.\nPress enter if you would like to stay with the "
-                        "default ('Unknown'):"
+                        'default ("Unknown"):'
                     )
 
                     with st.form("categorical_fill_form"):
@@ -660,7 +670,9 @@ def handle_missing_values_ui(
 
                 imputer = SimpleImputer(strategy=str(cat_strategy), fill_value=fill_value)
 
-                st.write(f"Missing values filled with '{fill_value}'")
+                st.info(f'⇨ Missing values filled with "{fill_value}"')
+
+                st.divider()
 
             else:
                 imputer = SimpleImputer(strategy=str(cat_strategy))
@@ -668,7 +680,7 @@ def handle_missing_values_ui(
             df[cat_cols] = pd.DataFrame(
                 imputer.fit_transform(cat_data),
                 columns=cat_cols,
-                index=df.index
+                index=df.index,
             )
 
             st.write(
@@ -684,7 +696,7 @@ def handle_missing_values_ui(
             df[num_cols] = pd.DataFrame(
                 imputer.fit_transform(df[num_cols]),
                 columns=df[num_cols].columns,
-                index=df.index
+                index=df.index,
             )
 
             st.write(

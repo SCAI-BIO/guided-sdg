@@ -202,9 +202,9 @@ class DataGen:
         """
         # Initial check for missing value markers (can affect dtypes)
         st.subheader("Normalize missing values")
-        st.write(
-            "**Look for any missing value markers that should be encoded as null values within "
-            "the dataset prior to analysis.**"
+        st.caption(
+            "Look for any missing value markers that should be encoded as null values within "
+            "the dataset prior to analysis."
         )
         source_df = self.source_df.copy()
         missing_report = missing_value_precheck_ui(source_df)
@@ -228,40 +228,44 @@ class DataGen:
         st.divider()
 
         st.subheader("Handle data types")
-        st.write(
-            "Automatically detect the majority Python data types present for each variable "
-            "in the dataframe."
-        )
-        dtype_result = handle_dtypes_ui(norm_df)
 
-        if dtype_result is None:
-            st.stop()
+        with st.container(border=True):
+            st.write(
+                "#### Python data types\n"
+                "Automatically detect the majority Python data types present for each variable "
+                "in the dataframe."
+            )
 
-        self.dtype_handled_df, self.report.prep.dtypes = dtype_result
+            dtype_result = handle_dtypes_ui(norm_df)
 
-        st.divider()
+            if dtype_result is None:
+                st.stop()
 
-        st.subheader("Handle semantic types")
-        st.write(
-            "Have the agent determine the semantic meaning of each variable based on "
-            "information found in the dataset."
-        )
+            self.dtype_handled_df, self.report.prep.dtypes = dtype_result
 
-        self.report.prep.stypes = handle_semantic_types_ui(
-            df=self.dtype_handled_df, agent=self.agent, config=self.config,
-        )
+            st.divider()
 
-        st.divider()
+            st.write(
+                "#### Semantic data types\n"
+                "Have the agent determine the semantic meaning of each variable based on "
+                "information found in the dataset."
+            )
 
-        st.subheader("Final data types present in each column")
+            self.report.prep.stypes = handle_semantic_types_ui(
+                df=self.dtype_handled_df, agent=self.agent, config=self.config,
+            )
 
-        final_dtypes = pd.DataFrame({
-            "Feature": self.report.prep.stypes.keys(),
-            "Data type": [self.report.prep.dtypes[col] for col in self.report.prep.stypes.keys()],
-            "Semantic type": self.report.prep.stypes.values(),
-        })
+            st.divider()
 
-        df_formatter_st(final_dtypes)
+            st.write("#### Final data types present in each column")
+
+            final_dtypes = pd.DataFrame({
+                "Feature": self.report.prep.stypes.keys(),
+                "Data type": [self.report.prep.dtypes[col] for col in self.report.prep.stypes.keys()],
+                "Semantic type": self.report.prep.stypes.values(),
+            })
+
+            df_formatter_st(final_dtypes)
 
         st.divider()
         # Granted, this deviates from CLI...
@@ -567,8 +571,10 @@ class DataGen:
                     )
 
                 status.update(
-                    label=f"Synthetic generation completed with {generator} (click to view " \
-                        "terminal outputs).",
+                    label=(
+                        f"Synthetic data successfully generated with {generator}. Click to view "
+                        "generation logs."
+                    ),
                     state="complete",
                     expanded=False,
                 )
@@ -582,10 +588,12 @@ class DataGen:
             self.report.gen.params = self.request.generator.parameters
 
         df_formatter_st(self.synthetic_df.copy().head())
+
         st.caption(
             "**Note:** Only the first five rows of the synthetic dataset are displayed on this "
             "page."
         )
+
         return self.request, self.synthetic_path, self.synthetic_df
 
 
@@ -1034,6 +1042,7 @@ class DataGen:
             else:
                 self.request.missing_values.impute = ImputationConfig()
 
+
     def _rerun_selection(self, update_plan: dict) -> pd.DataFrame:
         """Apply approved generator revision and rerun dependent workflow steps."""
         if "update_mech" in update_plan:
@@ -1080,7 +1089,10 @@ class DataGen:
                 )
 
             if "update_params" in update_plan:
-                st.write(f"**New parameter configuration:** {update_plan['update_params']}")
+                st.write("**New parameter configuration:**")
+
+                for key, value in update_plan['update_params'].items():
+                    st.write(f"- **{key}:** {value}")
 
             if "update_missing" in update_plan:
                 st.write(
@@ -1127,7 +1139,10 @@ class DataGen:
                 st.write(f"**Reason:** {option['reason']}")
 
             if "update_params" in updates:
-                st.write(f"**Updated parameters:** {updates['update_params']}")
+                st.write("**Updated parameters:**")
+
+                for key, value in updates['update_params'].items():
+                    st.write(f"- **{key}:** {value}")
 
             if "update_missing" in updates:
                 option = updates["update_missing"]

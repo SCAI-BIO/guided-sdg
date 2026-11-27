@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
@@ -12,6 +12,22 @@ from agentic_synth_data.utils import format_response, extract_output, info_helpe
     invoke_agent, format_option, comma_sep
 from agentic_synth_data.prompts.evaluation import eval_review_message, evaluation_prompt
 from agentic_synth_data.config import SynthesisRequest
+
+
+def status_badge(status: Literal['satisfactory', 'needs_review', 'not_satisfactory']) -> None:
+    """Displays a badge corresponding to the status determined by the agent.
+
+    Args:
+        status (Literal[satisfactory, needs_review, not_satisfactory]): Workflow status determined
+            by the agent.
+    """
+    status_colors = {
+        "not_satisfactory": "red", "needs_review": "yellow", "satisfactory": "green",
+    }
+
+    st.badge(
+        label=format_option(status).capitalize(), color=status_colors.get(status),
+    )
 
 
 def evaluation(
@@ -50,8 +66,10 @@ def evaluation(
         config=config,
     )
 
-    print("\nEvaluation:")
-    print(f"- Status: {eval_plan.status}")
+    print(
+        "\nEvaluation:"
+        f"- Status: {eval_plan.status}"
+    )
 
     if len(eval_plan.problem_columns) > 0:
         print(f"- Problem columns: {comma_sep(eval_plan.problem_columns)}")
@@ -129,18 +147,28 @@ def display_agent_evaluation_ui(agent_decision: AgentEval) -> None:
     Args:
         agent_decision (AgentEval): The decision plan based on the agent's assessment.
     """
-    st.subheader("Evaluation:")
-    st.write(f"- **Status:** {format_option(agent_decision.status)}")
+    st.write("#### Agent evaluation")
 
-    if len(agent_decision.problem_columns) > 0:
-        st.write(f"- **Problem columns:** {comma_sep(agent_decision.problem_columns)}")
+    with st.container(border=True):
+        col1, col2 = st.columns(2, gap="large")
 
-    st.write(
-        "#### Recommendation:\n"
-        f"{agent_decision.recommendation}\n"
-        "#### Rationale:\n"
-        f"{agent_decision.rationale}"
-    )
+        with col1:
+            st.write("#### Status:")
+            status_badge(agent_decision.status)
+
+        with col2:
+            if len(agent_decision.problem_columns) > 0:
+                st.write("#### Problem features:")
+                st.write(f"{comma_sep(agent_decision.problem_columns)}")
+
+        st.divider()
+
+        st.write(
+            "#### Recommendation:\n"
+            f"{agent_decision.recommendation}\n"
+            "#### Rationale:\n"
+            f"{agent_decision.rationale}"
+        )
 
 
 def evaluation_review(
@@ -160,14 +188,14 @@ def evaluation_review(
     Returns:
         str: Whether the workflow should finish or be revised.
     """
-    confirm = pyip.inputYesNo("\nDo you have questions about the evaluation results?\n")
+    confirm = pyip.inputYesNo(prompt="\nDo you have questions about the evaluation results?\n")
 
     while confirm == "yes":
-        response = pyip.inputStr("\nEnter your question/concern:\n")
+        response = pyip.inputStr(prompt="\nEnter your question/concern:\n")
 
         print("\nAgent is preparing its response...")
 
-        prompt = eval_review_message(agent_decision, response)
+        prompt = eval_review_message(agent_decision=agent_decision, response=response,)
         raw_response = agent.invoke(
             {"messages": [{"role": "user", "content": prompt,}]},
             config=config,
@@ -175,13 +203,13 @@ def evaluation_review(
 
         format_response(extract_output(raw_response))
 
-        confirm = pyip.inputYesNo("\nDo you have another question?\n")
+        confirm = pyip.inputYesNo(prompt="\nDo you have another question?\n")
 
     print(f"\nWorkflow result status: {format_option(agent_decision.status)}")
     choice = pyip.inputMenu(
-        ["finish", "revise"],
-        "\nWould you like to finish or revise the workflow?\n", 
-        numbered=True
+        choices=["finish", "revise"],
+        prompt="\nWould you like to finish or revise the workflow?\n",
+        numbered=True,
     )
 
     return choice
@@ -198,7 +226,7 @@ def evaluation_review_ui(
     Args:
         agent_decision (AgentEval): Agent's evaluation decision.
         agent (Optional[CompiledStateGraph] | None, optional): LangGraph agent used to review the 
-                                                               evaluation. Defaults to None.
+            evaluation. Defaults to None.
         config (RunnableConfig | None, optional): Configuration passed to the agent during
             invocation. Defaults to None.
 
@@ -220,6 +248,7 @@ def evaluation_review_ui(
 
     if confirm == "yes":
         st.caption("**Ask questions about the evaluation**")
+
         with st.container(border=True, height=350):
             for item in st.session_state.evaluation_review_history:
                 with st.chat_message("user"):
@@ -229,7 +258,7 @@ def evaluation_review_ui(
                     st.write(item["answer"])
 
             new_question = st.chat_input(
-                "Enter your question/concern.",
+                placeholder="Enter your question/concern.",
                 key=f"evaluation_review_input_{version_id}",
             )
 
@@ -254,7 +283,7 @@ def evaluation_review_ui(
                 st.rerun()
 
         finished = st.button(
-            "Done asking questions",
+            label="Done asking questions",
             key=f"evaluation_review_done_{version_id}",
         )
 
@@ -262,7 +291,9 @@ def evaluation_review_ui(
             st.stop()
 
     # If no is selected:
-    st.write(f"**Workflow result status:** {format_option(agent_decision.status)}")
+    with st.container(border=True):
+        st.write("**Workflow result status:**")
+        status_badge(agent_decision.status)
 
     choice = st.selectbox(
         label="**Would you like to finish or revise the workflow?**",

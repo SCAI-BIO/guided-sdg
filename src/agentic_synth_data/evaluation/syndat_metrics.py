@@ -226,6 +226,8 @@ def display_metrics_ui(metrics: SyndatMetrics, prev_metrics: SyndatMetrics | Non
             with st.expander(f"**UserWarning:** {warning_message}"):
                 st.warning(warning)
 
+        st.divider()
+
     if prev_metrics is not None:
         st.caption("Changes in normalized scores compared to the previous version.")
 
