@@ -1,0 +1,37 @@
+name: Zenodo Metadata
+
+# Zenodo's GitHub integration archives each release by itself and only keeps
+# part of the metadata. This job fills in the rest. It must not run on the same
+# release event as the integration, because both would race to create a record,
+# and it must know the tag so it can find the archived release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to sync, for example v0.1.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zenodo-metadata
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Sync Zenodo metadata
+        uses: tiadams/zenodo-schema-sync@v1.0.0
+        with:
+          mode: sync
+          version: ${{ inputs.tag }}
+          token: ${{ secrets.ZENODO_TOKEN }}
+          config: .github/zenodo-sync.json

@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lockfile:
+    name: Check lockfile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.4.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Verify that uv.lock matches pyproject.toml
+        run: uv sync --frozen --dry-run
+
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      sdr: ${{ steps.filter.outputs.sdr }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            sdr:
+              - 'sdr_service/**'
+
+  build:
+    name: Build ${{ matrix.image }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: guided-sdg
+            context: .
+            file: ./Dockerfile
+            cache_from: type=gha,scope=guided-sdg
+            cache_to: type=gha,mode=max,scope=guided-sdg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL \
+            "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          cache-from: ${{ matrix.cache_from }}
+          cache-to: ${{ matrix.cache_to }}
+
+  sdr-image:
+    name: Build sdr image
+    needs: changes
+    # The sdr sidecar is a thin wrapper around a ~10 GB third-party base image,
+    # so building it on every PR only validates that third-party image. Build it
+    # when the sidecar itself changes, on manual dispatch, and on release
+    # (see deploy.yaml).
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.sdr == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL \
+            "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./sdr_service
+          file: ./sdr_service/Dockerfile
+          push: false
+          # The base image alone is ~10 GB, which would exceed the repo's
+          # 10 GB Actions cache budget and evict every other cache entry.
+          cache-from: ''
+          cache-to: ''

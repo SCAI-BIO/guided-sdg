@@ -1,0 +1,311 @@
+from typing import Any, get_args
+
+from langchain_core.runnables import RunnableConfig
+import pandas as pd
+import numpy as np
+from pydantic import RootModel
+import pyinputplus as pyip
+from langgraph.graph.state import CompiledStateGraph
+import streamlit as st
+
+from agentic_synth_data.prompts.stype import semantic_type_message
+from agentic_synth_data.utils import SemanticType, SemanticTypes, df_formatter_st, invoke_agent, \
+    info_helper_message
+
+
+class STypeInference(RootModel[SemanticTypes]):
+    """Structured output schema for semantic types inferred by the agent."""
+
+
+def semantic_type_profile(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Create a profile for each column in the dataframe for the agent to use in 
+    inferring the semantic types of each column.
+
+    Args:
+        df (pd.DataFrame): The input dataframe with corrected dtypes.
+
+    Returns:
+        dict[str, dict[str, Any]: Semantic type profile where keys are column names
+        and values are dictionaries which hold information specific to the column:
+        - dtype: Python data type (str).
+        - unique_values: Contains unique values and their counts (dict[str, int]).
+        - n_unique: The number of unique values (int).
+    """
+    profiles = {}
+
+    for col in df.columns:
+        profiles[col] = {
+            "dtype": str(df[col].dtype),
+            "unique_values": df[col].value_counts(dropna=False).head(15).to_dict(),
+            "n_unique": df[col].nunique(dropna=False),
+        }
+
+    return profiles
+
+
+def handle_semantic_types(
+    df: pd.DataFrame, agent: CompiledStateGraph, config: RunnableConfig,
+) -> SemanticTypes:
+    """Determine the semantic type of each column in a dataframe by:
+    1. Making a profile for each column (dtype, unique non null values and 
+       their counts, and total number of non null unique values).
+    2. Agent infers the semantic type of columns based on their profile.
+    3. User confirms or denies correctness of the agent's response.
+    4. If corrections are needed, the user can manually update column types.
+
+    Args:
+        df (pd.DataFrame): The input dataframe.
+        agent (CompiledStateGraph): LangGraph agent used to infer column semantic types.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
+
+    Returns:
+        SemanticTypes: Semantic types (value) assigned to each column (key).
+    """
+    # 1. Make a profile of the semantic types of each column.
+    profiles = semantic_type_profile(df)
+
+    # 2. Agent infers the semantic type of columns based on their profile.
+    print(
+        "\nAgent is analyzing column data types, unique values, and value distributions to " \
+        "infer semantic types..."
+    )
+
+    stypes = invoke_agent(
+        prompt=semantic_type_message(profiles),
+        model_cls=STypeInference,
+        agent=agent,
+        config=config,
+        root=True,
+    ) # TODO: check more extensively
+
+    # TODO:Include more formal checks that each column is accounted for:
+    # - Output must match existing column names
+    # - Existing column count must match
+    # NOTE: No issues have been observed with this, but good to keep an eye out for.
+    print(
+        "\nDetected semantic types for each column:\n"
+        "Note: Supported types are Integer, Float, Boolean, Categorical, and Ordinal.\n"
+    )
+
+    for col, stype in stypes.items():
+        print(f"{col}: {stype}")
+
+    # 3. User confirmation.
+    confirm = pyip.inputYesNo("\nAre all column data types correct?")
+    # possible TODO: Add a way to select multiple columns as a group and to change their stype (semantic type).
+
+    # 4. If corrections are needed, the user can manually update column types.
+    if confirm == "no":
+        while True:
+            print(
+                "\nInput column name/number to modify (enter 'exit' (not case-sensitive) or 1 to "
+                "finish)"
+            )
+
+            col = pyip.inputMenu(["Exit"] + df.columns.tolist(), numbered=True)
+
+            if col == "Exit":
+                break
+
+            print(
+                f"\nSelected the following column: {col}\n"
+                f"Current semantic type is '{stypes[col]}'. What should this be modified to?"
+            )
+
+            choice = pyip.inputMenu(get_args(SemanticType.__value__), numbered=True,) # pylint: disable=no-member
+
+            stypes[col] = choice
+
+            print(
+                f"\n🠊 Updated semantic type for {col}: {stypes[col]}\n"
+                "For reference: Semantic types present in each column:"
+            )
+
+            for col, stype in stypes.items():
+                print(f"{col}: {stype}")
+
+            print("-"*40)
+
+    print()
+    print("-" * 25 + "Final data types present in each column" + "-" * 25)
+
+    for col, stype in stypes.items():
+        print(f"{col}: {stype}")
+
+    return stypes
+
+
+def handle_semantic_types_ui(
+    df: pd.DataFrame, agent: CompiledStateGraph, config: RunnableConfig,
+) -> SemanticTypes:
+    """Determine the semantic type of each column in a dataframe by (UI):
+    1. Making a profile for each column (dtype, unique non null values and 
+       their counts, and total number of non null unique values).
+    2. Agent infers the semantic type of columns based on their profile.
+    3. User confirms or denies correctness of the agent's response.
+    4. If corrections are needed, the user can manually update column types.
+
+    Args:
+        df (pd.DataFrame): The input dataframe.
+        agent (CompiledStateGraph): LangGraph agent used to infer column semantic types.
+        config (RunnableConfig): Configuration passed to the agent during invocation.
+
+    Returns:
+        SemanticTypes: Semantic types (value) assigned to each column (key).
+    """
+    # 1. Generate agent inference once, then save it.
+    if "semantic_types_inference" not in st.session_state:
+        # Make a profile of the semantic types of each column.
+        profiles = semantic_type_profile(df)
+
+        # Agent infers the semantic type of columns based on their profile.
+        with st.spinner("Agent is analyzing dataset characteristics to infer semantic types..."):
+            inferred_stypes = invoke_agent(
+                prompt=semantic_type_message(profiles),
+                model_cls=STypeInference,
+                agent=agent,
+                config=config,
+                root=True,
+                ui=True,
+            )
+
+        st.session_state.semantic_types_inference = inferred_stypes.copy()
+
+    # 2. Reuse and display saved agent inference.
+    else:
+        inferred_stypes = st.session_state.semantic_types_inference.copy()
+
+    info_helper_message(
+        message="Agent semantic type inference completed.",
+        context=(
+            "The agent inferred semantic types based on each column's:\n"
+            "- Assigned data type.\n"
+            "- Present unique values.\n"
+            "- Distribution of unique values."
+        ),
+        key="semantic_type_info",
+    )
+
+    st.write("**Detected semantic types for each column:**")
+
+    stype_table = pd.DataFrame({
+        "Column": inferred_stypes.keys(),
+        "Semantic type": inferred_stypes.values(),
+    })
+
+    df_formatter_st(stype_table)
+
+    # 3. If already completed, return the final saved result.
+    if st.session_state.get("semantic_types_complete", False):
+        stypes = st.session_state.semantic_types.copy()
+
+        if stypes != inferred_stypes:
+            st.subheader("Final semantic types for each column:")
+
+            final_stype_table = pd.DataFrame({
+                "Column": stypes.keys(),
+                "Semantic type": stypes.values(),
+            })
+
+            df_formatter_st(final_stype_table)
+
+        return stypes
+
+    # 4. User confirmation.
+    confirm = st.selectbox(
+        label="**Are all semantic types correct?**",
+        options=["yes", "no"],
+        index=None,
+        help=(
+            "Supported types are Integer, Float, Boolean, Categorical, and Ordinal.\n\n"
+            "Examples:\n"
+            "- Integer: whole number values, e.g. 0, 3, 12, -5\n"
+            "- Float: continuous numerical values, e.g. 2.5, -0.7, 14.32\n"
+            "- Boolean: binary values, e.g. True/False, Yes/No\n"
+            "- Categorical: unordered labels or groups, e.g. 'red', 'blue', 'green'\n"
+            "- Ordinal: categories with a meaningful order, e.g. 'low', 'medium', 'high'"
+        ),
+    )
+
+    if confirm is None:
+        st.stop()
+
+    stypes = inferred_stypes.copy()
+
+    # 5. If corrections are needed, the user can manually update column types.
+    if confirm == "no":
+        st.write("Adjust any incorrect semantic types below.")
+
+        with st.form("semantic_type_correction_form"):
+            semantic_type_choices = {}
+            options = get_args(SemanticType.__value__) # pylint: disable=no-member
+
+            for col in df.columns:
+                current_type = stypes[col]
+                col1, col2, col3 = st.columns([2, 1, 1])
+
+                with col1:
+                    st.write(col)
+
+                with col2:
+                    st.write(f"Current: **{current_type}**")
+
+                with col3:
+                    semantic_type_choices[col] = st.selectbox(
+                        "New semantic type",
+                        options,
+                        index=options.index(current_type),
+                        key=f"semantic_type_{col}",
+                        label_visibility="collapsed",
+                    )
+
+            submitted = st.form_submit_button("Apply changes")
+
+        if not submitted:
+            st.stop()
+
+        for col, choice in semantic_type_choices.items():
+            stypes[col] = choice
+
+    st.session_state.semantic_types = stypes
+    st.session_state.semantic_types_complete = True
+
+    return stypes
+
+
+def prepare_for_syndat(
+    real: pd.DataFrame,
+    synth: pd.DataFrame,
+    stypes: SemanticTypes,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Match real and synthetic dataframe columns to previously defined dtypes for compatibility 
+    with Syndat.
+    Args:
+        real (pd.DataFrame): The real dataframe (either with missing values replaced or not).
+        synth (pd.DataFrame): The synthetic dataframe.
+        stypes (SemanticTypes): Dictionary with the semantic types of each column.
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]:
+        pd.DataFrame: The real dataframe with prepared dtypes.
+        pd.DataFrame: The synthetic dataframe with prepared dtypes.
+    """
+    real = real.copy()
+    synth = synth.copy()
+
+    # Same columns/order
+    synth = synth[real.columns].copy()
+
+    for col in real.columns:
+        stype = stypes[col]
+
+        if stype in ["Categorical", "Ordinal", "Boolean",]:
+            for df in (real, synth):
+                df[col] = df[col].astype("string").astype("object")
+                df[col] = df[col].where(df[col].notna(), np.nan)
+
+        elif stype == ["Integer", "Float",]:
+            real[col] = pd.to_numeric(real[col], errors="coerce")
+            synth[col] = pd.to_numeric(synth[col], errors="coerce")
+
+    return real, synth
