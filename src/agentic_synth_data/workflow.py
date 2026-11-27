@@ -261,7 +261,9 @@ class DataGen:
 
             final_dtypes = pd.DataFrame({
                 "Feature": self.report.prep.stypes.keys(),
-                "Data type": [self.report.prep.dtypes[col] for col in self.report.prep.stypes.keys()],
+                "Data type": [
+                    self.report.prep.dtypes[col] for col in self.report.prep.stypes.keys()
+                ],
                 "Semantic type": self.report.prep.stypes.values(),
             })
 
